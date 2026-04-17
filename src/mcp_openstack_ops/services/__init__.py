@@ -48,39 +48,7 @@ from .network import (
     set_subnets
 )
 
-# Load balancer service functions - TODO: Create load_balancer module
-# from .load_balancer import (
-#     get_load_balancer_list,
-#     get_load_balancer_details,
-#     get_load_balancer_status,
-#     set_load_balancer,
-#     get_load_balancer_listeners,
-#     set_load_balancer_listener,
-#     get_load_balancer_pools,
-#     set_load_balancer_pool,
-#     get_load_balancer_members,
-#     get_load_balancer_pool_members,
-#     set_load_balancer_member,
-#     set_load_balancer_pool_member,
-#     get_load_balancer_health_monitors,
-#     set_load_balancer_health_monitor,
-#     get_load_balancer_l7_policies,
-#     set_load_balancer_l7_policy,
-#     get_load_balancer_l7_rules,
-#     set_load_balancer_l7_rule,
-#     get_load_balancer_amphorae,
-#     set_load_balancer_amphora,
-#     _set_load_balancer_amphora,
-#     get_load_balancer_availability_zones,
-#     set_load_balancer_availability_zone,
-#     get_load_balancer_flavors,
-#     set_load_balancer_flavor,
-#     get_load_balancer_flavor_profiles,
-#     set_load_balancer_flavor_profile,
-#     get_load_balancer_providers,
-#     get_load_balancer_quotas,
-#     set_load_balancer_quota
-# )
+# Load balancer service functions are provided by the dedicated load_balancer package.
 
 # Identity service functions
 from .identity import (
