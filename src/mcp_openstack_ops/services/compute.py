@@ -32,7 +32,11 @@ def get_instance_details(
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection, get_current_project_id, validate_resource_ownership
+        from ..connection import (
+            get_openstack_connection,
+            validate_resource_ownership,
+            is_all_projects_readonly_mode,
+        )
         conn = get_openstack_connection()
         
         # Validate and sanitize inputs
@@ -45,11 +49,13 @@ def get_instance_details(
         
         instances = []
         
-        # Get all servers with project filtering enabled
-        all_servers = list(conn.compute.servers(details=True, all_projects=False))
+        # Get all servers, optionally across projects in read-only all-projects mode
+        all_servers = list(conn.compute.servers(
+            details=True,
+            all_projects=is_all_projects_readonly_mode()
+        ))
         
         # Additional project validation for security
-        current_project_id = get_current_project_id()
         validated_servers = []
         
         for server in all_servers:

@@ -136,6 +136,13 @@ def reset_connection_cache():
     logger.info("OpenStack connection cache reset")
 
 
+def is_all_projects_readonly_mode() -> bool:
+    """
+    Determine whether the server is running in read-only mode for all projects.
+    """
+    return os.environ.get("ALLOW_ALL_PROJECTS_READONLY", "false").strip().lower() == "true"
+
+
 # =============================================================================
 # PROJECT ISOLATION SECURITY FUNCTIONS
 # =============================================================================
@@ -145,12 +152,16 @@ def get_current_project_id() -> str:
     Get the current project ID from the authenticated connection.
     
     Returns:
-        str: Current project ID
+        str: Current project ID, or None if all-projects read-only mode is enabled.
         
     Raises:
         Exception: If unable to get project ID
     """
     try:
+        if is_all_projects_readonly_mode():
+            logger.debug("All-projects read-only mode enabled; current project scope bypassed")
+            return None
+
         conn = get_openstack_connection()
         # Get project ID from the token
         token = conn.identity.get_token()
@@ -187,6 +198,10 @@ def validate_resource_ownership(resource: Any, resource_type: str = "resource") 
         bool: True if resource belongs to current project or is public, False otherwise
     """
     try:
+        if is_all_projects_readonly_mode():
+            logger.debug(f"All-projects read-only mode enabled; allowing access to {resource_type} {getattr(resource, 'id', 'unknown')}")
+            return True
+
         current_project_id = get_current_project_id()
         
         # Special handling for public resources (like flavors, public images)
@@ -245,41 +260,58 @@ def find_resource_by_name_or_id(resources, name_or_id: str, resource_type: str =
         Resource object if found and owned by current project, None otherwise
     """
     try:
-        current_project_id = get_current_project_id()
         found_resources = []
-        
+
         # First pass: collect all matching resources
         for resource in resources:
             resource_name = getattr(resource, 'name', '')
             resource_id = getattr(resource, 'id', '')
-            
+
             if resource_name == name_or_id or resource_id == name_or_id:
                 found_resources.append(resource)
-        
+
         if not found_resources:
             logger.debug(f"No {resource_type} found with name or ID: {name_or_id}")
             return None
-        
+
+        if is_all_projects_readonly_mode():
+            if len(found_resources) > 1:
+                logger.warning(
+                    f"Multiple {resource_type}s with name '{name_or_id}' found across all projects. "
+                    f"Using first one: {getattr(found_resources[0], 'id', 'unknown')}"
+                )
+            resource = found_resources[0]
+            logger.debug(f"Found {resource_type} {getattr(resource, 'id', 'unknown')} "
+                         f"with name/ID '{name_or_id}' in all-projects mode")
+            return resource
+
         # Second pass: filter by project ownership
         owned_resources = []
         for resource in found_resources:
             if validate_resource_ownership(resource, resource_type):
                 owned_resources.append(resource)
-        
+
         if not owned_resources:
-            logger.warning(f"Found {len(found_resources)} {resource_type}(s) with name/ID '{name_or_id}' "
-                          f"but none belong to current project {current_project_id}")
+            current_project_id = get_current_project_id()
+            logger.warning(
+                f"Found {len(found_resources)} {resource_type}(s) with name/ID '{name_or_id}' "
+                f"but none belong to current project {current_project_id}"
+            )
             return None
-        
+
         if len(owned_resources) > 1:
-            logger.warning(f"Multiple {resource_type}s with name '{name_or_id}' found in current project. "
-                          f"Using first one: {getattr(owned_resources[0], 'id', 'unknown')}")
-        
+            logger.warning(
+                f"Multiple {resource_type}s with name '{name_or_id}' found in current project. "
+                f"Using first one: {getattr(owned_resources[0], 'id', 'unknown')}"
+            )
+
         resource = owned_resources[0]
-        logger.debug(f"Found {resource_type} {getattr(resource, 'id', 'unknown')} "
-                    f"with name/ID '{name_or_id}' in current project")
+        logger.debug(
+            f"Found {resource_type} {getattr(resource, 'id', 'unknown')} "
+            f"with name/ID '{name_or_id}' in current project"
+        )
         return resource
-        
+
     except Exception as e:
         logger.error(f"Error finding {resource_type} by name/ID '{name_or_id}': {e}")
         return None
@@ -300,6 +332,10 @@ def get_project_scoped_resources(conn, service_attr: str, resource_type: str = "
     try:
         service = getattr(conn, service_attr)
         all_resources = list(service)
+
+        if is_all_projects_readonly_mode():
+            logger.debug(f"All-projects read-only mode enabled; returning all {resource_type}s")
+            return all_resources
         
         project_resources = []
         for resource in all_resources:

@@ -14,10 +14,10 @@ from ..connection import get_openstack_connection, reset_connection_cache
 logger = logging.getLogger(__name__)
 
 
-# get_cluster_status function removed - use combination of get_* tools for comprehensive cluster reports
+# Cluster-level summary helper retained for internal/advanced usage.
 
 
-def get_service_status(service_name: str = "") -> Dict[str, Any]:
+def get_cluster_status() -> Dict[str, Any]:
     """
     Get comprehensive OpenStack cluster status including all services and resources.
     

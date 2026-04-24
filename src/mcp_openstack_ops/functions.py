@@ -6,20 +6,11 @@ from dotenv import load_dotenv
 from datetime import datetime
 
 # Import connection management from separate module
-from .connection import get_openstack_connection, reset_connection_cache
+from .connection import get_openstack_connection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Import core functions from services
-from .services.core import (
-    get_service_status
-)
-
-# Import connection utilities
-from .connection import reset_connection_cache
-
 
 def get_service_status() -> List[Dict[str, Any]]:
     """
