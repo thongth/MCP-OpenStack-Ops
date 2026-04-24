@@ -118,12 +118,6 @@ def handle_operation_result(result: Dict[str, Any], operation_name: str, details
     except Exception as e:
         # Fallback for JSON serialization issues
         return f"Operation completed but response formatting failed: {str(e)}"
-        
-        # Return formatted JSON for other successful dict results
-        try:
-            return json.dumps(result, indent=2, ensure_ascii=False)
-        except Exception as json_error:
-            return f"✅ **{operation_name} Successful**\n\nOperation completed but response formatting failed: {str(json_error)}"
     
     # Return string results as-is
     return str(result) if result else "❌ **Operation Failed**: Empty response"
@@ -156,6 +150,10 @@ TRUTHY_VALUES = ("true", "1", "yes", "on")
 
 def _parse_bool_env(value: str) -> bool:
     return value.strip().lower() in TRUTHY_VALUES
+
+
+def _is_all_projects_readonly_mode() -> bool:
+    return _parse_bool_env(os.environ.get("ALLOW_ALL_PROJECTS_READONLY", "false"))
 
 
 def _build_static_token_auth(secret_key: str) -> StaticTokenVerifier:
@@ -222,7 +220,11 @@ def _get_resource_status_by_name(resource_type: str, resource_name: str) -> str:
 
 def _is_modify_operation_allowed() -> bool:
     """Check if modify operations are allowed based on environment variable."""
+    if _is_all_projects_readonly_mode():
+        logger.warning("ALLOW_ALL_PROJECTS_READONLY=true is enabled; modify operations are forcibly disabled for safety.")
+        return False
     return os.environ.get("ALLOW_MODIFY_OPERATIONS", "false").lower() == "true"
+
 
 def _check_modify_operation_permission() -> str:
     """Check and return error message if modify operations are not allowed."""

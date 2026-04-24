@@ -634,6 +634,7 @@ Options:
 | **MCP Server Configuration** |
 | `MCP_LOG_LEVEL` | Logging level | `INFO` | Development debugging |
 | `ALLOW_MODIFY_OPERATIONS` | Enable modify operations | `false` | Safety control for state modifications |
+| `ALLOW_ALL_PROJECTS_READONLY` | Enable read-only access across all projects | `false` | Bypass per-project ownership filtering for read-only access only |
 | `FASTMCP_TYPE` | Transport type | `stdio` | Rarely needed to change |
 | `FASTMCP_HOST` | HTTP host address | `127.0.0.1` | For HTTP mode only |
 | `FASTMCP_PORT` | HTTP port number | `8080` | For HTTP mode only |
@@ -654,6 +655,7 @@ Options:
 - **100% Complete Resource Isolation**: All operations are restricted to resources within the specified project with enhanced security validation
 - **Zero Cross-tenant Data Leakage**: Advanced project ownership validation prevents access to resources from other projects
 - **Multi-layer Security Filtering**: Each service implements intelligent resource filtering by current project ID with additional validation
+- **Read-only All-Projects Mode**: `ALLOW_ALL_PROJECTS_READONLY=true` enables cross-project read-only listings while still disabling all modify tools for safety
 - **Secure Resource Lookup**: All resource searches use project-scoped lookup with ownership verification
 - **Shared Resource Access**: Intelligently includes shared/public resources (networks, images) while maintaining strict security boundaries
 - **Cross-Project Access Prevention**: Enhanced protection against accidental operations on similarly-named resources in other projects

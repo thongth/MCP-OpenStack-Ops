@@ -29,6 +29,7 @@
     - Heat Stacks: Project orchestration stacks only
     - Identity: Users with roles in current project + project-scoped role assignments
   - **Multi-project Management**: Requires multiple MCP server instances with different `OS_PROJECT_NAME` configurations
+  - **Read-only all-projects mode**: Set `ALLOW_ALL_PROJECTS_READONLY=true` to enable cross-project read-only listings. This mode is only safe when `ALLOW_MODIFY_OPERATIONS=false`.
   - **Enhanced Security Features**: 
     - Project ID verification and validation utilities
     - Resource ownership validation for all operations
