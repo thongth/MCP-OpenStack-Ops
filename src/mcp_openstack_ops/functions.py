@@ -943,6 +943,7 @@ from .services.storage import (
 # Import identity functions from services
 from .services.identity import (
     get_project_info,
+    get_project_list,
     get_user_list,
     get_role_assignments,
     get_keypair_list,

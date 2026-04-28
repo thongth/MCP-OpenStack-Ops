@@ -53,6 +53,7 @@ from .network import (
 # Identity service functions
 from .identity import (
     get_project_info,
+    get_project_list,
     get_project_details,
     set_project,
     get_user_list,
@@ -178,6 +179,7 @@ __all__ = [
     
     # Identity
     'get_project_info',
+    'get_project_list',
     'get_project_details',
     'set_project',
     'get_user_list',

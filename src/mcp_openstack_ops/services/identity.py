@@ -446,6 +446,68 @@ def get_project_details(project_name: str = "") -> Dict[str, Any]:
         }
 
 
+def get_project_list(name_filter: str = "", enabled_only: bool = False) -> Dict[str, Any]:
+    """
+    Get list of OpenStack projects visible to the current credentials.
+
+    Args:
+        name_filter: Optional project name substring filter (case-insensitive)
+        enabled_only: If True, include enabled projects only
+
+    Returns:
+        Dict containing project list summary
+    """
+    try:
+        conn = get_openstack_connection()
+        projects = []
+
+        normalized_filter = name_filter.strip().lower()
+
+        for project in conn.identity.projects():
+            project_name = getattr(project, "name", "")
+            project_enabled = bool(getattr(project, "is_enabled", False))
+
+            if enabled_only and not project_enabled:
+                continue
+
+            if normalized_filter and normalized_filter not in project_name.lower():
+                continue
+
+            projects.append({
+                "id": project.id,
+                "name": project_name,
+                "description": getattr(project, "description", ""),
+                "domain_id": getattr(project, "domain_id", ""),
+                "enabled": project_enabled,
+                "parent_id": getattr(project, "parent_id", None),
+                "is_domain": bool(getattr(project, "is_domain", False)),
+                "tags": getattr(project, "tags", []) or [],
+                "created_at": str(getattr(project, "created_at", "N/A")),
+                "updated_at": str(getattr(project, "updated_at", "N/A")),
+            })
+
+        projects.sort(key=lambda p: p.get("name", "").lower())
+
+        return {
+            "success": True,
+            "count": len(projects),
+            "filter": {
+                "name_filter": name_filter,
+                "enabled_only": enabled_only,
+            },
+            "projects": projects,
+        }
+    except Exception as e:
+        logger.error(f"Failed to get project list: {e}")
+        return {
+            "success": False,
+            "message": f"Failed to get project list: {str(e)}",
+            "error": str(e),
+            "projects": [],
+            "count": 0,
+        }
+
+
 def _get_single_project_details(conn, project) -> Dict[str, Any]:
     """
     Helper function to get detailed information for a single project.
