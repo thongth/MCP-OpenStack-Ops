@@ -23,6 +23,7 @@
         "OS_HEAT_STACK_PORT": "8004",
         "OS_HEAT_STACK_CFN_PORT": "18888",
         "ALLOW_MODIFY_OPERATIONS": "false",
+        "ALLOW_ALL_PROJECTS_READONLY": "true",
         "MCP_LOG_LEVEL": "INFO"
       }
     },
@@ -49,6 +50,7 @@
         "OS_HEAT_STACK_PORT": "8004",
         "OS_HEAT_STACK_CFN_PORT": "18888",
         "ALLOW_MODIFY_OPERATIONS": "true",
+        "ALLOW_ALL_PROJECTS_READONLY": "false",
         "MCP_LOG_LEVEL": "INFO"
       }
     },
@@ -75,6 +77,7 @@
         "OS_HEAT_STACK_PORT": "8004",
         "OS_HEAT_STACK_CFN_PORT": "18888",
         "ALLOW_MODIFY_OPERATIONS": "true",
+        "ALLOW_ALL_PROJECTS_READONLY": "false",
         "MCP_LOG_LEVEL": "DEBUG"
       }
     }
