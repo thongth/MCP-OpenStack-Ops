@@ -213,16 +213,26 @@ def get_resource_monitoring() -> Dict[str, Any]:
                     all_snapshots = list(conn.volume.snapshots(details=True, all_tenants=True))
                 except Exception:
                     all_snapshots = list(conn.volume.snapshots(all_projects=True))
+
+                try:
+                    all_backups = list(conn.volume.backups(details=True, all_projects=True))
+                except TypeError:
+                    all_backups = list(conn.volume.backups(details=True, all_tenants=True))
+                except Exception:
+                    all_backups = list(conn.volume.backups(all_projects=True))
             else:
                 all_volumes = list(conn.volume.volumes())
                 all_snapshots = list(conn.volume.snapshots())
+                all_backups = list(conn.volume.backups())
             
             if all_projects_mode:
                 volumes = all_volumes
                 snapshots = all_snapshots
+                backups = all_backups
             else:
                 volumes = [v for v in all_volumes if getattr(v, 'project_id', None) == current_project_id]
                 snapshots = [s for s in all_snapshots if getattr(s, 'project_id', None) == current_project_id]
+                backups = [b for b in all_backups if getattr(b, 'project_id', None) == current_project_id]
             
             storage_stats = {
                 'total_volumes': len(volumes),
@@ -230,7 +240,11 @@ def get_resource_monitoring() -> Dict[str, Any]:
                 'in_use_volumes': len([v for v in volumes if v.status == 'in-use']),
                 'total_volume_size_gb': sum(getattr(v, 'size', 0) for v in volumes),
                 'total_snapshots': len(snapshots),
-                'available_snapshots': len([s for s in snapshots if s.status == 'available'])
+                'available_snapshots': len([s for s in snapshots if s.status == 'available']),
+                'total_backups': len(backups),
+                'available_backups': len([b for b in backups if getattr(b, 'status', '') == 'available']),
+                'creating_backups': len([b for b in backups if getattr(b, 'status', '') == 'creating']),
+                'error_backups': len([b for b in backups if getattr(b, 'status', '') == 'error'])
             }
             
             monitoring_data['storage'] = storage_stats
