@@ -52,10 +52,25 @@ def get_resource_monitoring() -> Dict[str, Any]:
             total_used_ram_mb = 0
             total_used_disk_gb = 0
             running_servers = 0
+            servers_by_compute_host: Dict[str, Dict[str, Any]] = {}
             
             for server in servers:
                 if server.status == 'ACTIVE':
                     running_servers += 1
+
+                host_name = (
+                    getattr(server, 'host', None)
+                    or getattr(server, 'hypervisor_hostname', None)
+                    or 'unknown'
+                )
+                if host_name not in servers_by_compute_host:
+                    servers_by_compute_host[host_name] = {
+                        'total_vms': 0,
+                        'active_vms': 0,
+                    }
+                servers_by_compute_host[host_name]['total_vms'] += 1
+                if server.status == 'ACTIVE':
+                    servers_by_compute_host[host_name]['active_vms'] += 1
                 
                 # Get resource usage from server's flavor
                 flavor = server.flavor
@@ -137,7 +152,8 @@ def get_resource_monitoring() -> Dict[str, Any]:
                 'used_vcpus': total_used_vcpus,
                 'used_memory_mb': total_used_ram_mb,
                 'used_disk_gb': total_used_disk_gb,  # Calculated from instance flavors
-                'project_server_count': len(servers)
+                'project_server_count': len(servers),
+                'servers_by_compute_host': servers_by_compute_host
             }
             
             monitoring_data['compute'] = compute_stats
