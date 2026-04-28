@@ -197,8 +197,25 @@ def get_resource_monitoring() -> Dict[str, Any]:
         
         # Storage monitoring
         try:
-            all_volumes = list(conn.volume.volumes())
-            all_snapshots = list(conn.volume.snapshots())
+            if all_projects_mode:
+                # Cinder API naming differs by deployment/sdk version.
+                # Try all_projects first, then fall back to all_tenants.
+                try:
+                    all_volumes = list(conn.volume.volumes(details=True, all_projects=True))
+                except TypeError:
+                    all_volumes = list(conn.volume.volumes(details=True, all_tenants=True))
+                except Exception:
+                    all_volumes = list(conn.volume.volumes(all_projects=True))
+
+                try:
+                    all_snapshots = list(conn.volume.snapshots(details=True, all_projects=True))
+                except TypeError:
+                    all_snapshots = list(conn.volume.snapshots(details=True, all_tenants=True))
+                except Exception:
+                    all_snapshots = list(conn.volume.snapshots(all_projects=True))
+            else:
+                all_volumes = list(conn.volume.volumes())
+                all_snapshots = list(conn.volume.snapshots())
             
             if all_projects_mode:
                 volumes = all_volumes
