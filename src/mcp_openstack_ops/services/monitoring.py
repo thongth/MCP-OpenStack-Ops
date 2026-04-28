@@ -15,30 +15,37 @@ logger = logging.getLogger(__name__)
 
 def get_resource_monitoring() -> Dict[str, Any]:
     """
-    Get comprehensive resource monitoring information for current project.
+    Get comprehensive resource monitoring information.
     
     Returns:
-        Dict containing monitoring data for current project's compute, network, and storage resources
+        Dict containing monitoring data for compute, network, and storage resources.
+        - Default: current project scope
+        - ALLOW_ALL_PROJECTS_READONLY=true: all-projects scope
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
+        from ..connection import get_openstack_connection, is_all_projects_readonly_mode
         conn = get_openstack_connection()
-        current_project_id = conn.current_project_id
+        all_projects_mode = is_all_projects_readonly_mode()
+        current_project_id = None if all_projects_mode else conn.current_project_id
         
         monitoring_data = {
             'timestamp': datetime.now().isoformat(),
             'project_id': current_project_id,
+            'scope': 'all-projects' if all_projects_mode else 'project',
             'compute': {},
             'network': {},
             'storage': {},
             'identity': {}
         }
         
-        # Compute monitoring - filter servers by project
+        # Compute monitoring
         try:
-            all_servers = list(conn.compute.servers())
-            servers = [s for s in all_servers if getattr(s, 'project_id', None) == current_project_id]
+            all_servers = list(conn.compute.servers(all_projects=all_projects_mode))
+            if all_projects_mode:
+                servers = all_servers
+            else:
+                servers = [s for s in all_servers if getattr(s, 'project_id', None) == current_project_id]
             
             # Calculate actual compute usage from instances
             total_used_vcpus = 0
@@ -83,12 +90,13 @@ def get_resource_monitoring() -> Dict[str, Any]:
                 # Since hypervisor detailed stats are not available in this environment,
                 # try to get quota limits as a reasonable approximation of capacity
                 try:
-                    quota = conn.compute.get_quota_set(current_project_id)
-                    # Use quota limits as approximate capacity indicators
-                    if hasattr(quota, 'cores') and quota.cores and quota.cores > 0:
-                        total_physical_vcpus = quota.cores
-                    if hasattr(quota, 'ram') and quota.ram and quota.ram > 0:
-                        total_physical_ram_mb = quota.ram
+                    if current_project_id:
+                        quota = conn.compute.get_quota_set(current_project_id)
+                        # Use quota limits as approximate capacity indicators
+                        if hasattr(quota, 'cores') and quota.cores and quota.cores > 0:
+                            total_physical_vcpus = quota.cores
+                        if hasattr(quota, 'ram') and quota.ram and quota.ram > 0:
+                            total_physical_ram_mb = quota.ram
                         
                 except Exception as quota_error:
                     logger.info(f"Could not get quota for capacity estimation: {quota_error}")
@@ -137,7 +145,7 @@ def get_resource_monitoring() -> Dict[str, Any]:
             monitoring_data['compute'] = {'error': str(e)}
             logger.warning(f"Failed to get compute monitoring data: {e}")
         
-        # Network monitoring - filter by project
+        # Network monitoring
         try:
             all_networks = list(conn.network.networks())
             all_subnets = list(conn.network.subnets())
@@ -145,23 +153,30 @@ def get_resource_monitoring() -> Dict[str, Any]:
             all_routers = list(conn.network.routers())
             all_floating_ips = list(conn.network.ips())
             
-            # Filter by project (include shared/external networks for access)
-            networks = [n for n in all_networks if (
-                (getattr(n, 'project_id', None) or getattr(n, 'tenant_id', None)) == current_project_id or
-                getattr(n, 'is_shared', False) or getattr(n, 'is_router_external', False)
-            )]
-            subnets = [s for s in all_subnets if (
-                (getattr(s, 'project_id', None) or getattr(s, 'tenant_id', None)) == current_project_id
-            )]
-            ports = [p for p in all_ports if (
-                (getattr(p, 'project_id', None) or getattr(p, 'tenant_id', None)) == current_project_id
-            )]
-            routers = [r for r in all_routers if (
-                (getattr(r, 'project_id', None) or getattr(r, 'tenant_id', None)) == current_project_id
-            )]
-            floating_ips = [f for f in all_floating_ips if (
-                (getattr(f, 'project_id', None) or getattr(f, 'tenant_id', None)) == current_project_id
-            )]
+            if all_projects_mode:
+                networks = all_networks
+                subnets = all_subnets
+                ports = all_ports
+                routers = all_routers
+                floating_ips = all_floating_ips
+            else:
+                # Filter by project (include shared/external networks for access)
+                networks = [n for n in all_networks if (
+                    (getattr(n, 'project_id', None) or getattr(n, 'tenant_id', None)) == current_project_id or
+                    getattr(n, 'is_shared', False) or getattr(n, 'is_router_external', False)
+                )]
+                subnets = [s for s in all_subnets if (
+                    (getattr(s, 'project_id', None) or getattr(s, 'tenant_id', None)) == current_project_id
+                )]
+                ports = [p for p in all_ports if (
+                    (getattr(p, 'project_id', None) or getattr(p, 'tenant_id', None)) == current_project_id
+                )]
+                routers = [r for r in all_routers if (
+                    (getattr(r, 'project_id', None) or getattr(r, 'tenant_id', None)) == current_project_id
+                )]
+                floating_ips = [f for f in all_floating_ips if (
+                    (getattr(f, 'project_id', None) or getattr(f, 'tenant_id', None)) == current_project_id
+                )]
             
             network_stats = {
                 'total_networks': len(networks),
@@ -180,13 +195,17 @@ def get_resource_monitoring() -> Dict[str, Any]:
             monitoring_data['network'] = {'error': str(e)}
             logger.warning(f"Failed to get network monitoring data: {e}")
         
-        # Storage monitoring - filter by project
+        # Storage monitoring
         try:
             all_volumes = list(conn.volume.volumes())
             all_snapshots = list(conn.volume.snapshots())
             
-            volumes = [v for v in all_volumes if getattr(v, 'project_id', None) == current_project_id]
-            snapshots = [s for s in all_snapshots if getattr(s, 'project_id', None) == current_project_id]
+            if all_projects_mode:
+                volumes = all_volumes
+                snapshots = all_snapshots
+            else:
+                volumes = [v for v in all_volumes if getattr(v, 'project_id', None) == current_project_id]
+                snapshots = [s for s in all_snapshots if getattr(s, 'project_id', None) == current_project_id]
             
             storage_stats = {
                 'total_volumes': len(volumes),
