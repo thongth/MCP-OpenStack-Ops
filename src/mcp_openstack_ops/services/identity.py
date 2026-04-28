@@ -187,39 +187,24 @@ def get_user_list() -> List[Dict[str, Any]]:
         # Import here to avoid circular imports
         from ..connection import get_openstack_connection
         conn = get_openstack_connection()
-        current_project_id = conn.current_project_id
         users = []
-        
-        # Get role assignments for current project first
-        current_project_users = set()
-        for assignment in conn.identity.role_assignments():
-            scope = getattr(assignment, 'scope', {})
-            if 'project' in scope and scope['project'].get('id') == current_project_id:
-                user_info = getattr(assignment, 'user', {})
-                user_id = user_info.get('id')
-                if user_id:
-                    current_project_users.add(user_id)
-        
-        # Get user details only for users in current project
+
+        # Return all users visible to the current credentials.
         for user in conn.identity.users():
-            if user.id in current_project_users:
-                users.append({
-                    'id': user.id,
-                    'name': user.name,
-                    'email': getattr(user, 'email', 'N/A'),
-                    'enabled': user.is_enabled,
-                    'domain_id': getattr(user, 'domain_id', 'N/A'),
-                    'created_at': str(getattr(user, 'created_at', 'N/A')),
-                    'updated_at': str(getattr(user, 'updated_at', 'N/A'))
-                })
+            users.append({
+                'id': user.id,
+                'name': user.name,
+                'email': getattr(user, 'email', 'N/A'),
+                'enabled': user.is_enabled,
+                'domain_id': getattr(user, 'domain_id', 'N/A'),
+                'created_at': str(getattr(user, 'created_at', 'N/A')),
+                'updated_at': str(getattr(user, 'updated_at', 'N/A'))
+            })
         
         return users
     except Exception as e:
         logger.error(f"Failed to get user list: {e}")
-        return [
-            {'id': 'user-1', 'name': 'demo-user', 'email': 'demo@example.com', 
-             'enabled': True, 'error': str(e)}
-        ]
+        return [{'error': str(e)}]
 
 
 def get_role_assignments() -> List[Dict[str, Any]]:

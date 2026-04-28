@@ -11,7 +11,7 @@ from ..mcp_main import (
 @mcp.tool()
 async def get_user_list() -> str:
     """
-    Get list of OpenStack users in the current domain.
+    Get list of OpenStack users in the current scope.
     
     Functions:
     - Query user accounts and their basic information
@@ -19,7 +19,8 @@ async def get_user_list() -> str:
     - Show user email and domain information
     - Provide user creation and modification timestamps
     
-    Use when user requests user management information, identity queries, or user administration tasks.
+    Scope behavior:
+    - Returns all users visible to the current OpenStack credentials.
     
     Returns:
         List of users with detailed information in JSON format.
