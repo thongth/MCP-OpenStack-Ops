@@ -40,6 +40,7 @@ from .storage import (
 # Network service functions
 from .network import (
     get_network_details,
+    get_network_agents,
     get_security_groups,
     get_floating_ips,
     set_floating_ip,
@@ -138,6 +139,7 @@ __all__ = [
     
     # Network
     'get_network_details',
+    'get_network_agents',
     'get_security_groups',
     'get_floating_ips',
     'set_floating_ip',

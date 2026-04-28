@@ -915,6 +915,7 @@ from .services.compute import (
 # Import network functions from services
 from .services.network import (
     get_network_details,
+    get_network_agents,
     get_security_groups,
     get_floating_ips,
     get_floating_ip_pools,

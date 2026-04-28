@@ -12,6 +12,60 @@ from typing import Dict, List, Any, Optional
 logger = logging.getLogger(__name__)
 
 
+def get_network_agents(agent_type: str = "", host: str = "", alive_only: bool = False) -> List[Dict[str, Any]]:
+    """
+    Get Neutron network agents visible to current credentials.
+
+    Args:
+        agent_type: Optional filter by agent type (substring match)
+        host: Optional filter by host (substring match)
+        alive_only: If True, return alive agents only
+
+    Returns:
+        List of network agent dictionaries
+    """
+    try:
+        from ..connection import get_openstack_connection
+        conn = get_openstack_connection()
+
+        normalized_type = agent_type.strip().lower()
+        normalized_host = host.strip().lower()
+        agents: List[Dict[str, Any]] = []
+
+        for agent in conn.network.agents():
+            current_type = getattr(agent, "agent_type", "") or ""
+            current_host = getattr(agent, "host", "") or ""
+            current_alive = bool(getattr(agent, "alive", False))
+
+            if normalized_type and normalized_type not in current_type.lower():
+                continue
+            if normalized_host and normalized_host not in current_host.lower():
+                continue
+            if alive_only and not current_alive:
+                continue
+
+            agents.append({
+                "id": agent.id,
+                "agent_type": current_type,
+                "binary": getattr(agent, "binary", "N/A"),
+                "host": current_host,
+                "alive": current_alive,
+                "admin_state_up": bool(getattr(agent, "is_admin_state_up", False)),
+                "availability_zone": getattr(agent, "availability_zone", "N/A"),
+                "description": getattr(agent, "description", "") or "",
+                "topic": getattr(agent, "topic", "") or "",
+                "started_at": str(getattr(agent, "started_at", "N/A")),
+                "heartbeat_timestamp": str(getattr(agent, "heartbeat_timestamp", "N/A")),
+                "created_at": str(getattr(agent, "created_at", "N/A")),
+                "updated_at": str(getattr(agent, "updated_at", "N/A")),
+            })
+
+        return agents
+    except Exception as e:
+        logger.error(f"Failed to get network agents: {e}")
+        return [{"error": str(e)}]
+
+
 def get_network_details(network_name: str = "all") -> List[Dict[str, Any]]:
     """
     Get detailed information about networks in current project.
