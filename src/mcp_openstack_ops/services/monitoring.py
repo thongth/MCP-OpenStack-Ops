@@ -54,6 +54,19 @@ def get_system_information() -> Dict[str, Any]:
             system_data["compute_services"] = {
                 **summary,
                 "disabled": len([s for s in compute_services if str(getattr(s, "status", "")).lower() == "disabled"]),
+                "details": [
+                    {
+                        "id": getattr(s, "id", ""),
+                        "binary": getattr(s, "binary", "unknown"),
+                        "host": getattr(s, "host", "unknown"),
+                        "zone": getattr(s, "zone", "unknown"),
+                        "status": getattr(s, "status", "unknown"),
+                        "state": getattr(s, "state", "unknown"),
+                        "updated_at": getattr(s, "updated_at", None),
+                        "disabled_reason": getattr(s, "disabled_reason", None),
+                    }
+                    for s in compute_services
+                ],
             }
         except Exception as e:
             system_data["compute_services"] = {"error": str(e)}
@@ -69,6 +82,18 @@ def get_system_information() -> Dict[str, Any]:
             system_data["block_storage_services"] = {
                 **summary,
                 "disabled": len([s for s in block_storage_services if str(getattr(s, "status", "")).lower() == "disabled"]),
+                "details": [
+                    {
+                        "binary": getattr(s, "binary", "unknown"),
+                        "host": getattr(s, "host", "unknown"),
+                        "zone": getattr(s, "zone", "unknown"),
+                        "status": getattr(s, "status", "unknown"),
+                        "state": getattr(s, "state", "unknown"),
+                        "updated_at": getattr(s, "updated_at", None),
+                        "disabled_reason": getattr(s, "disabled_reason", None),
+                    }
+                    for s in block_storage_services
+                ],
             }
         except Exception as e:
             system_data["block_storage_services"] = {"error": str(e)}
@@ -81,6 +106,21 @@ def get_system_information() -> Dict[str, Any]:
                 "up": up_count,
                 "down_or_unknown": len(network_agents) - up_count,
                 "admin_down": len([a for a in network_agents if str(getattr(a, "admin_state_up", "")).lower() == "false"]),
+                "details": [
+                    {
+                        "id": getattr(a, "id", ""),
+                        "agent_type": getattr(a, "agent_type", "unknown"),
+                        "binary": getattr(a, "binary", "unknown"),
+                        "host": getattr(a, "host", "unknown"),
+                        "availability_zone": getattr(a, "availability_zone", "unknown"),
+                        "admin_state_up": getattr(a, "admin_state_up", None),
+                        "is_alive": getattr(a, "is_alive", None),
+                        "heartbeat_timestamp": getattr(a, "heartbeat_timestamp", None),
+                        "started_at": getattr(a, "started_at", None),
+                        "description": getattr(a, "description", ""),
+                    }
+                    for a in network_agents
+                ],
             }
         except Exception as e:
             system_data["network_agents"] = {"error": str(e)}
