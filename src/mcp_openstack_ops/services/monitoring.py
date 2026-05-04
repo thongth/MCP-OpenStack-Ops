@@ -13,6 +13,91 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 
+def get_system_information() -> Dict[str, Any]:
+    """
+    Get system monitoring information for key infrastructure components.
+
+    Includes:
+    - Compute services (Nova)
+    - Block storage services (Cinder)
+    - Network agents (Neutron)
+    """
+    try:
+        from ..connection import get_openstack_connection
+        conn = get_openstack_connection()
+
+        def _service_state_summary(items: List[Any], state_attr: str = "state", up_value: str = "up") -> Dict[str, int]:
+            up_count = 0
+            down_count = 0
+            for item in items:
+                state = str(getattr(item, state_attr, "")).lower()
+                if state == up_value:
+                    up_count += 1
+                else:
+                    down_count += 1
+            return {
+                "total": len(items),
+                "up": up_count,
+                "down_or_unknown": down_count,
+            }
+
+        system_data: Dict[str, Any] = {
+            "timestamp": datetime.now().isoformat(),
+            "compute_services": {},
+            "block_storage_services": {},
+            "network_agents": {},
+        }
+
+        try:
+            compute_services = list(conn.compute.services())
+            summary = _service_state_summary(compute_services, state_attr="state", up_value="up")
+            system_data["compute_services"] = {
+                **summary,
+                "disabled": len([s for s in compute_services if str(getattr(s, "status", "")).lower() == "disabled"]),
+            }
+        except Exception as e:
+            system_data["compute_services"] = {"error": str(e)}
+
+        try:
+            # Prefer conn.block_storage for service APIs, fallback to conn.volume when needed.
+            volume_proxy = getattr(conn, "block_storage", None) or getattr(conn, "volume", None)
+            if volume_proxy is None or not hasattr(volume_proxy, "services"):
+                raise RuntimeError("Block storage service API is not available in this deployment")
+
+            block_storage_services = list(volume_proxy.services())
+            summary = _service_state_summary(block_storage_services, state_attr="state", up_value="up")
+            system_data["block_storage_services"] = {
+                **summary,
+                "disabled": len([s for s in block_storage_services if str(getattr(s, "status", "")).lower() == "disabled"]),
+            }
+        except Exception as e:
+            system_data["block_storage_services"] = {"error": str(e)}
+
+        try:
+            network_agents = list(conn.network.agents())
+            up_count = len([a for a in network_agents if getattr(a, "is_alive", False)])
+            system_data["network_agents"] = {
+                "total": len(network_agents),
+                "up": up_count,
+                "down_or_unknown": len(network_agents) - up_count,
+                "admin_down": len([a for a in network_agents if str(getattr(a, "admin_state_up", "")).lower() == "false"]),
+            }
+        except Exception as e:
+            system_data["network_agents"] = {"error": str(e)}
+
+        return {
+            "success": True,
+            "system_monitoring": system_data,
+        }
+    except Exception as e:
+        logger.error(f"Failed to get system information: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to retrieve system monitoring information",
+        }
+
+
 def get_resource_monitoring() -> Dict[str, Any]:
     """
     Get comprehensive resource monitoring information.

@@ -27,7 +27,7 @@
 - ✅ **90+ Purpose-Built Tools**: Broad coverage across compute, networking, storage, images, identity, Heat, and Octavia load balancing tasks—all constrained to the current project.
 - ✅ **Bulk & Filtered Actions**: Instance, volume, network, image, snapshot, and keypair managers accept comma-delimited targets or filter criteria to orchestrate bulk changes intentionally.
 - ✅ **Post-Action Feedback & Async Guidance**: Mutating tools reuse a shared result handler that adds emoji status checks, asynchronous timing notes, and follow-up verification commands.
-- ✅ **Monitoring & Usage Insights**: `get_service_status`, `get_resource_monitoring`, `get_usage_statistics`, and quota tools surface service availability, utilization, and capacity for the active project.
+- ✅ **Monitoring & Usage Insights**: `get_service_status`, `get_system_information`, `get_resource_monitoring`, `get_usage_statistics`, and quota tools surface service availability, utilization, and capacity for the active project.
 - ✅ **Unified Instance Queries**: The `get_instance` tool consolidates name, ID, status, and free-form search paths with pagination plus summary/detailed modes.
 - ✅ **Server Insight & Audit Trail**: Dedicated tools expose server events, hypervisor details, availability zones, quotas, and resource ownership to speed diagnostics.
 - ✅ **Load Balancer Management**: Octavia tools cover listeners, pools, members, health monitors, flavors, quotas, and amphora operations with the same safety gates.
@@ -420,6 +420,7 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | OpenStack CLI Command | MCP Tool | Status | Notes |
 |---------------------|---------|------|------|
 | Resource monitoring | `get_resource_monitoring` | ✅ | Resource monitoring |
+| System monitoring (compute services, block storage services, network agents) | `get_system_information` | ✅ | Infrastructure component health overview |
 | Service status | `get_service_status` | ✅ | Service status query |
 | Cluster overview | `get_cluster_status` | ✅ | Cluster overview |
 | Service logs | `set_service_logs` | ✅ | Service log management |

@@ -81,6 +81,7 @@ from .image import (
 
 # Monitoring and resource management
 from .monitoring import (
+    get_system_information,
     get_resource_monitoring,
     get_usage_statistics,
     get_quota,
@@ -202,6 +203,7 @@ __all__ = [
     'set_image_visibility',
     
     # Monitoring
+    'get_system_information',
     'get_resource_monitoring',
     'get_usage_statistics',
     'get_quota',

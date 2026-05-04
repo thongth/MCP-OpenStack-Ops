@@ -56,6 +56,7 @@ Quan ly Keystone identity/project scope:
 ### `monitoring.py`
 
 Tong hop monitoring va quota/usage:
+- System monitoring: `get_system_information` (compute services, block storage services, network agents)
 - Health/tai nguyen tong quan: `get_resource_monitoring`
 - Usage va quota: `get_usage_statistics`, `get_quota`, `set_quota`, `get_compute_quota_usage`
 - Ha tang compute: `get_hypervisor_details`, `get_availability_zones`

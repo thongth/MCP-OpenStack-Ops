@@ -966,6 +966,7 @@ from .services.image import (
 
 # Import monitoring functions from services  
 from .services.monitoring import (
+    get_system_information,
     get_resource_monitoring,
     get_compute_quota_usage,
     get_usage_statistics,

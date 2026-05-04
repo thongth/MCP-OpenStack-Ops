@@ -9,7 +9,7 @@ MCP-OpenStack-Ops is a Model Context Protocol server designed for safe, project-
 - **Safety-Gated Writes**: Mutating tools (`set_*`) are only registered when `ALLOW_MODIFY_OPERATIONS=true`, making default deployments read-only.
 - **Wide OpenStack Coverage**: Supports compute, networking, storage, image, identity, orchestration, monitoring, and load balancer operations.
 - **Bulk & Filtered Actions**: Accepts comma-separated lists and filter conditions for bulk resource targeting.
-- **Monitoring & Usage Insights**: Includes tools for service status, resource consumption, usage statistics, and quota monitoring.
+- **Monitoring & Usage Insights**: Includes tools for service status, system monitoring (compute services, block storage services, network agents), resource consumption, usage statistics, and quota monitoring.
 - **Unified Instance Queries**: Consolidated instance lookup with pagination, summary/detail modes, and flexible targeting.
 - **Audit-Friendly Diagnostics**: Access to server events, hypervisor details, availability zones, project details, and role assignments.
 - **Load Balancer Support**: Octavia integration for listeners, pools, members, health monitors, providers, flavors, and quotas.

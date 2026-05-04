@@ -53,6 +53,7 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 ### Monitoring / Core
 
 - `get_service_status.py`
+- `get_system_information.py`
 - `get_resource_monitoring.py`
 - `get_usage_statistics.py`
 - `get_quota.py`
