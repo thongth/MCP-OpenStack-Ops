@@ -250,7 +250,7 @@ ALLOW_MODIFY_OPERATIONS=true
 - get_floating_ips, get_routers, get_volume_types
 - get_volume_snapshots, get_heat_stacks
 - get_resource_monitoring, get_usage_statistics, get_quota
-- get_volume_list, get_image_detail_list, get_project_details
+- get_volume, get_image_detail_list, get_project_details
 """
     return ""
 

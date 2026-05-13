@@ -399,7 +399,7 @@ set_snapshot(action="create", snapshot_names="backup-snap", volume_id="vol-123")
 |---------|------|-------|
 | **"Show details for instance X"** | `get_instance_details(instance_names=["X"])` | **TOP PRIORITY** - Specific instance information |
 | **"Create cluster status report"** | **Use tool combination** | **PRIMARY** - Use multiple get_* tools for comprehensive cluster analysis |
-| **"List volumes/images/networks"** | `get_volume_list()` / `get_image_detail_list()` / `get_network_details("all")` | **PRIORITY** - Resource listing |
+| **"List volumes/images/networks"** | `get_volume()` / `get_image_detail_list()` / `get_network_details("all")` | **PRIORITY** - Resource listing |
 | **"Find instances"** | `search_instances("keyword", "field")` | Advanced instance search with filters |
 
 ### 🏗️ **Comprehensive Cluster Reports Pattern**
@@ -421,7 +421,7 @@ For requests like "Create cluster status report", "Show cluster operational repo
 - `get_load_balancer_details()` - Load balancer status and configuration
 
 **5. Storage Systems:**
-- `get_volume_list()` - Volume status, usage, and attachments
+- `get_volume()` - Volume status, usage, and attachments
 - `get_image_detail_list()` - Available images and usage patterns
 
 **6. Orchestration & Advanced Services:**
@@ -461,7 +461,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 - `set_network_agents`: Network agent operations (**Conditional Tool**)
 
 ### 💾 **Storage Management Tools (8 tools)**
-- `get_volume_list`: List all volumes with status (always available)
+- `get_volume`: List all volumes with status (always available)
 - `set_volume`: **ENHANCED** - Volume management with bulk operations and filtering
   - **New Parameters**: `action`, `volume_names` (supports comma-separated), `name_contains`, `status`, `size_gb`, `instance_name`
   - **Bulk Support**: Process multiple volumes: `volume_names="vol1,vol2,vol3"`
@@ -562,17 +562,17 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 ### 🔥 **HIGH PRIORITY Patterns**
 1. **"Show details for instance X"** → `get_instance_details(instance_names=["X"])`
 2. **"Create cluster status report"** → **Use TOOL COMBINATION** (see pattern above)
-3. **"List volumes/images/networks"** → `get_volume_list()` / `get_image_detail_list()` / `get_network_details("all")`
+3. **"List volumes/images/networks"** → `get_volume()` / `get_image_detail_list()` / `get_network_details("all")`
 4. **"Find/search instances"** → `search_instances("keyword", "field")`
 
 ### 📊 **Comprehensive Cluster Analysis Patterns** 
 **For comprehensive cluster reports, use these tool combinations:**
 
 - **"Create cluster status report"** / **"Cluster status report"** / **"클러스터 운영 현황"** → 
-  - `get_service_status()` + `monitor_resources()` + `get_hypervisor_details()` + `get_instance_details()` + `get_project_details()` + `get_network_details()` + `get_volume_list()` + `get_load_balancer_details()` + `get_heat_stacks()`
+  - `get_service_status()` + `monitor_resources()` + `get_hypervisor_details()` + `get_instance_details()` + `get_project_details()` + `get_network_details()` + `get_volume()` + `get_load_balancer_details()` + `get_heat_stacks()`
 
 - **"Show detailed cluster analysis"** / **"resource utilization"** → 
-  - `monitor_resources()` + `get_hypervisor_details()` + `get_instance_details()` + `get_volume_list()`
+  - `monitor_resources()` + `get_hypervisor_details()` + `get_instance_details()` + `get_volume()`
 
 - **"Cluster overview"** / **"cluster status"** → 
   - `get_service_status()` + `monitor_resources()` + `get_instance_details()` + `get_project_details()` + `get_network_details()`
@@ -645,8 +645,8 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 
 ### 📊 **Common Operations**
 ```
-"Create cluster status report" → Use tool combination: get_service_status() + monitor_resources() + get_hypervisor_details() + get_instance_details() + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details() + get_heat_stacks()
-"클러스터 운영 현황 보고해줘" → Use tool combination: get_service_status() + monitor_resources() + get_hypervisor_details() + get_instance_details() + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details() + get_heat_stacks()
+"Create cluster status report" → Use tool combination: get_service_status() + monitor_resources() + get_hypervisor_details() + get_instance_details() + get_project_details() + get_network_details() + get_volume() + get_load_balancer_details() + get_heat_stacks()
+"클러스터 운영 현황 보고해줘" → Use tool combination: get_service_status() + monitor_resources() + get_hypervisor_details() + get_instance_details() + get_project_details() + get_network_details() + get_volume() + get_load_balancer_details() + get_heat_stacks()
 
 # Enhanced examples with new API structure
 "Start web-server-01" → set_instance(action="start", instance_names="web-server-01")
@@ -661,7 +661,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Delete temporary keypairs" → set_keypair(action="delete", name_contains="temp")
 
 "Create image with min requirements" → set_image("custom-image", "create", disk_format="qcow2", min_disk=20, min_ram=1024)
-"List all volumes" → get_volume_list()
+"List all volumes" → get_volume()
 "Show all networks" → get_network_details("all")
 "Show floating IP pools" → get_floating_ip_pools()  [Enhanced with pool capacity and usage]
 "Find web servers" → search_instances("web", "name")
@@ -738,7 +738,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Create a snapshot of volume database-storage"
 ```
 
-**Tools Used:** `get_volume_list()`, `set_volume()`, `set_snapshot()`
+**Tools Used:** `get_volume()`, `set_volume()`, `set_snapshot()`
 
 ### 🖼️ **Image Operations**
 
@@ -860,7 +860,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 2. get_resource_monitoring() (resource utilization)
 3. get_instance_details() (compute resources)
 4. get_network_details() (network topology)
-5. get_volume_list() (storage resources)
+5. get_volume() (storage resources)
 6. get_project_details() (quotas & usage)
 ```
 

@@ -24,7 +24,7 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 
 ### Network
 
-- `get_network_list.py`
+- `get_network.py`
 - `get_network_by_name.py`
 - `get_network_by_project.py`
 - `get_network_details.py`
@@ -43,7 +43,10 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 
 ### Storage
 
-- `get_volume_list.py`
+- `get_volume.py`
+- `get_volume_by_name.py`
+- `get_volume_by_project.py`
+- `get_volume_by_status.py`
 - `get_volume_types.py`
 - `get_volume_snapshots.py`
 - `get_server_volumes.py`

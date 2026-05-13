@@ -1,4 +1,4 @@
-"""Tool implementation for get_network_list."""
+"""Tool implementation for get_network."""
 
 import json
 from datetime import datetime
@@ -10,7 +10,7 @@ from ..mcp_main import (
 
 
 @mcp.tool()
-async def get_network_list(
+async def get_network(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
