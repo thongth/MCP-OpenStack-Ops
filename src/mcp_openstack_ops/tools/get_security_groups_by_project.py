@@ -1,23 +1,21 @@
-"""Tool implementation for get_floating_ips_project."""
+"""Tool implementation for get_security_groups_by_project."""
 
 import json
 from datetime import datetime
-from ..functions import get_floating_ips as _get_floating_ips
+from ..functions import get_security_groups as _get_security_groups
 from ..mcp_main import logger, mcp
 
 
 @mcp.tool()
-async def get_floating_ips_project(
+async def get_security_groups_by_project(
     project_id: str,
     include_all_projects: bool = True,
-    status: str = "",
 ) -> str:
-    """Get floating IPs owned by a specific project."""
+    """Get security groups owned by a specific project."""
     try:
-        floating_ips = _get_floating_ips(
+        security_groups = _get_security_groups(
             include_all_projects=include_all_projects,
             project_id=project_id,
-            status=status,
         )
         return json.dumps(
             {
@@ -25,14 +23,13 @@ async def get_floating_ips_project(
                 "filter": {
                     "project_id": project_id,
                     "include_all_projects": include_all_projects,
-                    "status": status,
                 },
-                "total_floating_ips": len(floating_ips),
-                "floating_ips": floating_ips,
+                "total_security_groups": len(security_groups),
+                "security_groups": security_groups,
             },
             indent=2,
             ensure_ascii=False,
         )
     except Exception as e:
-        logger.error(f"Error: Failed to fetch floating IPs by project - {e}")
-        return f"Error: Failed to fetch floating IPs by project - {str(e)}"
+        logger.error(f"Error: Failed to fetch security groups by project - {e}")
+        return f"Error: Failed to fetch security groups by project - {str(e)}"

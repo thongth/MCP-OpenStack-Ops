@@ -31,10 +31,10 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 - `get_network_ports.py`
 - `get_network_agents.py`
 - `get_floating_ips.py`
-- `get_floating_ips_project.py`
+- `get_floating_ips_by_project.py`
 - `get_floating_ip_pools.py`
 - `get_security_groups.py`
-- `get_security_groups_project.py`
+- `get_security_groups_by_project.py`
 - `get_routers_by_status.py`
 - `get_routers_by_state.py`
 - `get_routers_by_project.py`
