@@ -14,7 +14,10 @@ async def set_network_ports(
     network_id: str = "",
     description: str = "",
     admin_state_up: bool = True,
-    security_groups: str = "[]"
+    security_groups: str = "[]",
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
 ) -> str:
     """
     Manage OpenStack network ports for VM and network connectivity
@@ -49,7 +52,10 @@ async def set_network_ports(
             network_id=network_id if network_id else None,
             description=description,
             admin_state_up=admin_state_up,
-            security_groups=parsed_security_groups
+            security_groups=parsed_security_groups,
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+            status=status,
         )
         return json.dumps(result, indent=2)
     except json_lib.JSONDecodeError as e:

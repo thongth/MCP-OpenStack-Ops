@@ -9,7 +9,11 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_floating_ips() -> str:
+async def get_floating_ips(
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
+) -> str:
     """
     Get list of floating IPs with their associations.
     
@@ -25,8 +29,14 @@ async def get_floating_ips() -> str:
         List of floating IPs with detailed association information in JSON format.
     """
     try:
-        logger.info("Fetching floating IPs")
-        floating_ips = _get_floating_ips()
+        logger.info(
+            f"Fetching floating IPs (include_all_projects={include_all_projects}, project_id={project_id}, status={status})"
+        )
+        floating_ips = _get_floating_ips(
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+            status=status,
+        )
         
         result = {
             "timestamp": datetime.now().isoformat(),

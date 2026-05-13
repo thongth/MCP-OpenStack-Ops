@@ -9,7 +9,11 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_routers() -> str:
+async def get_routers(
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
+) -> str:
     """
     Get list of routers with their configuration.
     
@@ -25,8 +29,14 @@ async def get_routers() -> str:
         List of routers with detailed configuration in JSON format.
     """
     try:
-        logger.info("Fetching routers")
-        routers = _get_routers()
+        logger.info(
+            f"Fetching routers (include_all_projects={include_all_projects}, project_id={project_id}, status={status})"
+        )
+        routers = _get_routers(
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+            status=status,
+        )
         
         result = {
             "timestamp": datetime.now().isoformat(),

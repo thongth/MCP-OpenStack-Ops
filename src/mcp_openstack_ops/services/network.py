@@ -66,9 +66,14 @@ def get_network_agents(agent_type: str = "", host: str = "", alive_only: bool = 
         return [{"error": str(e)}]
 
 
-def get_network_details(network_name: str = "all") -> List[Dict[str, Any]]:
+def get_network_details(
+    network_name: str = "all",
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
+) -> List[Dict[str, Any]]:
     """
-    Get detailed information about networks in current project.
+    Get detailed information about networks.
     
     Args:
         network_name: Name of specific network or "all" for all networks
@@ -78,101 +83,71 @@ def get_network_details(network_name: str = "all") -> List[Dict[str, Any]]:
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection, get_current_project_id, validate_resource_ownership
+        from ..connection import get_openstack_connection, get_current_project_id, is_all_projects_readonly_mode
         conn = get_openstack_connection()
         current_project_id = get_current_project_id()
-        
-        networks = []
-        
-        if network_name.lower() == "all":
-            for network in conn.network.networks():
-                # Get project ID first
-                network_project = getattr(network, 'project_id', None) or getattr(network, 'tenant_id', None)
-                
-                # Enhanced project validation with utility functions
-                if (validate_resource_ownership(network, "Network") or 
-                    getattr(network, 'is_shared', False) or 
-                    getattr(network, 'is_router_external', False)):  # Include shared and external networks
-                    
-                    # Get subnets for this network with project validation
-                    subnets = []
-                    for subnet in conn.network.subnets():
-                        if getattr(subnet, 'network_id', None) == network.id:
-                            # Enhanced validation using utility functions
-                            if validate_resource_ownership(subnet, "Subnet"):
-                                subnets.append({
-                                    'id': subnet.id,
-                                    'name': getattr(subnet, 'name', 'unnamed'),
-                                    'cidr': getattr(subnet, 'cidr', 'unknown'),
-                                    'ip_version': getattr(subnet, 'ip_version', 4),
-                                    'gateway_ip': getattr(subnet, 'gateway_ip', None),
-                                    'enable_dhcp': getattr(subnet, 'is_dhcp_enabled', False)
-                                })
+        all_projects_mode = is_all_projects_readonly_mode()
+        allow_cross_project = all_projects_mode and include_all_projects
+        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
+        status_filter = status.strip().lower() if status else ""
 
-                    networks.append({
-                        'id': network.id,
-                        'name': getattr(network, 'name', 'unnamed'),
-                        'status': getattr(network, 'status', 'unknown'),
-                        'admin_state_up': getattr(network, 'is_admin_state_up', True),
-                        'shared': getattr(network, 'is_shared', False),
-                        'external': getattr(network, 'is_router_external', False),
-                        'provider_network_type': getattr(network, 'provider_network_type', None),
-                        'provider_physical_network': getattr(network, 'provider_physical_network', None),
-                        'provider_segmentation_id': getattr(network, 'provider_segmentation_id', None),
-                        'mtu': getattr(network, 'mtu', 1500),
-                        'tenant_id': getattr(network, 'tenant_id', 'unknown'),
-                        'project_id': network_project,
-                        'created_at': str(getattr(network, 'created_at', 'unknown')),
-                        'updated_at': str(getattr(network, 'updated_at', 'unknown')),
-                        'subnets': subnets,
-                        'subnet_count': len(subnets)
-                    })
-        else:
-            # Get specific network
-            for network in conn.network.networks():
-                if getattr(network, 'name', '') == network_name or network.id == network_name:
-                    # Check if network is accessible by current project
-                    network_project = getattr(network, 'project_id', None) or getattr(network, 'tenant_id', None)
-                    if (network_project == current_project_id or 
-                        getattr(network, 'is_shared', False) or 
-                        getattr(network, 'is_router_external', False)):
-                        
-                        # Get subnets for this network
-                        subnets = []
-                        for subnet in conn.network.subnets():
-                            if getattr(subnet, 'network_id', None) == network.id:
-                                subnet_project = getattr(subnet, 'project_id', None) or getattr(subnet, 'tenant_id', None)
-                                if subnet_project == current_project_id:
-                                    subnets.append({
-                                        'id': subnet.id,
-                                        'name': getattr(subnet, 'name', 'unnamed'),
-                                        'cidr': getattr(subnet, 'cidr', 'unknown'),
-                                        'ip_version': getattr(subnet, 'ip_version', 4),
-                                        'gateway_ip': getattr(subnet, 'gateway_ip', None),
-                                        'enable_dhcp': getattr(subnet, 'is_dhcp_enabled', False),
-                                        'dns_nameservers': getattr(subnet, 'dns_nameservers', []),
-                                        'allocation_pools': getattr(subnet, 'allocation_pools', [])
-                                    })
-                        
-                        networks.append({
-                            'id': network.id,
-                            'name': getattr(network, 'name', 'unnamed'),
-                            'status': getattr(network, 'status', 'unknown'),
-                            'admin_state_up': getattr(network, 'is_admin_state_up', True),
-                            'shared': getattr(network, 'is_shared', False),
-                            'external': getattr(network, 'is_router_external', False),
-                            'provider_network_type': getattr(network, 'provider_network_type', None),
-                            'provider_physical_network': getattr(network, 'provider_physical_network', None),
-                            'provider_segmentation_id': getattr(network, 'provider_segmentation_id', None),
-                            'mtu': getattr(network, 'mtu', 1500),
-                            'tenant_id': getattr(network, 'tenant_id', 'unknown'),
-                            'project_id': network_project,
-                            'created_at': str(getattr(network, 'created_at', 'unknown')),
-                            'updated_at': str(getattr(network, 'updated_at', 'unknown')),
-                            'subnets': subnets,
-                            'subnet_count': len(subnets)
-                        })
-                        break
+        target_name = network_name.strip().lower()
+        networks = []
+
+        for network in conn.network.networks():
+            network_project = getattr(network, 'project_id', None) or getattr(network, 'tenant_id', None)
+            is_shared = bool(getattr(network, 'is_shared', False))
+            is_external = bool(getattr(network, 'is_router_external', False))
+            network_status = str(getattr(network, 'status', 'unknown')).lower()
+            network_name_value = str(getattr(network, 'name', ''))
+
+            network_id_value = str(getattr(network, 'id', ''))
+            if target_name != "all" and target_name not in {network_id_value.lower(), network_name_value.lower()}:
+                continue
+            if status_filter and network_status != status_filter:
+                continue
+            if scope_project_id is not None and network_project != scope_project_id and not (is_shared or is_external):
+                continue
+
+            subnets = []
+            for subnet in conn.network.subnets():
+                if getattr(subnet, 'network_id', None) != network.id:
+                    continue
+                subnet_project = getattr(subnet, 'project_id', None) or getattr(subnet, 'tenant_id', None)
+                if scope_project_id is not None and subnet_project != scope_project_id:
+                    continue
+                subnets.append({
+                    'id': subnet.id,
+                    'name': getattr(subnet, 'name', 'unnamed'),
+                    'cidr': getattr(subnet, 'cidr', 'unknown'),
+                    'ip_version': getattr(subnet, 'ip_version', 4),
+                    'gateway_ip': getattr(subnet, 'gateway_ip', None),
+                    'enable_dhcp': getattr(subnet, 'is_dhcp_enabled', False),
+                    'dns_nameservers': getattr(subnet, 'dns_nameservers', []),
+                    'allocation_pools': getattr(subnet, 'allocation_pools', []),
+                })
+
+            networks.append({
+                'id': network.id,
+                'name': network_name_value or 'unnamed',
+                'status': getattr(network, 'status', 'unknown'),
+                'admin_state_up': getattr(network, 'is_admin_state_up', True),
+                'shared': is_shared,
+                'external': is_external,
+                'provider_network_type': getattr(network, 'provider_network_type', None),
+                'provider_physical_network': getattr(network, 'provider_physical_network', None),
+                'provider_segmentation_id': getattr(network, 'provider_segmentation_id', None),
+                'mtu': getattr(network, 'mtu', 1500),
+                'tenant_id': getattr(network, 'tenant_id', 'unknown'),
+                'project_id': network_project,
+                'created_at': str(getattr(network, 'created_at', 'unknown')),
+                'updated_at': str(getattr(network, 'updated_at', 'unknown')),
+                'subnets': subnets,
+                'subnet_count': len(subnets)
+            })
+
+            if target_name != "all":
+                break
         
         return networks
         
@@ -397,40 +372,57 @@ def get_security_groups() -> List[Dict[str, Any]]:
         ]
 
 
-def get_floating_ips() -> List[Dict[str, Any]]:
+def get_floating_ips(
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
+) -> List[Dict[str, Any]]:
     """
-    Get list of floating IPs for current project.
+    Get list of floating IPs.
     
     Returns:
         List of floating IP dictionaries for current project
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
+        from ..connection import get_openstack_connection, is_all_projects_readonly_mode
         conn = get_openstack_connection()
         current_project_id = conn.current_project_id
+        all_projects_mode = is_all_projects_readonly_mode()
+        allow_cross_project = all_projects_mode and include_all_projects
+        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
+        status_filter = status.strip().lower() if status else ""
         floating_ips = []
         
         for fip in conn.network.ips():
-            # Filter by current project
             fip_project_id = getattr(fip, 'project_id', None) or getattr(fip, 'tenant_id', None)
-            if fip_project_id == current_project_id:
-                floating_ips.append({
-                    'id': fip.id,
-                    'floating_ip_address': getattr(fip, 'floating_ip_address', 'unknown'),
-                    'fixed_ip_address': getattr(fip, 'fixed_ip_address', None),
-                    'port_id': getattr(fip, 'port_id', None),
-                    'router_id': getattr(fip, 'router_id', None),
-                    'status': getattr(fip, 'status', 'unknown'),
-                    'tenant_id': getattr(fip, 'tenant_id', 'unknown'),
-                    'project_id': getattr(fip, 'project_id', 'unknown'),
-                    'floating_network_id': getattr(fip, 'floating_network_id', 'unknown'),
-                    'created_at': str(getattr(fip, 'created_at', 'unknown')),
-                    'updated_at': str(getattr(fip, 'updated_at', 'unknown')),
-                    'description': getattr(fip, 'description', '')
-                })
-        
-        logger.info(f"Retrieved {len(floating_ips)} floating IPs for project {current_project_id}")
+            fip_status = str(getattr(fip, 'status', 'unknown')).lower()
+            if scope_project_id is not None and fip_project_id != scope_project_id:
+                continue
+            if status_filter and fip_status != status_filter:
+                continue
+            floating_ips.append({
+                'id': fip.id,
+                'floating_ip_address': getattr(fip, 'floating_ip_address', 'unknown'),
+                'fixed_ip_address': getattr(fip, 'fixed_ip_address', None),
+                'port_id': getattr(fip, 'port_id', None),
+                'router_id': getattr(fip, 'router_id', None),
+                'status': getattr(fip, 'status', 'unknown'),
+                'tenant_id': getattr(fip, 'tenant_id', 'unknown'),
+                'project_id': getattr(fip, 'project_id', 'unknown'),
+                'floating_network_id': getattr(fip, 'floating_network_id', 'unknown'),
+                'created_at': str(getattr(fip, 'created_at', 'unknown')),
+                'updated_at': str(getattr(fip, 'updated_at', 'unknown')),
+                'description': getattr(fip, 'description', '')
+            })
+
+        logger.info(
+            "Retrieved %s floating IPs (project_id=%s, include_all_projects=%s, all_projects_mode=%s)",
+            len(floating_ips),
+            scope_project_id,
+            include_all_projects,
+            all_projects_mode,
+        )
         return floating_ips
     except Exception as e:
         logger.error(f"Failed to get floating IPs: {e}")
@@ -1095,56 +1087,72 @@ def set_floating_ip_port_forwarding(action: str, **kwargs) -> Dict[str, Any]:
         }
 
 
-def get_routers() -> List[Dict[str, Any]]:
+def get_routers(
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
+) -> List[Dict[str, Any]]:
     """
-    Get list of routers with detailed information for current project.
+    Get list of routers with detailed information.
     
     Returns:
         List of router dictionaries for current project
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
+        from ..connection import get_openstack_connection, is_all_projects_readonly_mode
         conn = get_openstack_connection()
         current_project_id = conn.current_project_id
+        all_projects_mode = is_all_projects_readonly_mode()
+        allow_cross_project = all_projects_mode and include_all_projects
+        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
+        status_filter = status.strip().lower() if status else ""
         routers = []
         
         for router in conn.network.routers():
-            # Filter by current project
             router_project_id = getattr(router, 'project_id', None) or getattr(router, 'tenant_id', None)
-            if router_project_id == current_project_id:
-                # Get router interfaces (ports)
-                interfaces = []
-                try:
-                    for port in conn.network.ports():
-                        if getattr(port, 'device_id', '') == router.id and \
-                           getattr(port, 'device_owner', '').startswith('network:router_interface'):
-                            interfaces.append({
-                                'port_id': port.id,
-                                'subnet_id': getattr(port, 'fixed_ips', [{}])[0].get('subnet_id', 'unknown') if getattr(port, 'fixed_ips', []) else 'unknown',
-                                'ip_address': getattr(port, 'fixed_ips', [{}])[0].get('ip_address', 'unknown') if getattr(port, 'fixed_ips', []) else 'unknown'
-                            })
-                except Exception as e:
-                    logger.warning(f"Failed to get router interfaces for {router.id}: {e}")
-                
-                routers.append({
-                    'id': router.id,
-                    'name': getattr(router, 'name', 'unnamed'),
-                    'status': getattr(router, 'status', 'unknown'),
-                    'admin_state_up': getattr(router, 'is_admin_state_up', True),
-                    'external_gateway_info': getattr(router, 'external_gateway_info', None),
-                    'tenant_id': getattr(router, 'tenant_id', 'unknown'),
-                    'project_id': getattr(router, 'project_id', 'unknown'),
-                    'created_at': str(getattr(router, 'created_at', 'unknown')),
-                    'updated_at': str(getattr(router, 'updated_at', 'unknown')),
-                    'description': getattr(router, 'description', ''),
-                    'ha': getattr(router, 'is_ha', False),
-                    'distributed': getattr(router, 'is_distributed', False),
-                    'interfaces': interfaces,
-                    'interface_count': len(interfaces)
-                })
+            router_status = str(getattr(router, 'status', 'unknown')).lower()
+            if scope_project_id is not None and router_project_id != scope_project_id:
+                continue
+            if status_filter and router_status != status_filter:
+                continue
+            interfaces = []
+            try:
+                for port in conn.network.ports():
+                    if getattr(port, 'device_id', '') == router.id and \
+                       getattr(port, 'device_owner', '').startswith('network:router_interface'):
+                        interfaces.append({
+                            'port_id': port.id,
+                            'subnet_id': getattr(port, 'fixed_ips', [{}])[0].get('subnet_id', 'unknown') if getattr(port, 'fixed_ips', []) else 'unknown',
+                            'ip_address': getattr(port, 'fixed_ips', [{}])[0].get('ip_address', 'unknown') if getattr(port, 'fixed_ips', []) else 'unknown'
+                        })
+            except Exception as e:
+                logger.warning(f"Failed to get router interfaces for {router.id}: {e}")
+            
+            routers.append({
+                'id': router.id,
+                'name': getattr(router, 'name', 'unnamed'),
+                'status': getattr(router, 'status', 'unknown'),
+                'admin_state_up': getattr(router, 'is_admin_state_up', True),
+                'external_gateway_info': getattr(router, 'external_gateway_info', None),
+                'tenant_id': getattr(router, 'tenant_id', 'unknown'),
+                'project_id': getattr(router, 'project_id', 'unknown'),
+                'created_at': str(getattr(router, 'created_at', 'unknown')),
+                'updated_at': str(getattr(router, 'updated_at', 'unknown')),
+                'description': getattr(router, 'description', ''),
+                'ha': getattr(router, 'is_ha', False),
+                'distributed': getattr(router, 'is_distributed', False),
+                'interfaces': interfaces,
+                'interface_count': len(interfaces)
+            })
         
-        logger.info(f"Retrieved {len(routers)} routers for project {current_project_id}")
+        logger.info(
+            "Retrieved %s routers (project_id=%s, include_all_projects=%s, all_projects_mode=%s)",
+            len(routers),
+            scope_project_id,
+            include_all_projects,
+            all_projects_mode,
+        )
         return routers
     except Exception as e:
         logger.error(f"Failed to get routers: {e}")
@@ -1174,8 +1182,22 @@ def set_network_ports(action: str, port_name: Optional[str] = None, **kwargs) ->
         conn = get_openstack_connection()
         
         if action.lower() == 'list':
+            from ..connection import is_all_projects_readonly_mode
+            current_project_id = conn.current_project_id
+            all_projects_mode = is_all_projects_readonly_mode()
+            include_all_projects = bool(kwargs.get('include_all_projects', False))
+            project_id = str(kwargs.get('project_id', '') or '')
+            status_filter = str(kwargs.get('status', '') or '').strip().lower()
+            allow_cross_project = all_projects_mode and include_all_projects
+            scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
             ports = []
             for port in conn.network.ports():
+                port_project_id = getattr(port, 'project_id', None) or getattr(port, 'tenant_id', None)
+                port_status = str(getattr(port, 'status', 'unknown')).lower()
+                if scope_project_id is not None and port_project_id != scope_project_id:
+                    continue
+                if status_filter and port_status != status_filter:
+                    continue
                 ports.append({
                     'id': port.id,
                     'name': getattr(port, 'name', 'unnamed'),
@@ -1185,6 +1207,7 @@ def set_network_ports(action: str, port_name: Optional[str] = None, **kwargs) ->
                     'device_id': getattr(port, 'device_id', ''),
                     'device_owner': getattr(port, 'device_owner', ''),
                     'mac_address': getattr(port, 'mac_address', 'unknown'),
+                    'project_id': getattr(port, 'project_id', 'unknown'),
                     'fixed_ips': getattr(port, 'fixed_ips', []),
                     'security_groups': getattr(port, 'security_group_ids', [])
                 })

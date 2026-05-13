@@ -9,7 +9,12 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_network_details(network_name: str = "all") -> str:
+async def get_network_details(
+    network_name: str = "all",
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
+) -> str:
     """
     Provides detailed information for OpenStack networks, subnets, routers, and security groups.
     
@@ -28,8 +33,16 @@ async def get_network_details(network_name: str = "all") -> str:
         Network detailed information in JSON format with networks, subnets, routers, and security groups.
     """
     try:
-        logger.info(f"Fetching network details: {network_name}")
-        details = _get_network_details(network_name)
+        logger.info(
+            f"Fetching network details: {network_name} (include_all_projects={include_all_projects}, "
+            f"project_id={project_id}, status={status})"
+        )
+        details = _get_network_details(
+            network_name=network_name,
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+            status=status,
+        )
         
         result = {
             "timestamp": datetime.now().isoformat(), 
