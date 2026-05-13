@@ -1202,7 +1202,18 @@ def set_network_ports(action: str, port_name: Optional[str] = None, **kwargs) ->
             allow_cross_project = all_projects_mode and include_all_projects
             scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
             ports = []
-            for port in conn.network.ports():
+            port_iter = None
+            try:
+                if scope_project_id is None:
+                    port_iter = conn.network.ports(all_projects=True)
+                elif all_projects_mode and project_id:
+                    port_iter = conn.network.ports(project_id=scope_project_id)
+                else:
+                    port_iter = conn.network.ports()
+            except TypeError:
+                port_iter = conn.network.ports()
+
+            for port in port_iter:
                 port_project_id = getattr(port, 'project_id', None) or getattr(port, 'tenant_id', None)
                 port_status = str(getattr(port, 'status', 'unknown')).lower()
                 if scope_project_id is not None and port_project_id != scope_project_id:
@@ -1218,7 +1229,7 @@ def set_network_ports(action: str, port_name: Optional[str] = None, **kwargs) ->
                     'device_id': getattr(port, 'device_id', ''),
                     'device_owner': getattr(port, 'device_owner', ''),
                     'mac_address': getattr(port, 'mac_address', 'unknown'),
-                    'project_id': getattr(port, 'project_id', 'unknown'),
+                    'project_id': getattr(port, 'project_id', None) or getattr(port, 'tenant_id', 'unknown'),
                     'fixed_ips': getattr(port, 'fixed_ips', []),
                     'security_groups': getattr(port, 'security_group_ids', [])
                 })
