@@ -31,8 +31,18 @@ def get_volume_list(
         allow_cross_project = all_projects_mode and include_all_projects
         scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
         volumes = []
-        
-        for volume in conn.volume.volumes():
+
+        volume_iter = None
+        try:
+            if scope_project_id is None:
+                volume_iter = conn.volume.volumes(details=True, all_projects=True)
+            else:
+                volume_iter = conn.volume.volumes()
+        except TypeError:
+            # Older SDKs may not support all_projects argument.
+            volume_iter = conn.volume.volumes()
+
+        for volume in volume_iter:
             volume_project_id = getattr(volume, 'project_id', None)
             if scope_project_id is None or volume_project_id == scope_project_id:
                 # Get attachment information
@@ -397,8 +407,17 @@ def get_volume_snapshots(
         allow_cross_project = all_projects_mode and include_all_projects
         scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
         snapshots = []
-        
-        for snapshot in conn.volume.snapshots():
+
+        snapshot_iter = None
+        try:
+            if scope_project_id is None:
+                snapshot_iter = conn.volume.snapshots(details=True, all_projects=True)
+            else:
+                snapshot_iter = conn.volume.snapshots()
+        except TypeError:
+            snapshot_iter = conn.volume.snapshots()
+
+        for snapshot in snapshot_iter:
             snapshot_project_id = getattr(snapshot, 'project_id', None)
             if scope_project_id is None or snapshot_project_id == scope_project_id:
                 snapshots.append({
@@ -601,8 +620,17 @@ def set_volume_backups(
         
         if action.lower() == 'list':
             backups = []
+            backup_iter = None
             try:
-                for backup in conn.volume.backups():
+                try:
+                    if scope_project_id is None:
+                        backup_iter = conn.volume.backups(details=True, all_projects=True)
+                    else:
+                        backup_iter = conn.volume.backups()
+                except TypeError:
+                    backup_iter = conn.volume.backups()
+
+                for backup in backup_iter:
                     backup_project_id = getattr(backup, 'project_id', None)
                     if scope_project_id is not None and backup_project_id != scope_project_id:
                         continue
