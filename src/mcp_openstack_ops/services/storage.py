@@ -29,14 +29,18 @@ def get_volume_list(
         conn = get_openstack_connection()
         current_project_id = get_current_project_id()
         all_projects_mode = is_all_projects_readonly_mode()
+        has_project_filter = bool(project_id)
         allow_cross_project = all_projects_mode and include_all_projects
-        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
+        # In all-projects read-only mode, explicit project_id must query all projects first,
+        # then apply strict project filtering below.
+        should_query_all_projects = all_projects_mode and (include_all_projects or has_project_filter)
+        scope_project_id = project_id if (all_projects_mode and has_project_filter) else (None if allow_cross_project else current_project_id)
         status_filter = status.strip().lower() if status else ""
         volumes = []
 
         volume_iter = None
         try:
-            if scope_project_id is None:
+            if should_query_all_projects:
                 volume_iter = conn.volume.volumes(details=True, all_projects=True)
             else:
                 volume_iter = conn.volume.volumes()
