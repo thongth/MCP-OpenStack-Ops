@@ -28,6 +28,7 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 - `get_network_by_name.py`
 - `get_network_by_project.py`
 - `get_network_details.py`
+- `get_subnet_by_network.py`
 - `get_network_ports.py`
 - `get_network_agents.py`
 - `get_floating_ips.py`
