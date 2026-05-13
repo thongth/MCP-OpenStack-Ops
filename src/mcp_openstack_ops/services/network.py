@@ -1108,8 +1108,19 @@ def get_routers(
         scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
         status_filter = status.strip().lower() if status else ""
         routers = []
-        
-        for router in conn.network.routers():
+
+        router_iter = None
+        try:
+            if scope_project_id is None:
+                router_iter = conn.network.routers(all_projects=True)
+            elif all_projects_mode and project_id:
+                router_iter = conn.network.routers(project_id=scope_project_id)
+            else:
+                router_iter = conn.network.routers()
+        except TypeError:
+            router_iter = conn.network.routers()
+
+        for router in router_iter:
             router_project_id = getattr(router, 'project_id', None) or getattr(router, 'tenant_id', None)
             router_status = str(getattr(router, 'status', 'unknown')).lower()
             if scope_project_id is not None and router_project_id != scope_project_id:
