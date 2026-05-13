@@ -456,7 +456,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 - `set_floating_ip_port_forwarding`: Port forwarding rule management (create/delete/list/show/set) (**Conditional Tool**)
 
 **Network Advanced Features:**
-- `get_routers`: Router configuration and routing tables (always available)
+- `get_routers_by_status`, `get_routers_by_state`, `get_routers_by_project`, `get_routers_by_name`, `get_routers_details`: Router queries and detailed routing information (always available)
 - `set_network_qos_policies`: QoS policy operations (**Conditional Tool**)
 - `set_network_agents`: Network agent operations (**Conditional Tool**)
 
