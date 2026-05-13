@@ -12,13 +12,15 @@ from ..mcp_main import (
 async def get_load_balancer_list(
     limit: int = 50,
     offset: int = 0,
-    include_all: bool = False
+    include_all: bool = False,
+    include_all_projects: bool = False,
+    project_id: str = "",
 ) -> str:
     """
     Retrieve comprehensive list of OpenStack load balancers with detailed information.
     
     Functions:
-    - Lists all load balancers in the OpenStack cluster
+    - Lists load balancers in current project, all projects, or a specific project
     - Provides detailed load balancer information including VIP, status, listeners
     - Supports pagination for large environments (limit/offset)
     - Shows listener count and basic listener information for each load balancer
@@ -34,16 +36,23 @@ async def get_load_balancer_list(
         limit: Maximum load balancers to return (1-200, default: 50)
         offset: Number of load balancers to skip for pagination (default: 0)  
         include_all: Return all load balancers ignoring limit/offset (default: False)
+        include_all_projects: Return load balancers across all projects (default: False)
+        project_id: Optional project ID filter (default: "")
         
     Returns:
         JSON string containing load balancer details with summary statistics
     """
     try:
-        logger.info(f"Getting load balancer list (limit={limit}, offset={offset}, include_all={include_all})")
+        logger.info(
+            f"Getting load balancer list (limit={limit}, offset={offset}, include_all={include_all}, "
+            f"include_all_projects={include_all_projects}, project_id={project_id})"
+        )
         result = _get_load_balancer_list(
             limit=limit,
             offset=offset, 
-            include_all=include_all
+            include_all=include_all,
+            include_all_projects=include_all_projects,
+            project_id=project_id,
         )
         
         response = {

@@ -8,39 +8,70 @@ creation, deletion, and basic load balancer operations.
 import logging
 from datetime import datetime
 from typing import Dict, List, Any, Optional
-from ...connection import get_openstack_connection
+from ...connection import get_openstack_connection, is_all_projects_readonly_mode
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-def get_load_balancer_list(limit: int = 50, offset: int = 0, include_all: bool = False) -> Dict[str, Any]:
+def get_load_balancer_list(
+    limit: int = 50,
+    offset: int = 0,
+    include_all: bool = False,
+    include_all_projects: bool = False,
+    project_id: str = "",
+) -> Dict[str, Any]:
     """
-    Get list of load balancers with comprehensive details for current project.
+    Get list of load balancers with comprehensive details.
     
     Args:
         limit: Maximum number of load balancers to return (1-200, default: 50)
         offset: Number of load balancers to skip (default: 0)
         include_all: If True, return all load balancers (ignores limit/offset)
+        include_all_projects: If True, list load balancers across all projects
+        project_id: Optional project ID to filter
     
     Returns:
-        Dictionary containing load balancers list with details for current project
+        Dictionary containing load balancers list with details
     """
     try:
         conn = get_openstack_connection()
         current_project_id = conn.current_project_id
+        all_projects_mode = is_all_projects_readonly_mode()
         start_time = datetime.now()
-        
-        logger.info(f"Fetching load balancers for project {current_project_id} (limit={limit}, offset={offset}, include_all={include_all})")
+
+        scope_project_id: Optional[str] = None
+        scope: str = "project"
+        if project_id:
+            scope_project_id = project_id
+            scope = "project-filter"
+        elif include_all_projects:
+            scope_project_id = None
+            scope = "all-projects"
+        elif all_projects_mode:
+            scope_project_id = None
+            scope = "all-projects-readonly"
+        else:
+            scope_project_id = current_project_id
+            scope = "project"
+
+        logger.info(
+            "Fetching load balancers (scope=%s, scope_project_id=%s, limit=%s, offset=%s, include_all=%s)",
+            scope,
+            scope_project_id,
+            limit,
+            offset,
+            include_all,
+        )
         
         # Validate limit
         if not include_all:
             limit = max(1, min(limit, 200))
         
-        # Get all load balancers and filter by current project
+        # Get all load balancers and filter by requested scope
         all_lbs = []
         for lb in conn.load_balancer.load_balancers():
-            if getattr(lb, 'project_id', None) == current_project_id:
+            if scope_project_id is None or getattr(lb, 'project_id', None) == scope_project_id:
                 all_lbs.append(lb)
         
         # Apply pagination
@@ -111,7 +142,8 @@ def get_load_balancer_list(limit: int = 50, offset: int = 0, include_all: bool =
                 'limit': limit if not include_all else 'all',
                 'offset': offset if not include_all else 0,
                 'processing_time_seconds': round(processing_time, 2),
-                'project_id': current_project_id
+                'project_id': scope_project_id,
+                'scope': scope,
             }
         }
         
@@ -119,7 +151,13 @@ def get_load_balancer_list(limit: int = 50, offset: int = 0, include_all: bool =
             result['summary']['total_available'] = len(all_lbs)
             result['summary']['has_more'] = (offset + limit) < len(all_lbs)
         
-        logger.info(f"Successfully retrieved {len(lb_details)} load balancers for project {current_project_id} in {processing_time:.2f}s")
+        logger.info(
+            "Successfully retrieved %s load balancers (scope=%s, project_id=%s) in %.2fs",
+            len(lb_details),
+            scope,
+            scope_project_id,
+            processing_time,
+        )
         return result
         
     except Exception as e:
