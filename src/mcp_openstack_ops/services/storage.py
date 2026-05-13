@@ -12,23 +12,29 @@ from typing import Dict, List, Any, Optional
 logger = logging.getLogger(__name__)
 
 
-def get_volume_list() -> List[Dict[str, Any]]:
+def get_volume_list(
+    include_all_projects: bool = False,
+    project_id: str = "",
+) -> List[Dict[str, Any]]:
     """
-    Get list of volumes with detailed information for current project.
+    Get list of volumes with detailed information.
     
     Returns:
-        List of volume dictionaries for current project
+        List of volume dictionaries
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection, get_current_project_id, validate_resource_ownership
+        from ..connection import get_openstack_connection, get_current_project_id, is_all_projects_readonly_mode
         conn = get_openstack_connection()
         current_project_id = get_current_project_id()
+        all_projects_mode = is_all_projects_readonly_mode()
+        allow_cross_project = all_projects_mode and include_all_projects
+        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
         volumes = []
         
         for volume in conn.volume.volumes():
-            # Enhanced project validation using utility functions
-            if validate_resource_ownership(volume, "Volume"):
+            volume_project_id = getattr(volume, 'project_id', None)
+            if scope_project_id is None or volume_project_id == scope_project_id:
                 # Get attachment information
                 attachments = []
                 for attachment in getattr(volume, 'attachments', []):
@@ -61,7 +67,13 @@ def get_volume_list() -> List[Dict[str, Any]]:
                     'attachment_count': len(attachments)
                 })
         
-        logger.info(f"Retrieved {len(volumes)} volumes for project {current_project_id}")
+        logger.info(
+            "Retrieved %s volumes (project_id=%s, include_all_projects=%s, all_projects_mode=%s)",
+            len(volumes),
+            scope_project_id,
+            include_all_projects,
+            all_projects_mode,
+        )
         return volumes
     except Exception as e:
         logger.error(f"Failed to get volume list: {e}")
@@ -366,24 +378,29 @@ def get_volume_types() -> List[Dict[str, Any]]:
         ]
 
 
-def get_volume_snapshots() -> List[Dict[str, Any]]:
+def get_volume_snapshots(
+    include_all_projects: bool = False,
+    project_id: str = "",
+) -> List[Dict[str, Any]]:
     """
-    Get list of volume snapshots for current project.
+    Get list of volume snapshots.
     
     Returns:
-        List of snapshot dictionaries for current project
+        List of snapshot dictionaries
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
+        from ..connection import get_openstack_connection, is_all_projects_readonly_mode
         conn = get_openstack_connection()
         current_project_id = conn.current_project_id
+        all_projects_mode = is_all_projects_readonly_mode()
+        allow_cross_project = all_projects_mode and include_all_projects
+        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
         snapshots = []
         
         for snapshot in conn.volume.snapshots():
-            # Filter by current project
             snapshot_project_id = getattr(snapshot, 'project_id', None)
-            if snapshot_project_id == current_project_id:
+            if scope_project_id is None or snapshot_project_id == scope_project_id:
                 snapshots.append({
                     'id': snapshot.id,
                     'name': getattr(snapshot, 'name', 'unnamed'),
@@ -397,7 +414,13 @@ def get_volume_snapshots() -> List[Dict[str, Any]]:
                     'metadata': getattr(snapshot, 'metadata', {})
                 })
         
-        logger.info(f"Retrieved {len(snapshots)} snapshots for project {current_project_id}")
+        logger.info(
+            "Retrieved %s snapshots (project_id=%s, include_all_projects=%s, all_projects_mode=%s)",
+            len(snapshots),
+            scope_project_id,
+            include_all_projects,
+            all_projects_mode,
+        )
         return snapshots
     except Exception as e:
         logger.error(f"Failed to get volume snapshots: {e}")
@@ -549,7 +572,13 @@ def set_snapshot(snapshot_name: str, action: str, **kwargs) -> Dict[str, Any]:
         }
 
 
-def set_volume_backups(action: str, backup_name: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+def set_volume_backups(
+    action: str,
+    backup_name: Optional[str] = None,
+    include_all_projects: bool = False,
+    project_id: str = "",
+    **kwargs
+) -> Dict[str, Any]:
     """
     Manage volume backups.
     
@@ -563,19 +592,27 @@ def set_volume_backups(action: str, backup_name: Optional[str] = None, **kwargs)
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
+        from ..connection import get_openstack_connection, is_all_projects_readonly_mode
         conn = get_openstack_connection()
+        current_project_id = getattr(conn, "current_project_id", None)
+        all_projects_mode = is_all_projects_readonly_mode()
+        allow_cross_project = all_projects_mode and include_all_projects
+        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
         
         if action.lower() == 'list':
             backups = []
             try:
                 for backup in conn.volume.backups():
+                    backup_project_id = getattr(backup, 'project_id', None)
+                    if scope_project_id is not None and backup_project_id != scope_project_id:
+                        continue
                     backups.append({
                         'id': backup.id,
                         'name': getattr(backup, 'name', 'unnamed'),
                         'status': getattr(backup, 'status', 'unknown'),
                         'size': getattr(backup, 'size', 0),
                         'volume_id': getattr(backup, 'volume_id', 'unknown'),
+                        'project_id': backup_project_id,
                         'created_at': str(getattr(backup, 'created_at', 'unknown')),
                         'description': getattr(backup, 'description', '')
                     })
@@ -590,7 +627,12 @@ def set_volume_backups(action: str, backup_name: Optional[str] = None, **kwargs)
             return {
                 'success': True,
                 'backups': backups,
-                'count': len(backups)
+                'count': len(backups),
+                'scope': {
+                    'project_id': scope_project_id,
+                    'include_all_projects': include_all_projects,
+                    'all_projects_mode': all_projects_mode,
+                }
             }
             
         elif action.lower() == 'create':

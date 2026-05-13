@@ -9,7 +9,10 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_volume_list() -> str:
+async def get_volume_list(
+    include_all_projects: bool = False,
+    project_id: str = "",
+) -> str:
     """
     Get list of all volumes with detailed information.
     
@@ -25,8 +28,13 @@ async def get_volume_list() -> str:
         Detailed volume list in JSON format with volume information, attachments, and metadata.
     """
     try:
-        logger.info("Fetching volume list")
-        volumes = _get_volume_list()
+        logger.info(
+            f"Fetching volume list (include_all_projects={include_all_projects}, project_id={project_id})"
+        )
+        volumes = _get_volume_list(
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+        )
         
         response = {
             "timestamp": datetime.now().isoformat(),

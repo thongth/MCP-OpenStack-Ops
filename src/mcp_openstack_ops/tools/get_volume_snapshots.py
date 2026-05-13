@@ -9,7 +9,10 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_volume_snapshots() -> str:
+async def get_volume_snapshots(
+    include_all_projects: bool = False,
+    project_id: str = "",
+) -> str:
     """
     Get list of volume snapshots.
     
@@ -25,8 +28,13 @@ async def get_volume_snapshots() -> str:
         List of volume snapshots with detailed information in JSON format.
     """
     try:
-        logger.info("Fetching volume snapshots")
-        snapshots = _get_volume_snapshots()
+        logger.info(
+            f"Fetching volume snapshots (include_all_projects={include_all_projects}, project_id={project_id})"
+        )
+        snapshots = _get_volume_snapshots(
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+        )
         
         result = {
             "timestamp": datetime.now().isoformat(),

@@ -661,6 +661,14 @@ Options:
 - **Shared Resource Access**: Intelligently includes shared/public resources (networks, images) while maintaining strict security boundaries
 - **Cross-Project Access Prevention**: Enhanced protection against accidental operations on similarly-named resources in other projects
 
+### Scope Behavior Update (2026-05-13)
+
+- `get_load_balancer_list`, `get_volume_list`, `get_volume_snapshots`, and `set_volume_backups(action="list")` now support optional `include_all_projects` and `project_id` filters.
+- Cross-project reads are enforced by policy:
+  - `ALLOW_ALL_PROJECTS_READONLY=false`: forced single-project scope (current project only).
+  - `ALLOW_ALL_PROJECTS_READONLY=true`: allows all-project reads or project-specific reads via `project_id`.
+- `include_all=true` in list tools controls pagination only, not cross-project access.
+
 **Filtered Resources by Project:**
 
 | Service | Project-Scoped Resources | Notes |
