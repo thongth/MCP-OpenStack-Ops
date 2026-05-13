@@ -20,6 +20,12 @@ async def get_network_by_project(
             project_id=project_id,
             status=status,
         )
+        # Enforce strict owner filtering: only networks owned by the requested project_id.
+        filtered_networks = [
+            n for n in networks
+            if str(n.get("project_id", "")) == project_id
+        ]
+
         return json.dumps(
             {
                 "timestamp": datetime.now().isoformat(),
@@ -28,8 +34,8 @@ async def get_network_by_project(
                     "include_all_projects": include_all_projects,
                     "status": status,
                 },
-                "total_networks": len(networks),
-                "networks": networks,
+                "total_networks": len(filtered_networks),
+                "networks": filtered_networks,
             },
             indent=2,
             ensure_ascii=False,
