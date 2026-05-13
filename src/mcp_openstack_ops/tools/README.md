@@ -16,6 +16,7 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 
 - `get_instance.py`
 - `get_instance_by_name.py`
+- `get_instance_by_project.py`
 - `get_instance_details.py`
 - `get_instances_by_status.py`
 - `get_server_events.py`
