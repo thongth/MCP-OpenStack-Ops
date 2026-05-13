@@ -316,50 +316,85 @@ def set_networks(action: str, network_name: Optional[str] = None, **kwargs) -> D
         }
 
 
-def get_security_groups() -> List[Dict[str, Any]]:
+def get_security_groups(
+    include_all_projects: bool = False,
+    project_id: str = "",
+) -> List[Dict[str, Any]]:
     """
-    Get list of security groups with rules for current project.
+    Get list of security groups with rules.
     
     Returns:
-        List of security group dictionaries for current project
+        List of security group dictionaries
     """
     try:
         # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
+        from ..connection import get_openstack_connection, is_all_projects_readonly_mode
         conn = get_openstack_connection()
         current_project_id = conn.current_project_id
+        all_projects_mode = is_all_projects_readonly_mode()
+        allow_cross_project = all_projects_mode and include_all_projects
+        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
         security_groups = []
-        
-        for sg in conn.network.security_groups():
-            # Filter by current project
+
+        sg_iter = None
+        try:
+            if scope_project_id is None:
+                try:
+                    sg_iter = conn.network.security_groups(all_projects=True)
+                except TypeError:
+                    try:
+                        sg_iter = conn.network.security_groups(all_tenants=True)
+                    except TypeError:
+                        sg_iter = conn.network.security_groups()
+            elif all_projects_mode and project_id:
+                try:
+                    sg_iter = conn.network.security_groups(project_id=scope_project_id)
+                except TypeError:
+                    try:
+                        sg_iter = conn.network.security_groups(tenant_id=scope_project_id)
+                    except TypeError:
+                        sg_iter = conn.network.security_groups()
+            else:
+                sg_iter = conn.network.security_groups()
+        except TypeError:
+            sg_iter = conn.network.security_groups()
+
+        for sg in sg_iter:
             sg_project_id = getattr(sg, 'project_id', None) or getattr(sg, 'tenant_id', None)
-            if sg_project_id == current_project_id:
-                rules = []
-                for rule in getattr(sg, 'security_group_rules', []):
-                    rules.append({
-                        'id': rule.get('id', 'unknown'),
-                        'direction': rule.get('direction', 'unknown'),
-                        'protocol': rule.get('protocol', 'any'),
-                        'port_range_min': rule.get('port_range_min'),
-                        'port_range_max': rule.get('port_range_max'),
-                        'remote_ip_prefix': rule.get('remote_ip_prefix'),
-                        'remote_group_id': rule.get('remote_group_id'),
-                        'ethertype': rule.get('ethertype', 'IPv4')
-                    })
-                
-                security_groups.append({
-                    'id': sg.id,
-                    'name': getattr(sg, 'name', 'unnamed'),
-                    'description': getattr(sg, 'description', ''),
-                    'tenant_id': getattr(sg, 'tenant_id', 'unknown'),
-                    'project_id': getattr(sg, 'project_id', 'unknown'),
-                    'created_at': str(getattr(sg, 'created_at', 'unknown')),
-                    'updated_at': str(getattr(sg, 'updated_at', 'unknown')),
-                    'rules': rules,
-                    'rule_count': len(rules)
+            if scope_project_id is not None and sg_project_id != scope_project_id:
+                continue
+            rules = []
+            for rule in getattr(sg, 'security_group_rules', []):
+                rules.append({
+                    'id': rule.get('id', 'unknown'),
+                    'direction': rule.get('direction', 'unknown'),
+                    'protocol': rule.get('protocol', 'any'),
+                    'port_range_min': rule.get('port_range_min'),
+                    'port_range_max': rule.get('port_range_max'),
+                    'remote_ip_prefix': rule.get('remote_ip_prefix'),
+                    'remote_group_id': rule.get('remote_group_id'),
+                    'ethertype': rule.get('ethertype', 'IPv4')
                 })
-        
-        logger.info(f"Retrieved {len(security_groups)} security groups for project {current_project_id}")
+
+            security_groups.append({
+                'id': sg.id,
+                'name': getattr(sg, 'name', 'unnamed'),
+                'description': getattr(sg, 'description', ''),
+                'tenant_id': getattr(sg, 'tenant_id', 'unknown'),
+                'project_id': getattr(sg, 'project_id', None) or getattr(sg, 'tenant_id', 'unknown'),
+                'created_at': str(getattr(sg, 'created_at', 'unknown')),
+                'updated_at': str(getattr(sg, 'updated_at', 'unknown')),
+                'rules': rules,
+                'rule_count': len(rules)
+            })
+
+        logger.info(
+            "Retrieved %s security groups (project_id=%s, include_all_projects=%s, all_projects_mode=%s)",
+            len(security_groups),
+            scope_project_id,
+            include_all_projects,
+            all_projects_mode,
+        )
         return security_groups
     except Exception as e:
         logger.error(f"Failed to get security groups: {e}")
@@ -393,8 +428,31 @@ def get_floating_ips(
         scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
         status_filter = status.strip().lower() if status else ""
         floating_ips = []
-        
-        for fip in conn.network.ips():
+
+        fip_iter = None
+        try:
+            if scope_project_id is None:
+                try:
+                    fip_iter = conn.network.ips(all_projects=True)
+                except TypeError:
+                    try:
+                        fip_iter = conn.network.ips(all_tenants=True)
+                    except TypeError:
+                        fip_iter = conn.network.ips()
+            elif all_projects_mode and project_id:
+                try:
+                    fip_iter = conn.network.ips(project_id=scope_project_id)
+                except TypeError:
+                    try:
+                        fip_iter = conn.network.ips(tenant_id=scope_project_id)
+                    except TypeError:
+                        fip_iter = conn.network.ips()
+            else:
+                fip_iter = conn.network.ips()
+        except TypeError:
+            fip_iter = conn.network.ips()
+
+        for fip in fip_iter:
             fip_project_id = getattr(fip, 'project_id', None) or getattr(fip, 'tenant_id', None)
             fip_status = str(getattr(fip, 'status', 'unknown')).lower()
             if scope_project_id is not None and fip_project_id != scope_project_id:
@@ -1205,9 +1263,24 @@ def set_network_ports(action: str, port_name: Optional[str] = None, **kwargs) ->
             port_iter = None
             try:
                 if scope_project_id is None:
-                    port_iter = conn.network.ports(all_projects=True)
+                    # Compatibility across Neutron/OpenStackSDK versions:
+                    # some environments honor all_projects, others use all_tenants.
+                    try:
+                        port_iter = conn.network.ports(all_projects=True)
+                    except TypeError:
+                        try:
+                            port_iter = conn.network.ports(all_tenants=True)
+                        except TypeError:
+                            port_iter = conn.network.ports()
                 elif all_projects_mode and project_id:
-                    port_iter = conn.network.ports(project_id=scope_project_id)
+                    # Compatibility: some deployments expose project_id, others tenant_id.
+                    try:
+                        port_iter = conn.network.ports(project_id=scope_project_id)
+                    except TypeError:
+                        try:
+                            port_iter = conn.network.ports(tenant_id=scope_project_id)
+                        except TypeError:
+                            port_iter = conn.network.ports()
                 else:
                     port_iter = conn.network.ports()
             except TypeError:

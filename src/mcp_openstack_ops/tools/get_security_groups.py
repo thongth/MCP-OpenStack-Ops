@@ -9,7 +9,10 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_security_groups() -> str:
+async def get_security_groups(
+    include_all_projects: bool = False,
+    project_id: str = "",
+) -> str:
     """
     Get list of security groups with their rules.
     
@@ -25,8 +28,13 @@ async def get_security_groups() -> str:
         List of security groups with detailed rules in JSON format.
     """
     try:
-        logger.info("Fetching security groups")
-        security_groups = _get_security_groups()
+        logger.info(
+            f"Fetching security groups (include_all_projects={include_all_projects}, project_id={project_id})"
+        )
+        security_groups = _get_security_groups(
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+        )
         
         result = {
             "timestamp": datetime.now().isoformat(),
