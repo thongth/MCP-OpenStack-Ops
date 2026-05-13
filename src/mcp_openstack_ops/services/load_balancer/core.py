@@ -42,10 +42,11 @@ def get_load_balancer_list(
 
         scope_project_id: Optional[str] = None
         scope: str = "project"
-        if project_id:
+        # Security guard: cross-project listing is only allowed in read-only all-projects mode.
+        if all_projects_mode and project_id:
             scope_project_id = project_id
             scope = "project-filter"
-        elif include_all_projects:
+        elif all_projects_mode and include_all_projects:
             scope_project_id = None
             scope = "all-projects"
         elif all_projects_mode:
