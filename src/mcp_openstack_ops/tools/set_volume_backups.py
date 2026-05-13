@@ -17,6 +17,7 @@ async def set_volume_backups(
     force: bool = False,
     include_all_projects: bool = False,
     project_id: str = "",
+    status: str = "",
 ) -> str:
     """
     Manage OpenStack volume backups with comprehensive backup operations
@@ -50,6 +51,7 @@ async def set_volume_backups(
             force=force,
             include_all_projects=include_all_projects,
             project_id=project_id,
+            status=status,
         )
         return json.dumps(result, indent=2)
     except Exception as e:

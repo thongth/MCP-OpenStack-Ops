@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 def get_volume_list(
     include_all_projects: bool = False,
     project_id: str = "",
+    status: str = "",
 ) -> List[Dict[str, Any]]:
     """
     Get list of volumes with detailed information.
@@ -30,6 +31,7 @@ def get_volume_list(
         all_projects_mode = is_all_projects_readonly_mode()
         allow_cross_project = all_projects_mode and include_all_projects
         scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
+        status_filter = status.strip().lower() if status else ""
         volumes = []
 
         volume_iter = None
@@ -44,7 +46,10 @@ def get_volume_list(
 
         for volume in volume_iter:
             volume_project_id = getattr(volume, 'project_id', None)
+            volume_status = str(getattr(volume, 'status', 'unknown')).lower()
             if scope_project_id is None or volume_project_id == scope_project_id:
+                if status_filter and volume_status != status_filter:
+                    continue
                 # Get attachment information
                 attachments = []
                 for attachment in getattr(volume, 'attachments', []):
@@ -391,6 +396,7 @@ def get_volume_types() -> List[Dict[str, Any]]:
 def get_volume_snapshots(
     include_all_projects: bool = False,
     project_id: str = "",
+    status: str = "",
 ) -> List[Dict[str, Any]]:
     """
     Get list of volume snapshots.
@@ -406,6 +412,7 @@ def get_volume_snapshots(
         all_projects_mode = is_all_projects_readonly_mode()
         allow_cross_project = all_projects_mode and include_all_projects
         scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
+        status_filter = status.strip().lower() if status else ""
         snapshots = []
 
         snapshot_iter = None
@@ -419,7 +426,10 @@ def get_volume_snapshots(
 
         for snapshot in snapshot_iter:
             snapshot_project_id = getattr(snapshot, 'project_id', None)
+            snapshot_status = str(getattr(snapshot, 'status', 'unknown')).lower()
             if scope_project_id is None or snapshot_project_id == scope_project_id:
+                if status_filter and snapshot_status != status_filter:
+                    continue
                 snapshots.append({
                     'id': snapshot.id,
                     'name': getattr(snapshot, 'name', 'unnamed'),
@@ -596,6 +606,7 @@ def set_volume_backups(
     backup_name: Optional[str] = None,
     include_all_projects: bool = False,
     project_id: str = "",
+    status: str = "",
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -617,6 +628,7 @@ def set_volume_backups(
         all_projects_mode = is_all_projects_readonly_mode()
         allow_cross_project = all_projects_mode and include_all_projects
         scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
+        status_filter = status.strip().lower() if status else ""
         
         if action.lower() == 'list':
             backups = []
@@ -632,7 +644,10 @@ def set_volume_backups(
 
                 for backup in backup_iter:
                     backup_project_id = getattr(backup, 'project_id', None)
+                    backup_status = str(getattr(backup, 'status', 'unknown')).lower()
                     if scope_project_id is not None and backup_project_id != scope_project_id:
+                        continue
+                    if status_filter and backup_status != status_filter:
                         continue
                     backups.append({
                         'id': backup.id,

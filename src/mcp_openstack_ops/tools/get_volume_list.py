@@ -12,6 +12,7 @@ from ..mcp_main import (
 async def get_volume_list(
     include_all_projects: bool = False,
     project_id: str = "",
+    status: str = "",
 ) -> str:
     """
     Get list of all volumes with detailed information.
@@ -29,11 +30,12 @@ async def get_volume_list(
     """
     try:
         logger.info(
-            f"Fetching volume list (include_all_projects={include_all_projects}, project_id={project_id})"
+            f"Fetching volume list (include_all_projects={include_all_projects}, project_id={project_id}, status={status})"
         )
         volumes = _get_volume_list(
             include_all_projects=include_all_projects,
             project_id=project_id,
+            status=status,
         )
         
         response = {
