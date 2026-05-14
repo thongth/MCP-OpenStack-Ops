@@ -4,6 +4,7 @@ OpenStack Image (Glance) Service Functions
 This module contains functions for managing images, image metadata, and image sharing.
 """
 
+import json
 import logging
 from typing import Dict, List, Any, Optional
 
@@ -139,6 +140,182 @@ def get_image_detail_list() -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Failed to get detailed image list: {e}")
         return []
+
+
+def _serialize_image(image: Any) -> Dict[str, Any]:
+    return {
+        'id': getattr(image, 'id', ''),
+        'name': getattr(image, 'name', ''),
+        'status': getattr(image, 'status', 'unknown'),
+        'visibility': getattr(image, 'visibility', 'private'),
+        'owner': getattr(image, 'owner', None),
+        'size': getattr(image, 'size', 0),
+        'disk_format': getattr(image, 'disk_format', 'unknown'),
+        'container_format': getattr(image, 'container_format', 'unknown'),
+        'min_disk': getattr(image, 'min_disk', 0),
+        'min_ram': getattr(image, 'min_ram', 0),
+        'created_at': str(getattr(image, 'created_at', 'unknown')),
+        'updated_at': str(getattr(image, 'updated_at', 'unknown')),
+        'protected': getattr(image, 'is_protected', False),
+        'checksum': getattr(image, 'checksum', None),
+        'properties': getattr(image, 'properties', {}) or {},
+        'tags': list(getattr(image, 'tags', []) or []),
+    }
+
+
+def _base_filtered_images(
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
+    visibility: str = "",
+    owner: str = "",
+    name_filter: str = "",
+) -> List[Dict[str, Any]]:
+    from ..connection import get_openstack_connection, is_all_projects_readonly_mode
+
+    conn = get_openstack_connection()
+    current_project_id = conn.current_project_id
+    all_projects_mode = is_all_projects_readonly_mode()
+
+    owner_filter = owner.strip() or project_id.strip()
+    status_filter = status.strip().lower()
+    visibility_filter = visibility.strip().lower()
+    name_filter_norm = name_filter.strip().lower()
+
+    results: List[Dict[str, Any]] = []
+    for image in conn.image.images():
+        item = _serialize_image(image)
+        item_owner = str(item.get('owner', '') or '')
+        item_visibility = str(item.get('visibility', 'private')).lower()
+
+        if all_projects_mode and include_all_projects:
+            pass
+        elif all_projects_mode and owner_filter:
+            if item_owner != owner_filter:
+                continue
+        else:
+            if item_visibility not in ['public', 'community', 'shared'] and item_owner != current_project_id:
+                continue
+
+        if owner_filter and item_owner != owner_filter:
+            continue
+        if status_filter and str(item.get('status', '')).lower() != status_filter:
+            continue
+        if visibility_filter and item_visibility != visibility_filter:
+            continue
+        if name_filter_norm and name_filter_norm not in str(item.get('name', '')).lower():
+            continue
+
+        results.append(item)
+
+    return results
+
+
+def get_image_list_filtered(
+    include_all_projects: bool = False,
+    project_id: str = "",
+    status: str = "",
+    visibility: str = "",
+    owner: str = "",
+    name_filter: str = "",
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    try:
+        images = _base_filtered_images(
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+            status=status,
+            visibility=visibility,
+            owner=owner,
+            name_filter=name_filter,
+        )
+        total = len(images)
+        limit = max(1, min(limit, 200))
+        offset = max(0, offset)
+        return {
+            'success': True,
+            'images': images[offset:offset + limit],
+            'count': len(images[offset:offset + limit]),
+            'total_count': total,
+            'limit': limit,
+            'offset': offset,
+        }
+    except Exception as e:
+        logger.error(f"Failed to get filtered image list: {e}")
+        return {'success': False, 'message': str(e), 'images': [], 'count': 0, 'total_count': 0}
+
+
+def get_image_by_id_or_name(
+    image_id_or_name: str,
+    include_all_projects: bool = False,
+    project_id: str = "",
+) -> Dict[str, Any]:
+    try:
+        query = image_id_or_name.strip()
+        images = _base_filtered_images(
+            include_all_projects=include_all_projects,
+            project_id=project_id,
+        )
+        matched = [i for i in images if str(i.get('id', '')) == query or str(i.get('name', '')) == query]
+        return {'success': True, 'image': matched[0] if matched else None, 'found': len(matched) > 0}
+    except Exception as e:
+        logger.error(f"Failed to get image by id or name: {e}")
+        return {'success': False, 'message': str(e), 'image': None, 'found': False}
+
+
+def search_images(
+    search_term: str,
+    search_in: str = "all",
+    limit: int = 50,
+    offset: int = 0,
+    case_sensitive: bool = False,
+) -> Dict[str, Any]:
+    try:
+        term = search_term if case_sensitive else search_term.lower()
+        fields = [f.strip() for f in search_in.split(',') if f.strip()] if search_in else ['all']
+        images = _base_filtered_images()
+        matched: List[Dict[str, Any]] = []
+
+        def _contains(value: Any) -> bool:
+            text = str(value if value is not None else "")
+            if not case_sensitive:
+                text = text.lower()
+            return term in text
+
+        for image in images:
+            scan_fields = fields if 'all' not in fields else [
+                'name', 'id', 'owner', 'visibility', 'disk_format', 'container_format', 'properties'
+            ]
+            found = False
+            for field in scan_fields:
+                if field == 'properties':
+                    if _contains(json.dumps(image.get('properties', {}), ensure_ascii=False)):
+                        found = True
+                        break
+                elif _contains(image.get(field)):
+                    found = True
+                    break
+            if found:
+                matched.append(image)
+
+        total = len(matched)
+        limit = max(1, min(limit, 200))
+        offset = max(0, offset)
+        paged = matched[offset:offset + limit]
+        return {
+            'success': True,
+            'images': paged,
+            'count': len(paged),
+            'total_count': total,
+            'limit': limit,
+            'offset': offset,
+            'search_term': search_term,
+            'search_in': fields,
+        }
+    except Exception as e:
+        logger.error(f"Failed to search images: {e}")
+        return {'success': False, 'message': str(e), 'images': [], 'count': 0, 'total_count': 0}
 
 
 def set_image(image_name: str, action: str, **kwargs) -> Dict[str, Any]:

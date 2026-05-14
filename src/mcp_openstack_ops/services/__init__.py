@@ -72,6 +72,9 @@ from .orchestration import (
 # Image service functions
 from .image import (
     get_image_list,
+    get_image_list_filtered,
+    get_image_by_id_or_name,
+    search_images,
     get_image_detail_list,
     set_image,
     set_image_members,
@@ -196,6 +199,9 @@ __all__ = [
     
     # Image
     'get_image_list',
+    'get_image_list_filtered',
+    'get_image_by_id_or_name',
+    'search_images',
     'get_image_detail_list',
     'set_image',
     'set_image_members',

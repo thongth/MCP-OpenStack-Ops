@@ -957,6 +957,9 @@ from .services.identity import (
 # Import image functions from services
 from .services.image import (
     get_image_list,
+    get_image_list_filtered,
+    get_image_by_id_or_name,
+    search_images,
     get_image_detail_list,
     set_image,
     set_image_members,

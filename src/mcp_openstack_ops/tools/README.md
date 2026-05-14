@@ -55,6 +55,11 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 
 ### Image
 
+- `get_image_list.py`
+- `get_image_by_id_or_name.py`
+- `get_image_by_project.py`
+- `get_image_by_status.py`
+- `search_images.py`
 - `get_image_detail_list.py`
 
 ### Identity / Project
