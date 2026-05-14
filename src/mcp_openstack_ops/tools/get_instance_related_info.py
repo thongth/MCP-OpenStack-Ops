@@ -156,7 +156,14 @@ async def get_instance_related_info(
                 if isinstance(events_result, dict):
                     events = events_result.get("events", []) or []
                     if not events_result.get("success", True):
-                        warnings.append(events_result.get("message", "Failed to retrieve server events"))
+                        event_message = events_result.get("message", "Failed to retrieve server events")
+                        if "not found" in str(event_message).lower():
+                            warnings.append(
+                                "Recent events unavailable for this instance in event API scope "
+                                "(instance detail still resolved successfully)"
+                            )
+                        else:
+                            warnings.append(event_message)
                     elif not events:
                         warnings.append("No recent events returned for this instance")
                 else:
