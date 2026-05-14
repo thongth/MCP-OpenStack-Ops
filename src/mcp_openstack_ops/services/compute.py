@@ -159,11 +159,22 @@ def get_instance_details(
                 host_value = getattr(server, 'host', None) or getattr(server, 'hypervisor_hostname', None) or 'unknown'
                 hypervisor_hostname_value = getattr(server, 'hypervisor_hostname', None) or 'unknown'
 
+                power_state_value = getattr(server, 'power_state', 0)
+                power_state_labels = {
+                    0: 'NOSTATE',
+                    1: 'RUNNING',
+                    3: 'PAUSED',
+                    4: 'SHUTDOWN',
+                    6: 'CRASHED',
+                    7: 'SUSPENDED',
+                }
+
                 instance_data = {
                     'id': server.id,
                     'name': getattr(server, 'name', 'unnamed'),
                     'status': getattr(server, 'status', 'unknown'),
-                    'power_state': getattr(server, 'power_state', 0),
+                    'power_state': power_state_value,
+                    'power_state_label': power_state_labels.get(power_state_value, f'UNKNOWN({power_state_value})'),
                     'task_state': getattr(server, 'task_state', None),
                     'vm_state': getattr(server, 'vm_state', 'unknown'),
                     'created': str(getattr(server, 'created_at', 'unknown')),
