@@ -231,16 +231,26 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
         
         for listener in listeners:
             pool_summary = []
-            try:
-                pools = list(conn.load_balancer.pools(listener_id=listener.id))
-            except Exception as e:
-                warnings.append(
-                    f"Failed to list pools for listener {listener.id} via listener_id filter: {e}. "
-                    "Falling back to global pool listing."
-                )
+            pool_data_source = 'none'
+            pools = []
+            listener_default_pool_id = str(getattr(listener, 'default_pool_id', '') or '')
+
+            # Preferred path: use listener->default_pool_id relationship directly.
+            if listener_default_pool_id:
+                try:
+                    pool_obj = conn.load_balancer.get_pool(listener_default_pool_id)
+                    if pool_obj:
+                        pools = [pool_obj]
+                        pool_data_source = 'default_pool_id'
+                except Exception as e:
+                    warnings.append(
+                        f"Failed to get pool {listener_default_pool_id} from listener {listener.id}: {e}"
+                    )
+
+            # Fallback path: global pool listing + relationship filtering.
+            if not pools:
                 try:
                     all_pools = list(conn.load_balancer.pools())
-                    listener_default_pool_id = str(getattr(listener, 'default_pool_id', '') or '')
                     pools = [
                         p for p in all_pools
                         if str(getattr(p, 'listener_id', '')) == str(listener.id)
@@ -257,8 +267,10 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
                             if isinstance(ref, dict)
                         )
                     ]
-                except Exception as fallback_e:
-                    warnings.append(f"Fallback pool listing failed for listener {listener.id}: {fallback_e}")
+                    if pools:
+                        pool_data_source = 'fallback_global_pool_list'
+                except Exception as e:
+                    warnings.append(f"Failed to resolve pools for listener {listener.id}: {e}")
                     pools = []
             
             for pool in pools:
@@ -287,7 +299,8 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
                 'protocol_port': listener.protocol_port,
                 'admin_state_up': getattr(listener, 'admin_state_up', None),
                 'pools': pool_summary,
-                'pool_count': len(pool_summary)
+                'pool_count': len(pool_summary),
+                'pool_data_source': pool_data_source,
             }
             listener_details.append(listener_info)
         
