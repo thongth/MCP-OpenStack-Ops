@@ -156,6 +156,9 @@ def get_instance_details(
                         security_groups.append(getattr(sg, 'name', 'unknown'))
                 
                 # Build instance data
+                host_value = getattr(server, 'host', None) or getattr(server, 'hypervisor_hostname', None) or 'unknown'
+                hypervisor_hostname_value = getattr(server, 'hypervisor_hostname', None) or 'unknown'
+
                 instance_data = {
                     'id': server.id,
                     'name': getattr(server, 'name', 'unnamed'),
@@ -166,8 +169,8 @@ def get_instance_details(
                     'created': str(getattr(server, 'created_at', 'unknown')),
                     'updated': str(getattr(server, 'updated_at', 'unknown')),
                     'launched_at': str(getattr(server, 'launched_at', None)) if getattr(server, 'launched_at', None) else None,
-                    'host': getattr(server, 'host', 'unknown'),
-                    'hypervisor_hostname': getattr(server, 'hypervisor_hostname', 'unknown'),
+                    'host': host_value,
+                    'hypervisor_hostname': hypervisor_hostname_value,
                     'availability_zone': getattr(server, 'availability_zone', 'unknown'),
                     'flavor': flavor_info,
                     'image': image_info,
