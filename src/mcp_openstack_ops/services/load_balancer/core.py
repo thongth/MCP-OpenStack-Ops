@@ -170,7 +170,7 @@ def get_load_balancer_list(
         }
 
 
-def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
+def get_load_balancer_details(lb_name_or_id: str, include_amphorae: bool = True) -> Dict[str, Any]:
     """
     Get detailed information about a specific load balancer.
     
@@ -306,6 +306,23 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
         
         lb_details['listeners'] = listener_details
         lb_details['listener_count'] = len(listener_details)
+
+        if include_amphorae:
+            try:
+                from .amphorae import get_load_balancer_amphorae
+                amphora_result = get_load_balancer_amphorae(lb_name_or_id=lb.id)
+                if amphora_result.get('success'):
+                    lb_details['amphorae'] = amphora_result.get('amphorae', [])
+                    lb_details['amphora_count'] = amphora_result.get('amphora_count', 0)
+                else:
+                    warnings.append(amphora_result.get('message', 'Failed to fetch amphorae'))
+                    lb_details['amphorae'] = []
+                    lb_details['amphora_count'] = 0
+            except Exception as e:
+                warnings.append(f"Failed to fetch amphorae: {e}")
+                lb_details['amphorae'] = []
+                lb_details['amphora_count'] = 0
+
         lb_details['warnings'] = warnings
         
         return {

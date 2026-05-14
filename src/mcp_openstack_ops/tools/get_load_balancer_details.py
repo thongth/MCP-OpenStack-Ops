@@ -9,7 +9,10 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_load_balancer_details(lb_name_or_id: str) -> str:
+async def get_load_balancer_details(
+    lb_name_or_id: str,
+    include_amphorae: bool = True,
+) -> str:
     """
     Get detailed information about a specific OpenStack load balancer.
     
@@ -34,7 +37,10 @@ async def get_load_balancer_details(lb_name_or_id: str) -> str:
     """
     try:
         logger.info(f"Getting load balancer details for: {lb_name_or_id}")
-        result = _get_load_balancer_details(lb_name_or_id)
+        result = _get_load_balancer_details(
+            lb_name_or_id=lb_name_or_id,
+            include_amphorae=include_amphorae,
+        )
         
         response = {
             "timestamp": datetime.now().isoformat(),
