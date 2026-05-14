@@ -287,7 +287,7 @@ Only claim success when the tool returns `success: true`:
 **NO HYPOTHETICAL RESPONSES** - Do not say "if this OpenStack system supports", "you would need to check", or similar speculative phrases—USE THE TOOLS to get actual data.
 
 **UNIFIED TOOL PRIORITY** - Use the new unified tools for better efficiency:
-- **`get_instance`** (replaces get_instance_details, get_instance_by_name, get_instances_by_status, search_instances)
+- **`get_instance`** (replaces get_instance_details, get_instance_by_id_or_name, get_instances_by_status, search_instances)
 - **`set_instance` with filters** (enables direct filter-based actions like "stop all instances with name containing 'ttt'")
 
 **INSTANCE QUERY PATTERNS**:
@@ -433,7 +433,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 - `get_service_status`: Service health and API endpoint status
 - `get_instance_details`: Specific instance information with pagination support
 - `search_instances`: Flexible instance search with partial matching and case-sensitive options
-- `get_instance_by_name`: Quick single instance lookup
+- `get_instance_by_id_or_name`: Quick single instance lookup
 - `get_instances_by_status`: Filter instances by operational status
 - `monitor_resources`: CPU, memory, storage usage by hypervisor (physical_usage + quota_usage)
 
@@ -456,7 +456,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 - `set_floating_ip_port_forwarding`: Port forwarding rule management (create/delete/list/show/set) (**Conditional Tool**)
 
 **Network Advanced Features:**
-- `get_routers_by_status`, `get_routers_by_state`, `get_routers_by_project`, `get_routers_by_name`, `get_routers_details`: Router queries and detailed routing information (always available)
+- `get_routers_by_status`, `get_routers_by_state`, `get_routers_by_project`, `get_routers_by_id_or_name`, `get_routers_details`: Router queries and detailed routing information (always available)
 - `set_network_qos_policies`: QoS policy operations (**Conditional Tool**)
 - `set_network_agents`: Network agent operations (**Conditional Tool**)
 

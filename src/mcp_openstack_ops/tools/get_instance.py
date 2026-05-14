@@ -27,7 +27,7 @@ async def get_instance(
 ) -> str:
     """
     Unified instance query tool supporting all instance retrieval patterns.
-    Consolidates functionality from get_instance_details, get_instance_by_name, get_instances_by_status, and search_instances.
+    Consolidates functionality from get_instance_details, get_instance_by_id_or_name, get_instances_by_status, and search_instances.
     
     Functions:
     - Get specific instances by names or IDs

@@ -15,7 +15,7 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 ### Compute
 
 - `get_instance.py`
-- `get_instance_by_name.py`
+- `get_instance_by_id_or_name.py`
 - `get_instance_by_project.py`
 - `get_instance_details.py`
 - `get_instances_by_status.py`
@@ -26,7 +26,7 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 ### Network
 
 - `get_network.py`
-- `get_network_by_name.py`
+- `get_network_by_id_or_name.py`
 - `get_network_by_project.py`
 - `get_network_details.py`
 - `get_network_ports.py`
@@ -39,13 +39,13 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 - `get_routers_by_status.py`
 - `get_routers_by_state.py`
 - `get_routers_by_project.py`
-- `get_routers_by_name.py`
+- `get_routers_by_id_or_name.py`
 - `get_routers_details.py`
 
 ### Storage
 
 - `get_volume.py`
-- `get_volume_by_name.py`
+- `get_volume_by_id_or_name.py`
 - `get_volume_by_project.py`
 - `get_volume_by_status.py`
 - `get_volume_types.py`

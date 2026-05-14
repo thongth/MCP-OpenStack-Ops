@@ -1,4 +1,4 @@
-"""Tool implementation for get_network_by_name."""
+"""Tool implementation for get_network_by_id_or_name."""
 
 import json
 from datetime import datetime
@@ -7,16 +7,16 @@ from ..mcp_main import logger, mcp
 
 
 @mcp.tool()
-async def get_network_by_name(
-    network_name: str,
+async def get_network_by_id_or_name(
+    network_id_or_name: str,
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
 ) -> str:
-    """Get network details by exact network name (or ID)."""
+    """Get network details by exact network ID or name."""
     try:
         networks = _get_network_details(
-            network_name=network_name,
+            network_name=network_id_or_name,
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
@@ -24,7 +24,7 @@ async def get_network_by_name(
         return json.dumps(
             {
                 "timestamp": datetime.now().isoformat(),
-                "query": network_name,
+                "query": network_id_or_name,
                 "found": len(networks) > 0,
                 "total_networks": len(networks),
                 "networks": networks,
@@ -33,5 +33,5 @@ async def get_network_by_name(
             ensure_ascii=False,
         )
     except Exception as e:
-        logger.error(f"Error: Failed to fetch network by name - {e}")
-        return f"Error: Failed to fetch network by name - {str(e)}"
+        logger.error(f"Error: Failed to fetch network by id or name - {e}")
+        return f"Error: Failed to fetch network by id or name - {str(e)}"

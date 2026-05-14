@@ -1,4 +1,4 @@
-"""Tool implementation for get_volume_by_name."""
+"""Tool implementation for get_volume_by_id_or_name."""
 
 import json
 from datetime import datetime
@@ -7,20 +7,20 @@ from ..mcp_main import logger, mcp
 
 
 @mcp.tool()
-async def get_volume_by_name(
-    volume_name_or_id: str,
+async def get_volume_by_id_or_name(
+    volume_id_or_name: str,
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
 ) -> str:
-    """Get volume details by exact volume name or ID."""
+    """Get volume details by exact volume ID or name."""
     try:
         volumes = _get_volume_list(
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
         )
-        query = volume_name_or_id.strip()
+        query = volume_id_or_name.strip()
         filtered_volumes = [
             v for v in volumes
             if str(v.get("id", "")) == query or str(v.get("name", "")) == query
@@ -29,7 +29,7 @@ async def get_volume_by_name(
         return json.dumps(
             {
                 "timestamp": datetime.now().isoformat(),
-                "query": volume_name_or_id,
+                "query": volume_id_or_name,
                 "found": len(filtered_volumes) > 0,
                 "total_volumes": len(filtered_volumes),
                 "volumes": filtered_volumes,
@@ -38,5 +38,5 @@ async def get_volume_by_name(
             ensure_ascii=False,
         )
     except Exception as e:
-        logger.error(f"Error: Failed to fetch volume by name - {e}")
-        return f"Error: Failed to fetch volume by name - {str(e)}"
+        logger.error(f"Error: Failed to fetch volume by id or name - {e}")
+        return f"Error: Failed to fetch volume by id or name - {str(e)}"
