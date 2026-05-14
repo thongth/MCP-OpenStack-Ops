@@ -217,7 +217,14 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
         
         # Get listeners/pools/members with resilient partial-failure handling.
         try:
-            listeners = list(conn.load_balancer.listeners(loadbalancer_id=lb.id))
+            raw_listeners = list(conn.load_balancer.listeners(loadbalancer_id=lb.id))
+            listeners = []
+            for listener in raw_listeners:
+                listener_lb_id = str(getattr(listener, 'loadbalancer_id', '') or '')
+                listener_lbs = getattr(listener, 'load_balancers', []) or []
+                in_lb_refs = any(str((ref or {}).get('id', '')) == str(lb.id) for ref in listener_lbs if isinstance(ref, dict))
+                if listener_lb_id == str(lb.id) or in_lb_refs:
+                    listeners.append(listener)
         except Exception as e:
             warnings.append(f"Failed to list listeners: {e}")
             listeners = []

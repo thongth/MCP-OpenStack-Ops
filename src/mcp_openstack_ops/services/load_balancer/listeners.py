@@ -33,8 +33,16 @@ def get_load_balancer_listeners(lb_name_or_id: str) -> Dict[str, Any]:
                 'message': f'Load balancer not found: {lb_name_or_id}'
             }
         
-        # Get listeners
-        listeners = list(conn.load_balancer.listeners(loadbalancer_id=lb.id))
+        # Get listeners (defensive client-side filtering for SDK/API variants
+        # that may ignore `loadbalancer_id` server-side filter).
+        raw_listeners = list(conn.load_balancer.listeners(loadbalancer_id=lb.id))
+        listeners = []
+        for listener in raw_listeners:
+            listener_lb_id = str(getattr(listener, 'loadbalancer_id', '') or '')
+            listener_lbs = getattr(listener, 'load_balancers', []) or []
+            in_lb_refs = any(str((ref or {}).get('id', '')) == str(lb.id) for ref in listener_lbs if isinstance(ref, dict))
+            if listener_lb_id == str(lb.id) or in_lb_refs:
+                listeners.append(listener)
         listener_details = []
         
         for listener in listeners:
