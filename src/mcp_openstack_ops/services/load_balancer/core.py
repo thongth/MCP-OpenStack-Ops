@@ -212,19 +212,43 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
             'updated_at': str(lb.updated_at) if hasattr(lb, 'updated_at') else 'N/A'
         }
         
-        # Get listeners
-        listeners = list(conn.load_balancer.listeners(loadbalancer_id=lb.id))
         listener_details = []
+        warnings = []
+        
+        # Get listeners/pools/members with resilient partial-failure handling.
+        try:
+            listeners = list(conn.load_balancer.listeners(loadbalancer_id=lb.id))
+        except Exception as e:
+            warnings.append(f"Failed to list listeners: {e}")
+            listeners = []
         
         for listener in listeners:
-            # Get pools for this listener
-            pools = list(conn.load_balancer.pools(listener_id=listener.id))
             pool_summary = []
+            try:
+                pools = list(conn.load_balancer.pools(listener_id=listener.id))
+            except Exception as e:
+                warnings.append(
+                    f"Failed to list pools for listener {listener.id} via listener_id filter: {e}. "
+                    "Falling back to global pool listing."
+                )
+                try:
+                    all_pools = list(conn.load_balancer.pools())
+                    pools = [
+                        p for p in all_pools
+                        if str(getattr(p, 'listener_id', '')) == str(listener.id)
+                        or str(getattr(p, 'loadbalancer_id', '')) == str(lb.id)
+                    ]
+                except Exception as fallback_e:
+                    warnings.append(f"Fallback pool listing failed for listener {listener.id}: {fallback_e}")
+                    pools = []
             
             for pool in pools:
-                # Get members for this pool
-                members = list(conn.load_balancer.members(pool_id=pool.id))
-                member_summary = [{'id': m.id, 'address': m.address, 'protocol_port': m.protocol_port} for m in members]
+                try:
+                    members = list(conn.load_balancer.members(pool))
+                    member_summary = [{'id': m.id, 'address': m.address, 'protocol_port': m.protocol_port} for m in members]
+                except Exception as e:
+                    warnings.append(f"Failed to list members for pool {pool.id}: {e}")
+                    member_summary = []
                 
                 pool_info = {
                     'id': pool.id,
@@ -250,6 +274,7 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
         
         lb_details['listeners'] = listener_details
         lb_details['listener_count'] = len(listener_details)
+        lb_details['warnings'] = warnings
         
         return {
             'success': True,

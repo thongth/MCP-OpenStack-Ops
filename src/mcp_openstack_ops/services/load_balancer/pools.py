@@ -34,7 +34,12 @@ def get_load_balancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
                     'message': f'Listener not found: {listener_name_or_id}'
                 }
             
-            pools = list(conn.load_balancer.pools(listener_id=listener.id))
+            try:
+                pools = list(conn.load_balancer.pools(listener_id=listener.id))
+            except Exception:
+                # Compatibility fallback for SDKs/endpoints that reject listener_id filter
+                all_pools = list(conn.load_balancer.pools())
+                pools = [p for p in all_pools if str(getattr(p, 'listener_id', '')) == str(listener.id)]
         else:
             # Get all pools
             pools = list(conn.load_balancer.pools())
@@ -42,7 +47,7 @@ def get_load_balancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
         pool_details = []
         for pool in pools:
             # Get members for this pool
-            members = list(conn.load_balancer.members(pool_id=pool.id))
+            members = list(conn.load_balancer.members(pool))
             member_summary = []
             
             for member in members:
