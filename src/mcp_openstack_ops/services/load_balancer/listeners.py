@@ -44,7 +44,7 @@ def get_load_balancer_listeners(lb_name_or_id: str) -> Dict[str, Any]:
                 'description': listener.description,
                 'protocol': listener.protocol,
                 'protocol_port': listener.protocol_port,
-                'admin_state_up': listener.admin_state_up,
+                'admin_state_up': getattr(listener, 'admin_state_up', None),
                 'loadbalancer_id': listener.loadbalancer_id,
                 'default_pool_id': getattr(listener, 'default_pool_id', None),
                 'created_at': str(listener.created_at) if hasattr(listener, 'created_at') else 'N/A',

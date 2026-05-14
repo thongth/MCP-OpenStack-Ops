@@ -95,7 +95,7 @@ def get_load_balancer_list(
                         'name': listener.name,
                         'protocol': listener.protocol,
                         'protocol_port': listener.protocol_port,
-                        'admin_state_up': listener.admin_state_up
+                        'admin_state_up': getattr(listener, 'admin_state_up', None)
                     }
                     listener_summary.append(listener_info)
                 
@@ -109,7 +109,7 @@ def get_load_balancer_list(
                     'vip_network_id': lb.vip_network_id,
                     'provisioning_status': lb.provisioning_status,
                     'operating_status': lb.operating_status,
-                    'admin_state_up': lb.admin_state_up,
+                    'admin_state_up': getattr(lb, 'admin_state_up', None),
                     'project_id': lb.project_id,
                     'provider': getattr(lb, 'provider', 'Unknown'),
                     'created_at': str(lb.created_at) if hasattr(lb, 'created_at') else 'N/A',
@@ -205,7 +205,7 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
             'vip_network_id': lb.vip_network_id,
             'provisioning_status': lb.provisioning_status,
             'operating_status': lb.operating_status,
-            'admin_state_up': lb.admin_state_up,
+            'admin_state_up': getattr(lb, 'admin_state_up', None),
             'project_id': lb.project_id,
             'provider': getattr(lb, 'provider', 'Unknown'),
             'created_at': str(lb.created_at) if hasattr(lb, 'created_at') else 'N/A',
@@ -231,7 +231,7 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
                     'name': pool.name,
                     'protocol': pool.protocol,
                     'lb_algorithm': pool.lb_algorithm,
-                    'admin_state_up': pool.admin_state_up,
+                    'admin_state_up': getattr(pool, 'admin_state_up', None),
                     'members': member_summary,
                     'member_count': len(member_summary)
                 }
@@ -242,7 +242,7 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
                 'name': listener.name,
                 'protocol': listener.protocol,
                 'protocol_port': listener.protocol_port,
-                'admin_state_up': listener.admin_state_up,
+                'admin_state_up': getattr(listener, 'admin_state_up', None),
                 'pools': pool_summary,
                 'pool_count': len(pool_summary)
             }
