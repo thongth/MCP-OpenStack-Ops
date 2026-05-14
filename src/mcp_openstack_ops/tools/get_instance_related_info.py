@@ -112,9 +112,40 @@ async def get_instance_related_info(
                 warnings.append(f"Failed to collect floating IPs: {e}")
 
         volumes = []
+        attached_volume_ids = [str(v) for v in (instance.get("attached_volumes", []) or []) if v]
         if include_volumes:
             try:
                 volumes = _get_server_volumes(instance_name_or_id)
+                if any(isinstance(v, dict) and v.get("error") for v in (volumes or [])):
+                    warnings.append("Volume API returned partial/error entries; applying fallback from instance attachments")
+                    volumes = [v for v in volumes if not (isinstance(v, dict) and v.get("error"))]
+
+                if attached_volume_ids and len(volumes) < len(attached_volume_ids):
+                    conn = get_openstack_connection()
+                    existing_ids = {str(v.get("volume_id") or v.get("id") or "") for v in volumes if isinstance(v, dict)}
+                    for volume_id in attached_volume_ids:
+                        if volume_id in existing_ids:
+                            continue
+                        try:
+                            vol = conn.volume.get_volume(volume_id)
+                            volumes.append(
+                                {
+                                    "volume_id": getattr(vol, "id", volume_id),
+                                    "volume_name": getattr(vol, "name", ""),
+                                    "size": getattr(vol, "size", 0),
+                                    "status": getattr(vol, "status", "unknown"),
+                                    "volume_type": getattr(vol, "volume_type", None),
+                                    "bootable": getattr(vol, "is_bootable", False),
+                                    "encrypted": getattr(vol, "is_encrypted", False),
+                                    "attachment_id": None,
+                                    "device": None,
+                                    "source": "instance_attached_volumes_fallback",
+                                }
+                            )
+                        except Exception as e:
+                            warnings.append(f"Failed to resolve attached volume '{volume_id}': {e}")
+                if attached_volume_ids and not volumes:
+                    warnings.append("Instance has attached_volumes metadata but no volume detail could be retrieved")
             except Exception as e:
                 warnings.append(f"Failed to collect volumes: {e}")
 
@@ -122,7 +153,15 @@ async def get_instance_related_info(
         if include_events:
             try:
                 events_result = _get_server_events(instance_name_or_id, limit=events_limit)
-                events = events_result.get("events", []) if isinstance(events_result, dict) else []
+                if isinstance(events_result, dict):
+                    events = events_result.get("events", []) or []
+                    if not events_result.get("success", True):
+                        warnings.append(events_result.get("message", "Failed to retrieve server events"))
+                    elif not events:
+                        warnings.append("No recent events returned for this instance")
+                else:
+                    events = []
+                    warnings.append("Unexpected events response format")
             except Exception as e:
                 warnings.append(f"Failed to collect events: {e}")
 
