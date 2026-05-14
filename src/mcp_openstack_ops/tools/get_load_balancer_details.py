@@ -12,6 +12,7 @@ from ..mcp_main import (
 async def get_load_balancer_details(
     lb_name_or_id: str,
     include_amphorae: bool = True,
+    include_amphora_instance_details: bool = True,
 ) -> str:
     """
     Get detailed information about a specific OpenStack load balancer.
@@ -40,6 +41,7 @@ async def get_load_balancer_details(
         result = _get_load_balancer_details(
             lb_name_or_id=lb_name_or_id,
             include_amphorae=include_amphorae,
+            include_amphora_instance_details=include_amphora_instance_details,
         )
         
         response = {

@@ -170,7 +170,11 @@ def get_load_balancer_list(
         }
 
 
-def get_load_balancer_details(lb_name_or_id: str, include_amphorae: bool = True) -> Dict[str, Any]:
+def get_load_balancer_details(
+    lb_name_or_id: str,
+    include_amphorae: bool = True,
+    include_amphora_instance_details: bool = True,
+) -> Dict[str, Any]:
     """
     Get detailed information about a specific load balancer.
     
@@ -312,7 +316,30 @@ def get_load_balancer_details(lb_name_or_id: str, include_amphorae: bool = True)
                 from .amphorae import get_load_balancer_amphorae
                 amphora_result = get_load_balancer_amphorae(lb_name_or_id=lb.id)
                 if amphora_result.get('success'):
-                    lb_details['amphorae'] = amphora_result.get('amphorae', [])
+                    amphorae = amphora_result.get('amphorae', [])
+                    if include_amphora_instance_details:
+                        for amphora in amphorae:
+                            compute_id = str((amphora or {}).get('compute_id', '') or '').strip()
+                            if not compute_id:
+                                amphora['instance_detail'] = None
+                                continue
+                            try:
+                                server = conn.compute.get_server(compute_id)
+                                amphora['instance_detail'] = {
+                                    'id': getattr(server, 'id', compute_id),
+                                    'name': getattr(server, 'name', ''),
+                                    'status': getattr(server, 'status', 'unknown'),
+                                    'host': getattr(server, 'host', None) or getattr(server, 'hypervisor_hostname', None),
+                                    'hypervisor_hostname': getattr(server, 'hypervisor_hostname', None),
+                                    'availability_zone': getattr(server, 'availability_zone', None),
+                                    'project_id': getattr(server, 'project_id', None) or getattr(server, 'tenant_id', None),
+                                    'created_at': str(getattr(server, 'created_at', 'unknown')),
+                                    'updated_at': str(getattr(server, 'updated_at', 'unknown')),
+                                }
+                            except Exception as e:
+                                amphora['instance_detail'] = None
+                                warnings.append(f"Failed to fetch instance detail for amphora compute_id {compute_id}: {e}")
+                    lb_details['amphorae'] = amphorae
                     lb_details['amphora_count'] = amphora_result.get('amphora_count', 0)
                 else:
                     warnings.append(amphora_result.get('message', 'Failed to fetch amphorae'))
