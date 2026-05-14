@@ -240,10 +240,22 @@ def get_load_balancer_details(lb_name_or_id: str) -> Dict[str, Any]:
                 )
                 try:
                     all_pools = list(conn.load_balancer.pools())
+                    listener_default_pool_id = str(getattr(listener, 'default_pool_id', '') or '')
                     pools = [
                         p for p in all_pools
                         if str(getattr(p, 'listener_id', '')) == str(listener.id)
                         or str(getattr(p, 'loadbalancer_id', '')) == str(lb.id)
+                        or str(getattr(p, 'id', '')) == listener_default_pool_id
+                        or any(
+                            str((ref or {}).get('id', '')) == str(listener.id)
+                            for ref in (getattr(p, 'listeners', []) or [])
+                            if isinstance(ref, dict)
+                        )
+                        or any(
+                            str((ref or {}).get('id', '')) == str(lb.id)
+                            for ref in (getattr(p, 'load_balancers', []) or [])
+                            if isinstance(ref, dict)
+                        )
                     ]
                 except Exception as fallback_e:
                     warnings.append(f"Fallback pool listing failed for listener {listener.id}: {fallback_e}")

@@ -39,7 +39,17 @@ def get_load_balancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
             except Exception:
                 # Compatibility fallback for SDKs/endpoints that reject listener_id filter
                 all_pools = list(conn.load_balancer.pools())
-                pools = [p for p in all_pools if str(getattr(p, 'listener_id', '')) == str(listener.id)]
+                listener_default_pool_id = str(getattr(listener, 'default_pool_id', '') or '')
+                pools = [
+                    p for p in all_pools
+                    if str(getattr(p, 'listener_id', '')) == str(listener.id)
+                    or str(getattr(p, 'id', '')) == listener_default_pool_id
+                    or any(
+                        str((ref or {}).get('id', '')) == str(listener.id)
+                        for ref in (getattr(p, 'listeners', []) or [])
+                        if isinstance(ref, dict)
+                    )
+                ]
         else:
             # Get all pools
             pools = list(conn.load_balancer.pools())
