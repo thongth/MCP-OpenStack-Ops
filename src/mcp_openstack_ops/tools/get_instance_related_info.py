@@ -16,6 +16,8 @@ async def get_instance_related_info(
     include_fips: bool = True,
     include_events: bool = True,
     include_ports: bool = True,
+    include_image: bool = True,
+    include_server_groups: bool = True,
     events_limit: int = 20,
 ) -> str:
     """Get consolidated instance-related info in a single response object."""
@@ -190,6 +192,56 @@ async def get_instance_related_info(
         except Exception as e:
             warnings.append(f"Failed to collect project info: {e}")
 
+        image_info = instance.get("image")
+        if include_image:
+            try:
+                image_ref = instance.get("image") if isinstance(instance.get("image"), dict) else {}
+                image_id = str(image_ref.get("id", "")).strip()
+                if image_id and image_id != "unknown":
+                    conn = get_openstack_connection()
+                    image = conn.image.get_image(image_id)
+                    image_info = {
+                        "id": getattr(image, "id", image_id),
+                        "name": getattr(image, "name", image_ref.get("name")),
+                        "status": getattr(image, "status", None),
+                        "visibility": getattr(image, "visibility", None),
+                        "owner": getattr(image, "owner", None),
+                        "size": getattr(image, "size", None),
+                        "disk_format": getattr(image, "disk_format", None),
+                        "container_format": getattr(image, "container_format", None),
+                        "min_disk": getattr(image, "min_disk", None),
+                        "min_ram": getattr(image, "min_ram", None),
+                        "created_at": str(getattr(image, "created_at", "unknown")),
+                        "updated_at": str(getattr(image, "updated_at", "unknown")),
+                    }
+            except Exception as e:
+                warnings.append(f"Failed to collect image detail: {e}")
+
+        server_groups = []
+        if include_server_groups:
+            try:
+                conn = get_openstack_connection()
+                for group in conn.compute.server_groups():
+                    members = getattr(group, "members", []) or []
+                    if instance_id not in [str(m) for m in members]:
+                        continue
+                    policies = getattr(group, "policies", []) or []
+                    policy = getattr(group, "policy", None)
+                    if policy and not policies:
+                        policies = [policy]
+                    server_groups.append(
+                        {
+                            "id": getattr(group, "id", ""),
+                            "name": getattr(group, "name", ""),
+                            "project_id": getattr(group, "project_id", None),
+                            "policies": policies,
+                            "members": members,
+                            "member_count": len(members),
+                        }
+                    )
+            except Exception as e:
+                warnings.append(f"Failed to collect server groups: {e}")
+
         hypervisor_az_info = {
             "host": instance.get("host"),
             "hypervisor_hostname": instance.get("hypervisor_hostname"),
@@ -205,14 +257,17 @@ async def get_instance_related_info(
             "volumes": volumes if include_volumes else [],
             "security_groups": instance.get("security_groups", []) or [],
             "recent_events": events if include_events else [],
+            "image": image_info if include_image else None,
             "project": project_info,
             "hypervisor_and_az": hypervisor_az_info,
+            "server_groups": server_groups if include_server_groups else [],
             "counts": {
                 "ports": len(ports) if include_ports else 0,
                 "floating_ips": len(floating_ips) if include_fips else 0,
                 "volumes": len(volumes) if include_volumes else 0,
                 "security_groups": len(instance.get("security_groups", []) or []),
                 "events": len(events) if include_events else 0,
+                "server_groups": len(server_groups) if include_server_groups else 0,
             },
             "warnings": warnings,
         }
