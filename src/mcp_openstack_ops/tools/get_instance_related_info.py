@@ -195,9 +195,44 @@ async def get_instance_related_info(
         image_info = instance.get("image")
         if include_image:
             try:
+                # Priority 1: image metadata from boot volume (volume_image_metadata).
+                volume_image_metadata = {}
+                for vol_item in volumes:
+                    if not isinstance(vol_item, dict):
+                        continue
+                    vol_id = str(vol_item.get("volume_id") or vol_item.get("id") or "").strip()
+                    if not vol_id:
+                        continue
+                    try:
+                        conn = get_openstack_connection()
+                        vol_obj = conn.volume.get_volume(vol_id)
+                        meta = getattr(vol_obj, "volume_image_metadata", None) or {}
+                        if meta:
+                            volume_image_metadata = meta
+                            break
+                    except Exception:
+                        continue
+
+                if volume_image_metadata:
+                    image_info = {
+                        "id": volume_image_metadata.get("image_id"),
+                        "name": volume_image_metadata.get("image_name"),
+                        "checksum": volume_image_metadata.get("image_checksum"),
+                        "container_format": volume_image_metadata.get("container_format"),
+                        "disk_format": volume_image_metadata.get("disk_format"),
+                        "min_disk": volume_image_metadata.get("min_disk"),
+                        "min_ram": volume_image_metadata.get("min_ram"),
+                        "size": volume_image_metadata.get("size"),
+                        "visibility": volume_image_metadata.get("visibility"),
+                        "owner": volume_image_metadata.get("owner_id"),
+                        "source": "volume_image_metadata",
+                        "volume_image_metadata": volume_image_metadata,
+                    }
+
+                # Priority 2: instance image reference/API lookup.
                 image_ref = instance.get("image") if isinstance(instance.get("image"), dict) else {}
                 image_id = str(image_ref.get("id", "")).strip()
-                if image_id and image_id != "unknown":
+                if not image_info and image_id and image_id != "unknown":
                     conn = get_openstack_connection()
                     image = conn.image.get_image(image_id)
                     image_info = {
@@ -213,6 +248,7 @@ async def get_instance_related_info(
                         "min_ram": getattr(image, "min_ram", None),
                         "created_at": str(getattr(image, "created_at", "unknown")),
                         "updated_at": str(getattr(image, "updated_at", "unknown")),
+                        "source": "image_api",
                     }
             except Exception as e:
                 warnings.append(f"Failed to collect image detail: {e}")
