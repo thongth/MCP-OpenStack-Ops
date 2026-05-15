@@ -397,7 +397,7 @@ set_snapshot(action="create", snapshot_names="backup-snap", volume_id="vol-123")
 ### 🔍 **Priority Tools**
 | Pattern | Tool | Usage |
 |---------|------|-------|
-| **"Show details for instance X"** | `get_instance_details(instance_names=["X"])` | **TOP PRIORITY** - Specific instance information |
+| **"Show details for instance X"** | `get_instance(names="X")` | **TOP PRIORITY** - Specific instance information |
 | **"Create cluster status report"** | **Use tool combination** | **PRIMARY** - Use multiple get_* tools for comprehensive cluster analysis |
 | **"List volumes/images/networks"** | `get_volume()` / `get_image_detail_list()` / `get_network_details("all")` | **PRIORITY** - Resource listing |
 | **"Find instances"** | `search_instances("keyword", "field")` | Advanced instance search with filters |
@@ -409,11 +409,11 @@ For requests like "Create cluster status report", "Show cluster operational repo
 - `get_service_status()` - Check all OpenStack service availability
 
 **2. Infrastructure & Resource Analysis:**
-- `monitor_resources()` - Physical resource utilization (CPU, RAM, storage)
+- `get_resource_monitoring()` - Physical resource utilization (CPU, RAM, storage)
 - `get_hypervisor_details()` - Physical infrastructure and hypervisor status
 
 **3. Compute Resources:**
-- `get_instance_details()` - All instances with flavor, network, status details
+- `get_instance(all_instances=True)` - All instances with flavor, network, status details
 - `get_project_details()` - Project resource breakdown and quotas
 
 **4. Network Infrastructure:**
@@ -560,7 +560,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 ## 3. Decision Flow & Pattern Recognition
 
 ### 🔥 **HIGH PRIORITY Patterns**
-1. **"Show details for instance X"** → `get_instance_details(instance_names=["X"])`
+1. **"Show details for instance X"** → `get_instance(names="X")`
 2. **"Create cluster status report"** → **Use TOOL COMBINATION** (see pattern above)
 3. **"List volumes/images/networks"** → `get_volume()` / `get_image_detail_list()` / `get_network_details("all")`
 4. **"Find/search instances"** → `search_instances("keyword", "field")`
@@ -569,22 +569,22 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 **For comprehensive cluster reports, use these tool combinations:**
 
 - **"Create cluster status report"** / **"Cluster status report"** / **"클러스터 운영 현황"** → 
-  - `get_service_status()` + `monitor_resources()` + `get_hypervisor_details()` + `get_instance_details()` + `get_project_details()` + `get_network_details()` + `get_volume()` + `get_load_balancer_details()` + `get_heat_stacks()`
+  - `get_service_status()` + `get_resource_monitoring()` + `get_hypervisor_details()` + `get_instance(all_instances=True)` + `get_project_details()` + `get_network_details()` + `get_volume()` + `get_load_balancer_details()` + `get_heat_stacks()`
 
 - **"Show detailed cluster analysis"** / **"resource utilization"** → 
-  - `monitor_resources()` + `get_hypervisor_details()` + `get_instance_details()` + `get_volume()`
+  - `get_resource_monitoring()` + `get_hypervisor_details()` + `get_instance(all_instances=True)` + `get_volume()`
 
 - **"Cluster overview"** / **"cluster status"** → 
-  - `get_service_status()` + `monitor_resources()` + `get_instance_details()` + `get_project_details()` + `get_network_details()`
+  - `get_service_status()` + `get_resource_monitoring()` + `get_instance(all_instances=True)` + `get_project_details()` + `get_network_details()`
 
 - **"Server groups"** / **"affinity policies"** → 
-  - `get_instance_details()` (includes server group info) + `search_instances()` for specific policies
+  - `get_instance(all_instances=True)` (includes server group info) + `search_instances()` for specific policies
 
 - **"Availability zones"** / **"zone status"** → 
   - `get_hypervisor_details()` (includes AZ information) + `get_service_status()`
 
 - **"Usage statistics"** / **"billing trends"** → 
-  - `get_project_details()` (all projects with resource breakdown) + `monitor_resources()`
+  - `get_project_details()` (all projects with resource breakdown) + `get_resource_monitoring()`
 
 - **"Project quotas"** / **"quota limits"** → 
   - `get_project_details()` (includes quota information for all projects)
@@ -637,16 +637,16 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 
 ### 🔥 **Instance Detail Requests (TOP PRIORITY)**
 ```
-"Show details for instance test-rockylinux-9" → get_instance(instance_names="test-rockylinux-9")
-"Get information about web-server-01" → get_instance(instance_names="web-server-01")
-"What's the status of database-vm" → get_instance(instance_names="database-vm")
-"Show all instances" → get_instance(instance_names="all")
+"Show details for instance test-rockylinux-9" → get_instance(names="test-rockylinux-9")
+"Get information about web-server-01" → get_instance(names="web-server-01")
+"What's the status of database-vm" → get_instance(names="database-vm")
+"Show all instances" → get_instance(all_instances=True)
 ```
 
 ### 📊 **Common Operations**
 ```
-"Create cluster status report" → Use tool combination: get_service_status() + monitor_resources() + get_hypervisor_details() + get_instance_details() + get_project_details() + get_network_details() + get_volume() + get_load_balancer_details() + get_heat_stacks()
-"클러스터 운영 현황 보고해줘" → Use tool combination: get_service_status() + monitor_resources() + get_hypervisor_details() + get_instance_details() + get_project_details() + get_network_details() + get_volume() + get_load_balancer_details() + get_heat_stacks()
+"Create cluster status report" → Use tool combination: get_service_status() + get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume() + get_load_balancer_details() + get_heat_stacks()
+"클러스터 운영 현황 보고해줘" → Use tool combination: get_service_status() + get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume() + get_load_balancer_details() + get_heat_stacks()
 
 # Enhanced examples with new API structure
 "Start web-server-01" → set_instance(action="start", instance_names="web-server-01")
@@ -668,8 +668,8 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Associate floating IP" → set_server_floating_ip(server_name="X", action="add", floating_ip="Y")
 "Create port forwarding" → set_floating_ip_port_forwarding("create", floating_ip_address="IP", external_port=80, internal_port=8080)
 "Create 50GB volume" → set_volume("vol-name", "create", size=50)
-"Check instance states" → get_instance_details() + get_instances_by_status()  [Instance state analysis across projects]
-"Show hypervisor utilization" → monitor_resources() + get_hypervisor_details()  [Resource utilization monitoring]
+"Check instance states" → get_instance(all_instances=True) + get_instances_by_status()  [Instance state analysis across projects]
+"Show hypervisor utilization" → get_resource_monitoring() + get_hypervisor_details()  [Resource utilization monitoring]
 "Check load balancer status" → get_load_balancer_details()  [Load balancer health monitoring]
 ```
 
@@ -701,7 +701,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Give me a cluster overview with resource utilization"
 ```
 
-**Tools Used:** `get_cluster_status()`, `monitor_resources()`, `get_service_status()`
+**Tools Used:** `get_service_status()`, `get_resource_monitoring()`, `get_hypervisor_details()`
 
 ### 🖥️ **Instance Management**
 
@@ -714,7 +714,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Delete instance old-server"
 ```
 
-**Tools Used:** `get_instance_details()`, `set_instance()`, `search_instances()`
+**Tools Used:** `get_instance(all_instances=True)`, `set_instance()`, `search_instances()`
 
 ### 🌐 **Network Operations**
 
@@ -804,7 +804,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Display storage capacity statistics"
 ```
 
-**Tools Used:** `monitor_resources()`, `get_quota()`, `get_usage_statistics()`
+**Tools Used:** `get_resource_monitoring()`, `get_quota()`, `get_usage_statistics()`
 
 ### 🛠️ **Troubleshooting**
 
@@ -837,7 +837,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Check storage I/O performance"
 ```
 
-**Tools Used:** `get_instance_details()`, `monitor_resources()`, `get_resource_monitoring()`
+**Tools Used:** `get_instance(all_instances=True)`, `get_resource_monitoring()`
 
 ### 🎛️ **Batch Operations**
 
@@ -858,7 +858,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Show complete infrastructure overview" →
 1. get_service_status() (service health)
 2. get_resource_monitoring() (resource utilization)
-3. get_instance_details() (compute resources)
+3. get_instance(all_instances=True) (compute resources)
 4. get_network_details() (network topology)
 5. get_volume() (storage resources)
 6. get_project_details() (quotas & usage)
@@ -866,8 +866,8 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 
 ```
 "Troubleshoot performance issues" →
-1. get_instance_details() (instance status & specs)
-2. monitor_resources() (resource utilization)
+1. get_instance(all_instances=True) (instance status & specs)
+2. get_resource_monitoring() (resource utilization)
 3. get_hypervisor_details() (host capacity)
 4. get_service_status() (service health)
 ```
