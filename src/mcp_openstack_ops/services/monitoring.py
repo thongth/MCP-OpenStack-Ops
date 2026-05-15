@@ -163,6 +163,20 @@ def get_resource_monitoring() -> Dict[str, Any]:
             'storage': {},
             'identity': {}
         }
+
+        def _to_float_capacity(value: Any) -> float:
+            """Best-effort conversion for backend pool capacity fields."""
+            if value is None:
+                return 0.0
+            if isinstance(value, (int, float)):
+                return float(value)
+            text = str(value).strip().lower()
+            if not text or text in {'unknown', 'infinite', 'nan', 'n/a'}:
+                return 0.0
+            try:
+                return float(text)
+            except Exception:
+                return 0.0
         
         # Compute monitoring
         try:
@@ -224,42 +238,38 @@ def get_resource_monitoring() -> Dict[str, Any]:
             hypervisor_count = 0
             
             try:
-                hypervisors = list(conn.compute.hypervisors())
-                hypervisor_count = len(hypervisors)
-                
-                # Since hypervisor detailed stats are not available in this environment,
-                # try to get quota limits as a reasonable approximation of capacity
-                try:
-                    if current_project_id:
-                        quota = conn.compute.get_quota_set(current_project_id)
-                        # Use quota limits as approximate capacity indicators
-                        if hasattr(quota, 'cores') and quota.cores and quota.cores > 0:
-                            total_physical_vcpus = quota.cores
-                        if hasattr(quota, 'ram') and quota.ram and quota.ram > 0:
-                            total_physical_ram_mb = quota.ram
-                        
-                except Exception as quota_error:
-                    logger.info(f"Could not get quota for capacity estimation: {quota_error}")
-                
-                # Alternative: Try to get aggregate/availability zone stats
-                try:
-                    # Some deployments provide compute service stats
-                    services = list(conn.compute.services(binary='nova-compute'))
-                    if services and hypervisor_count > 0:
-                        # Rough estimation: assume each compute service represents similar capacity
-                        # This is just a fallback when hypervisor stats aren't available
-                        if total_physical_vcpus == 0:
-                            # Very rough estimate: if we can't get real data, 
-                            # assume some reasonable default per hypervisor
-                            estimated_vcpus_per_hypervisor = max(total_used_vcpus * 2, 8)  # At least double usage or 8
-                            total_physical_vcpus = estimated_vcpus_per_hypervisor * hypervisor_count
-                            
-                        if total_physical_ram_mb == 0:
-                            estimated_ram_per_hypervisor = max(total_used_ram_mb * 2, 16384)  # At least double usage or 16GB
-                            total_physical_ram_mb = estimated_ram_per_hypervisor * hypervisor_count
-                            
-                except Exception:
-                    pass
+                hv_result = get_hypervisor_details(hypervisor_name="all")
+                if hv_result.get('success'):
+                    enhanced = hv_result.get('enhanced_stats') or {}
+                    totals = hv_result.get('total_stats') or {}
+                    hypervisor_count = int(enhanced.get('count') or totals.get('count') or 0)
+                    total_physical_vcpus = int(enhanced.get('vcpus') or totals.get('vcpus') or 0)
+                    total_physical_ram_mb = int(enhanced.get('memory_mb') or totals.get('memory_mb') or 0)
+                    total_physical_disk_gb = int(enhanced.get('local_gb') or totals.get('local_gb') or 0)
+
+                # If hypervisor metrics are still empty, use quota as approximation.
+                if total_physical_vcpus == 0 or total_physical_ram_mb == 0:
+                    try:
+                        if current_project_id:
+                            quota = conn.compute.get_quota_set(current_project_id)
+                            if total_physical_vcpus == 0 and hasattr(quota, 'cores') and quota.cores and quota.cores > 0:
+                                total_physical_vcpus = quota.cores
+                            if total_physical_ram_mb == 0 and hasattr(quota, 'ram') and quota.ram and quota.ram > 0:
+                                total_physical_ram_mb = quota.ram
+                    except Exception as quota_error:
+                        logger.info(f"Could not get quota for capacity estimation: {quota_error}")
+
+                # Last fallback estimation only when both primary sources are unavailable.
+                if hypervisor_count > 0:
+                    if total_physical_vcpus == 0:
+                        estimated_vcpus_per_hypervisor = max(total_used_vcpus * 2, 8)
+                        total_physical_vcpus = estimated_vcpus_per_hypervisor * hypervisor_count
+                    if total_physical_ram_mb == 0:
+                        estimated_ram_per_hypervisor = max(total_used_ram_mb * 2, 16384)
+                        total_physical_ram_mb = estimated_ram_per_hypervisor * hypervisor_count
+                    if total_physical_disk_gb == 0:
+                        estimated_disk_per_hypervisor = max(int(total_used_disk_gb * 2), 100)
+                        total_physical_disk_gb = estimated_disk_per_hypervisor * hypervisor_count
                     
             except Exception:
                 # If hypervisor access fails, we'll still show instance usage
@@ -272,13 +282,16 @@ def get_resource_monitoring() -> Dict[str, Any]:
                 # Physical capacity (from hypervisors)
                 'total_vcpus': total_physical_vcpus,
                 'total_memory_mb': total_physical_ram_mb,
+                # In Ceph-backed environments, cluster storage capacity is reported under
+                # monitoring_data.storage.capacity.* rather than compute disk totals.
                 'total_disk_gb': total_physical_disk_gb,
                 # Usage (from instances)
                 'used_vcpus': total_used_vcpus,
                 'used_memory_mb': total_used_ram_mb,
                 'used_disk_gb': total_used_disk_gb,  # Calculated from instance flavors
                 'project_server_count': len(servers),
-                'servers_by_compute_host': servers_by_compute_host
+                'servers_by_compute_host': servers_by_compute_host,
+                'disk_capacity_scope': 'compute_hypervisor_local',
             }
             
             monitoring_data['compute'] = compute_stats
@@ -386,6 +399,53 @@ def get_resource_monitoring() -> Dict[str, Any]:
                 'available_backups': len([b for b in backups if getattr(b, 'status', '') == 'available']),
                 'creating_backups': len([b for b in backups if getattr(b, 'status', '') == 'creating']),
                 'error_backups': len([b for b in backups if getattr(b, 'status', '') == 'error'])
+            }
+
+            # Ceph/Cinder backend capacity (cluster storage capacity).
+            capacity_source = 'volume_usage_fallback'
+            total_storage_gb = 0.0
+            free_storage_gb = 0.0
+            used_storage_gb = float(storage_stats['total_volume_size_gb'])
+            try:
+                backend_pools = []
+                block_storage_proxy = getattr(conn, 'block_storage', None) or getattr(conn, 'volume', None)
+                if block_storage_proxy is not None:
+                    try:
+                        backend_pools = list(block_storage_proxy.backend_pools(details=True))
+                    except TypeError:
+                        backend_pools = list(block_storage_proxy.backend_pools())
+                    except Exception:
+                        backend_pools = []
+
+                pool_total = 0.0
+                pool_free = 0.0
+                for pool in backend_pools:
+                    caps = getattr(pool, 'capabilities', {}) or {}
+                    total_cap = _to_float_capacity(
+                        caps.get('total_capacity_gb', getattr(pool, 'total_capacity_gb', 0))
+                    )
+                    free_cap = _to_float_capacity(
+                        caps.get('free_capacity_gb', getattr(pool, 'free_capacity_gb', 0))
+                    )
+                    if total_cap > 0:
+                        pool_total += total_cap
+                        pool_free += max(0.0, free_cap)
+
+                if pool_total > 0:
+                    total_storage_gb = pool_total
+                    free_storage_gb = min(pool_total, pool_free)
+                    used_storage_gb = max(0.0, total_storage_gb - free_storage_gb)
+                    capacity_source = 'cinder_backend_pools'
+            except Exception as pool_e:
+                logger.info(f"Could not get backend pool capacity: {pool_e}")
+
+            storage_usage_percent = (used_storage_gb / total_storage_gb * 100.0) if total_storage_gb > 0 else 0.0
+            storage_stats['capacity'] = {
+                'total_storage_gb': round(total_storage_gb, 2),
+                'used_storage_gb': round(used_storage_gb, 2),
+                'free_storage_gb': round(free_storage_gb, 2),
+                'storage_usage_percent': round(storage_usage_percent, 2),
+                'source': capacity_source,
             }
             
             monitoring_data['storage'] = storage_stats
