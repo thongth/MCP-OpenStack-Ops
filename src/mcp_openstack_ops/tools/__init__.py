@@ -10,6 +10,9 @@ def _iter_tool_modules() -> Iterable[str]:
         name = module_info.name
         if name.startswith('_'):
             continue
+        # Enforce read-only MCP mode: do not register any mutating tools.
+        if name.startswith('set_'):
+            continue
         yield name
 
 def register_all_tools() -> None:
