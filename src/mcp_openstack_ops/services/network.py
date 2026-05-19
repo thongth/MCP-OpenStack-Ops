@@ -231,9 +231,11 @@ def get_network_details(
                 project_expr = _column_expr("n", network_columns, "project_id", "tenant_id")
                 tenant_expr = _column_expr("n", network_columns, "tenant_id", "project_id")
                 status_expr = _column_expr("n", network_columns, "status", default="'unknown'")
+                admin_state_expr = _column_expr("n", network_columns, "admin_state_up", default="1")
                 mtu_expr = _column_expr("n", network_columns, "mtu", default="1500")
                 created_expr = "sa.created_at" if {"id", "created_at"}.issubset(standard_attr_columns) and "standard_attr_id" in network_columns else "NULL"
                 updated_expr = "sa.updated_at" if {"id", "updated_at"}.issubset(standard_attr_columns) and "standard_attr_id" in network_columns else "NULL"
+                shared_expr = _column_expr("n", network_columns, "shared", default="0")
                 external_expr = "CASE WHEN en.network_id IS NULL THEN 0 ELSE 1 END" if "network_id" in external_columns else "0"
                 segment_type_expr = _column_expr("ns", segment_columns, "network_type", default="NULL")
                 segment_phys_expr = _column_expr("ns", segment_columns, "physical_network", default="NULL")
@@ -241,7 +243,7 @@ def get_network_details(
 
                 sql = (
                     "SELECT n.id, n.name, "
-                    f"{status_expr} AS status, n.admin_state_up, n.shared, {mtu_expr} AS mtu, "
+                    f"{status_expr} AS status, {admin_state_expr} AS admin_state_up, {shared_expr} AS shared, {mtu_expr} AS mtu, "
                     f"{project_expr} AS project_id, {tenant_expr} AS tenant_id, "
                     f"{created_expr} AS created_at, {updated_expr} AS updated_at, "
                     f"{external_expr} AS external, "
@@ -266,7 +268,7 @@ def get_network_details(
                     sql += f"AND LOWER({status_expr}) = %s "
                     params.append(status_filter)
                 if scope_project_id:
-                    sql += f"AND ({project_expr} = %s OR n.shared = 1 OR {external_expr} = 1) "
+                    sql += f"AND ({project_expr} = %s OR {shared_expr} = 1 OR {external_expr} = 1) "
                     params.append(scope_project_id)
                 sql += "ORDER BY n.name ASC"
                 cur.execute(sql, params)
