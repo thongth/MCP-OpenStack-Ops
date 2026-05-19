@@ -5,11 +5,139 @@ This module contains functions for managing instances, flavors, server groups,
 server events, and other compute-related components.
 """
 
+import json
 import logging
+import os
 from typing import Dict, List, Any, Optional
+
+try:
+    import pymysql
+except Exception:  # pragma: no cover - optional dependency at runtime
+    pymysql = None
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+NOVA_DATABASE = "nova"
+TRUTHY_VALUES = {"1", "true", "yes", "on"}
+
+
+def _get_nova_mariadb_connection():
+    if pymysql is None:
+        raise RuntimeError("PyMySQL is not installed")
+
+    return pymysql.connect(
+        host=os.getenv("MARIADB_HOST", "127.0.0.1"),
+        port=int(os.getenv("MARIADB_PORT", "3306")),
+        user=os.getenv("MARIADB_USER", ""),
+        password=os.getenv("MARIADB_PASSWORD", ""),
+        database=NOVA_DATABASE,
+        charset=os.getenv("MARIADB_CHARSET", "utf8mb4"),
+        connect_timeout=int(os.getenv("MARIADB_CONNECT_TIMEOUT", "10")),
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+
+def _table_columns(cur, table_name: str) -> set[str]:
+    try:
+        cur.execute(f"SHOW COLUMNS FROM `{table_name}`")
+        return {row["Field"] for row in cur.fetchall()}
+    except Exception:
+        return set()
+
+
+def _table_exists(cur, table_name: str) -> bool:
+    return bool(_table_columns(cur, table_name))
+
+
+def _column_expr(alias: str, columns: set[str], *names: str, default: str = "NULL") -> str:
+    prefix = f"{alias}." if alias else ""
+    for name in names:
+        if name in columns:
+            return f"{prefix}{name}"
+    return default
+
+
+def _json_value(value: Any, default: Any = None) -> Any:
+    if value in (None, ""):
+        return default
+    if isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(value)
+    except Exception:
+        return default
+
+
+def _str_time(value: Any) -> str:
+    return "unknown" if value in (None, "") else str(value)
+
+
+def _bool_value(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value or "").strip().lower() in TRUTHY_VALUES
+
+
+def _scope_project_id(include_all_projects: bool = False) -> Optional[str]:
+    if include_all_projects:
+        return None
+    return (
+        os.getenv("MARIADB_PROJECT_ID")
+        or os.getenv("OS_PROJECT_ID")
+        or os.getenv("OS_TENANT_ID")
+        or None
+    )
+
+
+def _parse_networks(network_info: Any) -> List[Dict[str, Any]]:
+    data = _json_value(network_info, default=[])
+    if isinstance(data, dict):
+        data = data.get("network_info") or data.get("networks") or data.get("devices") or []
+    if not isinstance(data, list):
+        return []
+
+    networks: Dict[str, Dict[str, Any]] = {}
+    for vif in data:
+        if not isinstance(vif, dict):
+            continue
+        network = vif.get("network") or {}
+        network_name = (
+            network.get("label")
+            or network.get("id")
+            or vif.get("network_name")
+            or vif.get("net_name")
+            or "unknown"
+        )
+        entry = networks.setdefault(str(network_name), {"network": str(network_name), "addresses": []})
+        mac_addr = vif.get("address") or vif.get("mac_address")
+        for subnet in network.get("subnets", []) or []:
+            for ip in subnet.get("ips", []) or []:
+                entry["addresses"].append({
+                    "addr": ip.get("address"),
+                    "type": "fixed",
+                    "version": ip.get("version", 4),
+                    "mac_addr": mac_addr or "unknown",
+                })
+    return list(networks.values())
+
+
+def _power_state_label(value: Any) -> str:
+    labels = {
+        0: "NOSTATE",
+        1: "RUNNING",
+        3: "PAUSED",
+        4: "SHUTDOWN",
+        6: "CRASHED",
+        7: "SUSPENDED",
+    }
+    try:
+        int_value = int(value or 0)
+    except Exception:
+        return f"UNKNOWN({value})"
+    return labels.get(int_value, f"UNKNOWN({int_value})")
 
 
 def get_instance_details(
@@ -31,213 +159,182 @@ def get_instance_details(
         Dictionary containing instances and metadata
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import (
-            get_openstack_connection,
-            validate_resource_ownership,
-            is_all_projects_readonly_mode,
-        )
-        conn = get_openstack_connection()
-        
-        # Validate and sanitize inputs
         if limit > 200:
             limit = 200
         if limit < 1:
             limit = 1
         if offset < 0:
             offset = 0
-        
-        instances = []
-        
-        # Get all servers, optionally across projects in read-only all-projects mode
-        all_servers = list(conn.compute.servers(
-            details=True,
-            all_projects=is_all_projects_readonly_mode()
-        ))
-        
-        # Additional project validation for security
-        validated_servers = []
-        
-        for server in all_servers:
-            if validate_resource_ownership(server, "Instance"):
-                validated_servers.append(server)
-            else:
-                logger.warning(f"Filtered out instance {getattr(server, 'id', 'unknown')} - not owned by current project")
-        
-        all_servers = validated_servers
-        
-        # Filter by instance names if provided
-        if instance_names:
-            filtered_servers = []
-            for server in all_servers:
-                server_name = getattr(server, 'name', 'unnamed')
-                if server_name in instance_names or server.id in instance_names:
-                    filtered_servers.append(server)
-            all_servers = filtered_servers
-        
-        # Handle pagination
-        total_count = len(all_servers)
-        
-        if include_all:
-            paginated_servers = all_servers
-        else:
-            paginated_servers = all_servers[offset:offset + limit]
-        
-        for server in paginated_servers:
-            try:
-                # Get server flavor details - use embedded flavor info from server details
-                flavor_info = {'id': 'unknown', 'name': 'unknown', 'vcpus': 0, 'ram': 0, 'disk': 0}
-                if hasattr(server, 'flavor') and server.flavor:
-                    if isinstance(server.flavor, dict):
-                        # Flavor info is embedded in server details - use it directly
-                        flavor_info = {
-                            'id': server.flavor.get('id', 'unknown'),
-                            'name': server.flavor.get('original_name', server.flavor.get('name', 'unknown')),
-                            'vcpus': server.flavor.get('vcpus', 0),
-                            'ram': server.flavor.get('ram', 0),
-                            'disk': server.flavor.get('disk', 0)
-                        }
-                    else:
-                        # If flavor is an object, try to get attributes
-                        flavor_info = {
-                            'id': getattr(server.flavor, 'id', 'unknown'),
-                            'name': getattr(server.flavor, 'original_name', getattr(server.flavor, 'name', 'unknown')),
-                            'vcpus': getattr(server.flavor, 'vcpus', 0),
-                            'ram': getattr(server.flavor, 'ram', 0),
-                            'disk': getattr(server.flavor, 'disk', 0)
-                        }
-                
-                # Get server image details
-                image_info = {'id': 'unknown', 'name': 'unknown'}
-                if hasattr(server, 'image') and server.image:
-                    if isinstance(server.image, dict):
-                        image_id = server.image.get('id')
-                    else:
-                        image_id = getattr(server.image, 'id', None)
-                    
-                    if image_id:
-                        try:
-                            image = conn.image.get_image(image_id)
-                            image_info = {
-                                'id': image.id,
-                                'name': getattr(image, 'name', 'unknown')
-                            }
-                        except Exception as e:
-                            logger.warning(f"Could not get image details for {image_id}: {e}")
-                
-                # Get network information
-                networks = []
-                addresses = getattr(server, 'addresses', {}) or {}
-                for network_name, network_addresses in addresses.items():
-                    network_info = {
-                        'network': network_name,
-                        'addresses': []
-                    }
-                    for addr in network_addresses:
-                        if isinstance(addr, dict):
-                            network_info['addresses'].append({
-                                'addr': addr.get('addr', 'unknown'),
-                                'type': addr.get('OS-EXT-IPS:type', 'unknown'),
-                                'version': addr.get('version', 4),
-                                'mac_addr': addr.get('OS-EXT-IPS-MAC:mac_addr', 'unknown')
-                            })
-                        else:
-                            network_info['addresses'].append({'addr': str(addr), 'type': 'unknown'})
-                    
-                    networks.append(network_info)
-                
-                # Get security groups
-                security_groups = []
-                sg_list = getattr(server, 'security_groups', []) or []
-                for sg in sg_list:
-                    if isinstance(sg, dict):
-                        security_groups.append(sg.get('name', 'unknown'))
-                    else:
-                        security_groups.append(getattr(sg, 'name', 'unknown'))
-                
-                # Build instance data
-                host_value = getattr(server, 'host', None) or getattr(server, 'hypervisor_hostname', None) or 'unknown'
-                hypervisor_hostname_value = getattr(server, 'hypervisor_hostname', None) or 'unknown'
 
-                power_state_value = getattr(server, 'power_state', 0)
-                power_state_labels = {
-                    0: 'NOSTATE',
-                    1: 'RUNNING',
-                    3: 'PAUSED',
-                    4: 'SHUTDOWN',
-                    6: 'CRASHED',
-                    7: 'SUSPENDED',
-                }
+        conn = _get_nova_mariadb_connection()
+        try:
+            scope_project_id = _scope_project_id(include_all)
+            with conn.cursor() as cur:
+                instance_columns = _table_columns(cur, "instances")
+                if not instance_columns:
+                    raise RuntimeError("MariaDB table 'instances' is not available")
 
-                instance_data = {
-                    'id': server.id,
-                    'name': getattr(server, 'name', 'unnamed'),
-                    'status': getattr(server, 'status', 'unknown'),
-                    'power_state': power_state_value,
-                    'power_state_label': power_state_labels.get(power_state_value, f'UNKNOWN({power_state_value})'),
-                    'task_state': getattr(server, 'task_state', None),
-                    'vm_state': getattr(server, 'vm_state', 'unknown'),
-                    'created': str(getattr(server, 'created_at', 'unknown')),
-                    'updated': str(getattr(server, 'updated_at', 'unknown')),
-                    'launched_at': str(getattr(server, 'launched_at', None)) if getattr(server, 'launched_at', None) else None,
-                    'host': host_value,
-                    'hypervisor_hostname': hypervisor_hostname_value,
-                    'availability_zone': getattr(server, 'availability_zone', 'unknown'),
-                    'flavor': flavor_info,
-                    'image': image_info,
-                    'key_name': getattr(server, 'key_name', None),
-                    'networks': networks,
-                    'security_groups': security_groups,
-                    'tenant_id': getattr(server, 'tenant_id', getattr(server, 'project_id', 'unknown')),
-                    'user_id': getattr(server, 'user_id', 'unknown'),
-                    'metadata': getattr(server, 'metadata', {}),
-                    'fault': getattr(server, 'fault', None),
-                    'progress': getattr(server, 'progress', 0),
-                    'config_drive': getattr(server, 'config_drive', False),
-                    'locked': getattr(server, 'locked', False)
-                }
-                
-                # Add volume attachment info if available
-                if hasattr(server, 'attached_volumes') or hasattr(server, 'volumes_attached'):
-                    volumes = getattr(server, 'attached_volumes', getattr(server, 'volumes_attached', []))
-                    instance_data['attached_volumes'] = [v.get('id', v) if isinstance(v, dict) else str(v) for v in volumes]
-                else:
-                    instance_data['attached_volumes'] = []
-                
-                instances.append(instance_data)
-                
-            except Exception as e:
-                logger.error(f"Failed to process server {server.id}: {e}")
-                # Add minimal error entry
-                instances.append({
-                    'id': server.id,
-                    'name': getattr(server, 'name', 'unnamed'),
-                    'status': 'error',
-                    'error': f'Failed to get details: {str(e)}'
-                })
-        
-        # Pagination metadata
-        has_next = (offset + limit) < total_count
-        has_prev = offset > 0
-        next_offset = offset + limit if has_next else None
-        prev_offset = max(0, offset - limit) if has_prev else None
-        
-        result = {
-            'instances': instances,
-            'count': len(instances),
-            'total_count': total_count,
-            'limit': limit,
-            'offset': offset,
-            'has_next': has_next,
-            'has_prev': has_prev,
-            'next_offset': next_offset,
-            'prev_offset': prev_offset
-        }
-        
-        if instance_names:
-            result['filtered_by_names'] = instance_names
-            
-        return result
+                uuid_expr = _column_expr("i", instance_columns, "uuid")
+                name_expr = _column_expr("i", instance_columns, "display_name", "hostname", default="NULL")
+                status_expr = _column_expr("i", instance_columns, "vm_state", default="'unknown'")
+                task_expr = _column_expr("i", instance_columns, "task_state", default="NULL")
+                power_expr = _column_expr("i", instance_columns, "power_state", default="0")
+                project_expr = _column_expr("i", instance_columns, "project_id")
+                deleted_expr = _column_expr("i", instance_columns, "deleted", default="0")
+                type_id_expr = _column_expr("i", instance_columns, "instance_type_id", default="NULL")
+                image_expr = _column_expr("i", instance_columns, "image_ref", default="NULL")
+                az_expr = _column_expr("i", instance_columns, "availability_zone", default="NULL")
+                host_expr = _column_expr("i", instance_columns, "host", default="NULL")
+                node_expr = _column_expr("i", instance_columns, "node", "hypervisor_hostname", default="NULL")
+                key_expr = _column_expr("i", instance_columns, "key_name", default="NULL")
+                user_expr = _column_expr("i", instance_columns, "user_id", default="NULL")
+                progress_expr = _column_expr("i", instance_columns, "progress", default="0")
+                config_drive_expr = _column_expr("i", instance_columns, "config_drive", default="0")
+                locked_expr = _column_expr("i", instance_columns, "locked", default="0")
+
+                joins = ""
+                select_network_info = "NULL AS network_info"
+                if _table_exists(cur, "instance_info_caches"):
+                    cache_columns = _table_columns(cur, "instance_info_caches")
+                    if {"instance_uuid", "network_info"}.issubset(cache_columns):
+                        joins += " LEFT JOIN instance_info_caches iic ON iic.instance_uuid = i.uuid"
+                        select_network_info = "iic.network_info AS network_info"
+
+                select_flavor = (
+                    "NULL AS flavor_id, NULL AS flavor_name, 0 AS vcpus, 0 AS memory_mb, "
+                    "0 AS root_gb, 0 AS ephemeral_gb, 0 AS swap"
+                )
+                if _table_exists(cur, "instance_types"):
+                    flavor_columns = _table_columns(cur, "instance_types")
+                    flavor_deleted_expr = _column_expr("it", flavor_columns, "deleted", default="0")
+                    joins += (
+                        " LEFT JOIN instance_types it ON it.id = "
+                        f"{type_id_expr} AND ({flavor_deleted_expr} = 0 OR {flavor_deleted_expr} = '0')"
+                    )
+                    select_flavor = (
+                        "it.id AS flavor_id, it.name AS flavor_name, it.vcpus, "
+                        "it.memory_mb, it.root_gb, it.ephemeral_gb, it.swap"
+                    )
+
+                where = []
+                params: List[Any] = []
+                if deleted_expr != "0":
+                    where.append(f"({deleted_expr} = 0 OR {deleted_expr} = '0')")
+                if scope_project_id:
+                    where.append(f"{project_expr} = %s")
+                    params.append(scope_project_id)
+                if instance_names:
+                    placeholders = ",".join(["%s"] * len(instance_names))
+                    where.append(f"({uuid_expr} IN ({placeholders}) OR {name_expr} IN ({placeholders}))")
+                    params.extend(instance_names)
+                    params.extend(instance_names)
+                where_sql = " WHERE " + " AND ".join(where) if where else ""
+
+                count_sql = f"SELECT COUNT(*) AS total FROM instances i{joins}{where_sql}"
+                cur.execute(count_sql, params)
+                total_count = int((cur.fetchone() or {}).get("total") or 0)
+
+                page_sql = (
+                    "SELECT "
+                    f"{uuid_expr} AS id, {name_expr} AS name, {status_expr} AS status, "
+                    f"{power_expr} AS power_state, {task_expr} AS task_state, {status_expr} AS vm_state, "
+                    "i.created_at, i.updated_at, "
+                    f"{_column_expr('i', instance_columns, 'launched_at')} AS launched_at, "
+                    f"{host_expr} AS host, {node_expr} AS hypervisor_hostname, {az_expr} AS availability_zone, "
+                    f"{key_expr} AS key_name, {project_expr} AS tenant_id, {user_expr} AS user_id, "
+                    f"{progress_expr} AS progress, {config_drive_expr} AS config_drive, {locked_expr} AS locked, "
+                    f"{image_expr} AS image_id, {select_network_info}, {select_flavor} "
+                    f"FROM instances i{joins}{where_sql} ORDER BY i.created_at DESC"
+                )
+                page_params = list(params)
+                if not include_all:
+                    page_sql += " LIMIT %s OFFSET %s"
+                    page_params.extend([limit, offset])
+                cur.execute(page_sql, page_params)
+                rows = cur.fetchall()
+
+                instance_ids = [row["id"] for row in rows if row.get("id")]
+                volumes_by_instance: Dict[str, List[str]] = {}
+                if instance_ids and _table_exists(cur, "block_device_mapping"):
+                    bdm_columns = _table_columns(cur, "block_device_mapping")
+                    if {"instance_uuid", "volume_id"}.issubset(bdm_columns):
+                        placeholders = ",".join(["%s"] * len(instance_ids))
+                        bdm_deleted_expr = _column_expr("", bdm_columns, "deleted", default="0")
+                        cur.execute(
+                            f"SELECT instance_uuid, volume_id FROM block_device_mapping "
+                            f"WHERE instance_uuid IN ({placeholders}) AND volume_id IS NOT NULL "
+                            f"AND ({bdm_deleted_expr} = 0 OR {bdm_deleted_expr} = '0')",
+                            instance_ids,
+                        )
+                        for bdm in cur.fetchall():
+                            volumes_by_instance.setdefault(bdm["instance_uuid"], []).append(bdm["volume_id"])
+
+                instances = []
+                for row in rows:
+                    power_state = row.get("power_state") or 0
+                    image_id = row.get("image_id")
+                    instances.append({
+                        "id": row.get("id"),
+                        "name": row.get("name") or "unnamed",
+                        "status": str(row.get("status") or "unknown").upper(),
+                        "power_state": power_state,
+                        "power_state_label": _power_state_label(power_state),
+                        "task_state": row.get("task_state"),
+                        "vm_state": row.get("vm_state") or "unknown",
+                        "created": _str_time(row.get("created_at")),
+                        "updated": _str_time(row.get("updated_at")),
+                        "launched_at": _str_time(row.get("launched_at")) if row.get("launched_at") else None,
+                        "host": row.get("host") or "unknown",
+                        "hypervisor_hostname": row.get("hypervisor_hostname") or "unknown",
+                        "availability_zone": row.get("availability_zone") or "unknown",
+                        "flavor": {
+                            "id": row.get("flavor_id") or "unknown",
+                            "name": row.get("flavor_name") or "unknown",
+                            "vcpus": row.get("vcpus") or 0,
+                            "ram": row.get("memory_mb") or 0,
+                            "disk": row.get("root_gb") or 0,
+                            "ephemeral": row.get("ephemeral_gb") or 0,
+                            "swap": row.get("swap") or 0,
+                        },
+                        "image": {"id": image_id or "unknown", "name": "unknown"},
+                        "key_name": row.get("key_name"),
+                        "networks": _parse_networks(row.get("network_info")),
+                        "security_groups": [],
+                        "tenant_id": row.get("tenant_id"),
+                        "project_id": row.get("tenant_id"),
+                        "user_id": row.get("user_id") or "unknown",
+                        "metadata": {},
+                        "fault": None,
+                        "progress": row.get("progress") or 0,
+                        "config_drive": _bool_value(row.get("config_drive")),
+                        "locked": _bool_value(row.get("locked")),
+                        "attached_volumes": volumes_by_instance.get(row.get("id"), []),
+                        "data_source": "mariadb",
+                    })
+
+            has_next = (offset + limit) < total_count
+            has_prev = offset > 0
+            next_offset = offset + limit if has_next else None
+            prev_offset = max(0, offset - limit) if has_prev else None
+
+            result = {
+                'instances': instances,
+                'count': len(instances),
+                'total_count': total_count,
+                'limit': limit,
+                'offset': offset,
+                'has_next': has_next,
+                'has_prev': has_prev,
+                'next_offset': next_offset,
+                'prev_offset': prev_offset
+            }
+
+            if instance_names:
+                result['filtered_by_names'] = instance_names
+
+            return result
+        finally:
+            conn.close()
         
     except Exception as e:
         logger.error(f"Failed to get instance details: {e}")
@@ -307,10 +404,6 @@ def search_instances(
         List of matching instances
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        
         if search_fields is None:
             search_fields = ['name', 'id']
         
@@ -806,34 +899,61 @@ def get_flavor_list() -> List[Dict[str, Any]]:
         List of flavor dictionaries
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        flavors = []
-        
-        for flavor in conn.compute.flavors(details=True):
-            # Get extra specs if available
-            extra_specs = {}
-            try:
-                extra_specs = dict(getattr(flavor, 'extra_specs', {}))
-            except Exception:
-                pass
-            
-            flavors.append({
-                'id': flavor.id,
-                'name': getattr(flavor, 'name', 'unnamed'),
-                'vcpus': getattr(flavor, 'vcpus', 0),
-                'ram': getattr(flavor, 'ram', 0),  # MB
-                'disk': getattr(flavor, 'disk', 0),  # GB
-                'ephemeral': getattr(flavor, 'ephemeral', 0),
-                'swap': getattr(flavor, 'swap', 0),
-                'rxtx_factor': getattr(flavor, 'rxtx_factor', 1.0),
-                'is_public': getattr(flavor, 'is_public', True),
-                'extra_specs': extra_specs,
-                'description': getattr(flavor, 'description', '')
-            })
-        
-        return flavors
+        conn = _get_nova_mariadb_connection()
+        try:
+            with conn.cursor() as cur:
+                columns = _table_columns(cur, "instance_types")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'instance_types' is not available")
+
+                deleted_expr = _column_expr("it", columns, "deleted", default="0")
+                public_expr = _column_expr("it", columns, "is_public", default="1")
+                desc_expr = _column_expr("it", columns, "description", default="''")
+                cur.execute(
+                    "SELECT it.id, it.name, it.vcpus, it.memory_mb, it.root_gb, "
+                    "it.ephemeral_gb, it.swap, it.rxtx_factor, "
+                    f"{public_expr} AS is_public, {desc_expr} AS description "
+                    "FROM instance_types it "
+                    f"WHERE ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+                    "ORDER BY it.name ASC"
+                )
+                rows = cur.fetchall()
+
+                specs_by_flavor: Dict[Any, Dict[str, Any]] = {}
+                flavor_ids = [row["id"] for row in rows if row.get("id")]
+                if flavor_ids and _table_exists(cur, "instance_type_extra_specs"):
+                    spec_columns = _table_columns(cur, "instance_type_extra_specs")
+                    if {"instance_type_id", "key", "value"}.issubset(spec_columns):
+                        placeholders = ",".join(["%s"] * len(flavor_ids))
+                        spec_deleted_expr = _column_expr("", spec_columns, "deleted", default="0")
+                        cur.execute(
+                            f"SELECT instance_type_id, `key`, value FROM instance_type_extra_specs "
+                            f"WHERE instance_type_id IN ({placeholders}) "
+                            f"AND ({spec_deleted_expr} = 0 OR {spec_deleted_expr} = '0')",
+                            flavor_ids,
+                        )
+                        for spec in cur.fetchall():
+                            specs_by_flavor.setdefault(spec["instance_type_id"], {})[spec["key"]] = spec.get("value")
+
+                return [
+                    {
+                        "id": row.get("id"),
+                        "name": row.get("name") or "unnamed",
+                        "vcpus": row.get("vcpus") or 0,
+                        "ram": row.get("memory_mb") or 0,
+                        "disk": row.get("root_gb") or 0,
+                        "ephemeral": row.get("ephemeral_gb") or 0,
+                        "swap": row.get("swap") or 0,
+                        "rxtx_factor": row.get("rxtx_factor") or 1.0,
+                        "is_public": _bool_value(row.get("is_public")),
+                        "extra_specs": specs_by_flavor.get(row.get("id"), {}),
+                        "description": row.get("description") or "",
+                        "data_source": "mariadb",
+                    }
+                    for row in rows
+                ]
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get flavor list: {e}")
         return [
@@ -856,84 +976,82 @@ def get_server_events(instance_name: str, limit: int = 50) -> Dict[str, Any]:
         Dictionary containing server events
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        
-        # Find the server
-        server = None
-        for srv in conn.compute.servers():
-            if getattr(srv, 'name', '') == instance_name or srv.id == instance_name:
-                server = srv
-                break
-        
-        if not server:
-            return {
-                'success': False,
-                'message': f'Server "{instance_name}" not found',
-                'events': []
-            }
-        
-        events = []
+        if limit > 200:
+            limit = 200
+        if limit < 1:
+            limit = 1
+
+        conn = _get_nova_mariadb_connection()
         try:
-            # Get server actions (events)
-            for action in conn.compute.server_actions(server.id):
-                event_data = {
-                    'action': getattr(action, 'action', 'unknown'),
-                    'instance_uuid': getattr(action, 'instance_uuid', server.id),
-                    'request_id': getattr(action, 'request_id', 'unknown'),
-                    'user_id': getattr(action, 'user_id', 'unknown'),
-                    'project_id': getattr(action, 'project_id', 'unknown'),
-                    'start_time': str(getattr(action, 'start_time', 'unknown')),
-                    'finish_time': str(getattr(action, 'finish_time', None)) if getattr(action, 'finish_time', None) else None,
-                    'message': getattr(action, 'message', ''),
-                    'details': getattr(action, 'details', {})
-                }
-                
-                # Add events for this action if available
-                if hasattr(action, 'events'):
-                    events_list = getattr(action, 'events', None)
-                    if events_list:  # Check if events is not None and not empty
-                        action_events = []
-                        for event in events_list:
-                            action_events.append({
-                                'event': getattr(event, 'event', 'unknown'),
-                                'start_time': str(getattr(event, 'start_time', 'unknown')),
-                                'finish_time': str(getattr(event, 'finish_time', None)) if getattr(event, 'finish_time', None) else None,
-                                'result': getattr(event, 'result', 'unknown'),
-                                'traceback': getattr(event, 'traceback', None)
+            with conn.cursor() as cur:
+                instance = get_instance_by_id(instance_name) or get_instance_by_name(instance_name)
+                if not instance:
+                    return {
+                        'success': False,
+                        'message': f'Server "{instance_name}" not found',
+                        'events': []
+                    }
+                server_id = instance.get("id")
+
+                action_columns = _table_columns(cur, "instance_actions")
+                if not action_columns:
+                    raise RuntimeError("MariaDB table 'instance_actions' is not available")
+
+                events_by_request: Dict[str, List[Dict[str, Any]]] = {}
+                if _table_exists(cur, "instance_actions_events"):
+                    event_columns = _table_columns(cur, "instance_actions_events")
+                    if {"action_id", "event"}.issubset(event_columns):
+                        cur.execute(
+                            "SELECT iae.action_id, iae.event, iae.start_time, iae.finish_time, "
+                            "iae.result, iae.traceback "
+                            "FROM instance_actions_events iae "
+                            "JOIN instance_actions ia ON ia.id = iae.action_id "
+                            "WHERE ia.instance_uuid = %s "
+                            "ORDER BY iae.start_time DESC",
+                            [server_id],
+                        )
+                        for row in cur.fetchall():
+                            events_by_request.setdefault(str(row.get("action_id")), []).append({
+                                "event": row.get("event") or "unknown",
+                                "start_time": _str_time(row.get("start_time")),
+                                "finish_time": _str_time(row.get("finish_time")) if row.get("finish_time") else None,
+                                "result": row.get("result") or "unknown",
+                                "traceback": row.get("traceback"),
                             })
-                        event_data['events'] = action_events
-                    else:
-                        event_data['events'] = []  # Empty events list if None
-                else:
-                    event_data['events'] = []  # No events attribute
-                
-                events.append(event_data)
-                
-                if len(events) >= limit:
-                    break
-                    
-        except Exception as e:
-            logger.warning(f"Could not get server actions: {e}")
-            # Fallback to basic server info
-            events.append({
-                'action': 'info',
-                'message': f'Server actions not available: {str(e)}',
-                'server_id': server.id,
-                'server_name': getattr(server, 'name', 'unnamed'),
-                'server_status': getattr(server, 'status', 'unknown'),
-                'created': str(getattr(server, 'created_at', 'unknown')),
-                'updated': str(getattr(server, 'updated_at', 'unknown'))
-            })
-        
-        return {
-            'success': True,
-            'server_name': getattr(server, 'name', 'unnamed'),
-            'server_id': server.id,
-            'events': events,
-            'count': len(events)
-        }
+
+                cur.execute(
+                    "SELECT id, action, instance_uuid, request_id, user_id, project_id, "
+                    "start_time, finish_time, message "
+                    "FROM instance_actions WHERE instance_uuid = %s "
+                    "ORDER BY start_time DESC LIMIT %s",
+                    [server_id, limit],
+                )
+                events = [
+                    {
+                        "action": row.get("action") or "unknown",
+                        "instance_uuid": row.get("instance_uuid") or server_id,
+                        "request_id": row.get("request_id") or "unknown",
+                        "user_id": row.get("user_id") or "unknown",
+                        "project_id": row.get("project_id") or "unknown",
+                        "start_time": _str_time(row.get("start_time")),
+                        "finish_time": _str_time(row.get("finish_time")) if row.get("finish_time") else None,
+                        "message": row.get("message") or "",
+                        "details": {},
+                        "events": events_by_request.get(str(row.get("id")), []),
+                        "data_source": "mariadb",
+                    }
+                    for row in cur.fetchall()
+                ]
+
+                return {
+                    'success': True,
+                    'server_name': instance.get("name", "unnamed"),
+                    'server_id': server_id,
+                    'events': events,
+                    'count': len(events)
+                }
+        finally:
+            conn.close()
         
     except Exception as e:
         logger.error(f"Failed to get server events: {e}")
@@ -953,32 +1071,73 @@ def get_server_groups() -> List[Dict[str, Any]]:
         List of server group dictionaries
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        server_groups = []
-        
+        conn = _get_nova_mariadb_connection()
         try:
-            for group in conn.compute.server_groups():
-                members = getattr(group, 'members', []) or []
-                
-                server_groups.append({
-                    'id': group.id,
-                    'name': getattr(group, 'name', 'unnamed'),
-                    'policies': list(getattr(group, 'policies', [])),
-                    'members': list(members),
-                    'member_count': len(members),
-                    'metadata': getattr(group, 'metadata', {}),
-                    'project_id': getattr(group, 'project_id', 'unknown'),
-                    'user_id': getattr(group, 'user_id', 'unknown'),
-                    'created_at': str(getattr(group, 'created_at', 'unknown')),
-                    'updated_at': str(getattr(group, 'updated_at', 'unknown'))
-                })
-        except Exception as e:
-            logger.warning(f"Server groups may not be supported: {e}")
-            return []
-        
-        return server_groups
+            with conn.cursor() as cur:
+                columns = _table_columns(cur, "instance_groups")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'instance_groups' is not available")
+
+                deleted_expr = _column_expr("ig", columns, "deleted", default="0")
+                cur.execute(
+                    "SELECT ig.id, ig.uuid, ig.name, ig.project_id, ig.user_id, "
+                    "ig.created_at, ig.updated_at "
+                    "FROM instance_groups ig "
+                    f"WHERE ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+                    "ORDER BY ig.created_at DESC"
+                )
+                rows = cur.fetchall()
+                group_ids = [row["id"] for row in rows if row.get("id")]
+
+                members_by_group: Dict[Any, List[str]] = {}
+                if group_ids and _table_exists(cur, "instance_group_member"):
+                    member_columns = _table_columns(cur, "instance_group_member")
+                    if {"group_id", "instance_uuid"}.issubset(member_columns):
+                        placeholders = ",".join(["%s"] * len(group_ids))
+                        member_deleted_expr = _column_expr("", member_columns, "deleted", default="0")
+                        cur.execute(
+                            f"SELECT group_id, instance_uuid FROM instance_group_member "
+                            f"WHERE group_id IN ({placeholders}) "
+                            f"AND ({member_deleted_expr} = 0 OR {member_deleted_expr} = '0')",
+                            group_ids,
+                        )
+                        for row in cur.fetchall():
+                            members_by_group.setdefault(row["group_id"], []).append(row["instance_uuid"])
+
+                policies_by_group: Dict[Any, List[str]] = {}
+                if group_ids and _table_exists(cur, "instance_group_policy"):
+                    policy_columns = _table_columns(cur, "instance_group_policy")
+                    if {"group_id", "policy"}.issubset(policy_columns):
+                        placeholders = ",".join(["%s"] * len(group_ids))
+                        policy_deleted_expr = _column_expr("", policy_columns, "deleted", default="0")
+                        cur.execute(
+                            f"SELECT group_id, policy FROM instance_group_policy "
+                            f"WHERE group_id IN ({placeholders}) "
+                            f"AND ({policy_deleted_expr} = 0 OR {policy_deleted_expr} = '0')",
+                            group_ids,
+                        )
+                        for row in cur.fetchall():
+                            policies_by_group.setdefault(row["group_id"], []).append(row["policy"])
+
+                server_groups = []
+                for row in rows:
+                    members = members_by_group.get(row.get("id"), [])
+                    server_groups.append({
+                        "id": row.get("uuid") or row.get("id"),
+                        "name": row.get("name") or "unnamed",
+                        "policies": policies_by_group.get(row.get("id"), []),
+                        "members": members,
+                        "member_count": len(members),
+                        "metadata": {},
+                        "project_id": row.get("project_id") or "unknown",
+                        "user_id": row.get("user_id") or "unknown",
+                        "created_at": _str_time(row.get("created_at")),
+                        "updated_at": _str_time(row.get("updated_at")),
+                        "data_source": "mariadb",
+                    })
+                return server_groups
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get server groups: {e}")
         return []

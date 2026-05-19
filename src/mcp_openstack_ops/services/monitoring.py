@@ -870,129 +870,107 @@ def get_hypervisor_details(hypervisor_name: str = "all") -> Dict[str, Any]:
         Dict containing hypervisor information
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        
-        if hypervisor_name.lower() == "all":
-            hypervisors = []
-            total_stats = {
-                'count': 0,
-                'vcpus': 0,
-                'vcpus_used': 0,
-                'memory_mb': 0,
-                'memory_mb_used': 0,
-                'local_gb': 0,
-                'local_gb_used': 0,
-                'running_vms': 0
-            }
-            
-            for hypervisor in conn.compute.hypervisors(details=True):
-                # Safely get attributes with proper None handling
-                vcpus = getattr(hypervisor, 'vcpus', None) or 0
-                vcpus_used = getattr(hypervisor, 'vcpus_used', None) or 0
-                memory_mb = getattr(hypervisor, 'memory_mb', None) or getattr(hypervisor, 'memory_size_mb', None) or 0
-                memory_mb_used = getattr(hypervisor, 'memory_mb_used', None) or getattr(hypervisor, 'memory_used_mb', None) or 0
-                local_gb = getattr(hypervisor, 'local_gb', None) or getattr(hypervisor, 'local_disk_size_gb', None) or 0
-                local_gb_used = getattr(hypervisor, 'local_gb_used', None) or getattr(hypervisor, 'local_disk_used_gb', None) or 0
-                running_vms = getattr(hypervisor, 'running_vms', None) or 0
-                
-                hyp_data = {
-                    'id': hypervisor.id,
-                    'name': getattr(hypervisor, 'name', 'unknown'),
-                    'host_ip': getattr(hypervisor, 'host_ip', 'unknown'),
-                    'status': getattr(hypervisor, 'status', 'unknown'),
-                    'state': getattr(hypervisor, 'state', 'unknown'),
-                    'vcpus': vcpus,
-                    'vcpus_used': vcpus_used,
-                    'memory_mb': memory_mb,
-                    'memory_mb_used': memory_mb_used,
-                    'local_gb': local_gb,
-                    'local_gb_used': local_gb_used,
-                    'running_vms': running_vms,
-                    'hypervisor_type': getattr(hypervisor, 'hypervisor_type', 'unknown'),
-                    'hypervisor_version': getattr(hypervisor, 'hypervisor_version', 'unknown')
+        from .compute import _column_expr, _get_nova_mariadb_connection, _table_columns, _table_exists
+
+        conn = _get_nova_mariadb_connection()
+        try:
+            with conn.cursor() as cur:
+                columns = _table_columns(cur, "compute_nodes")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'compute_nodes' is not available")
+
+                deleted_expr = _column_expr("cn", columns, "deleted", default="0")
+                name_expr = _column_expr("cn", columns, "hypervisor_hostname", "host", default="NULL")
+                host_ip_expr = _column_expr("cn", columns, "host_ip", default="NULL")
+                type_expr = _column_expr("cn", columns, "hypervisor_type", default="NULL")
+                version_expr = _column_expr("cn", columns, "hypervisor_version", default="NULL")
+                vcpus_expr = _column_expr("cn", columns, "vcpus", default="0")
+                vcpus_used_expr = _column_expr("cn", columns, "vcpus_used", default="0")
+                memory_expr = _column_expr("cn", columns, "memory_mb", default="0")
+                memory_used_expr = _column_expr("cn", columns, "memory_mb_used", default="0")
+                local_expr = _column_expr("cn", columns, "local_gb", default="0")
+                local_used_expr = _column_expr("cn", columns, "local_gb_used", default="0")
+                running_expr = _column_expr("cn", columns, "running_vms", default="0")
+
+                joins = ""
+                status_select = "'unknown' AS status, 'unknown' AS state"
+                if "service_id" in columns and _table_exists(cur, "services"):
+                    service_columns = _table_columns(cur, "services")
+                    disabled_expr = _column_expr("s", service_columns, "disabled", default="0")
+                    forced_down_expr = _column_expr("s", service_columns, "forced_down", default="0")
+                    joins = " LEFT JOIN services s ON s.id = cn.service_id"
+                    status_select = (
+                        f"CASE WHEN {disabled_expr} = 1 THEN 'disabled' ELSE 'enabled' END AS status, "
+                        f"CASE WHEN {forced_down_expr} = 1 THEN 'down' ELSE 'up' END AS state"
+                    )
+
+                where = [f"({deleted_expr} = 0 OR {deleted_expr} = '0')"]
+                params: List[Any] = []
+                if hypervisor_name.lower() != "all":
+                    where.append(f"{name_expr} = %s")
+                    params.append(hypervisor_name)
+                where_sql = " WHERE " + " AND ".join(where)
+
+                cur.execute(
+                    "SELECT cn.id, "
+                    f"{name_expr} AS name, {host_ip_expr} AS host_ip, {status_select}, "
+                    f"{vcpus_expr} AS vcpus, {vcpus_used_expr} AS vcpus_used, "
+                    f"{memory_expr} AS memory_mb, {memory_used_expr} AS memory_mb_used, "
+                    f"{local_expr} AS local_gb, {local_used_expr} AS local_gb_used, "
+                    f"{running_expr} AS running_vms, {type_expr} AS hypervisor_type, "
+                    f"{version_expr} AS hypervisor_version "
+                    f"FROM compute_nodes cn{joins}{where_sql} ORDER BY name ASC",
+                    params,
+                )
+                hypervisors = []
+                total_stats = {
+                    'count': 0,
+                    'vcpus': 0,
+                    'vcpus_used': 0,
+                    'memory_mb': 0,
+                    'memory_mb_used': 0,
+                    'local_gb': 0,
+                    'local_gb_used': 0,
+                    'running_vms': 0
                 }
-                
-                # Add to totals (now safe since all values are guaranteed integers)
-                total_stats['count'] += 1
-                total_stats['vcpus'] += vcpus
-                total_stats['vcpus_used'] += vcpus_used
-                total_stats['memory_mb'] += memory_mb
-                total_stats['memory_mb_used'] += memory_mb_used
-                total_stats['local_gb'] += local_gb
-                total_stats['local_gb_used'] += local_gb_used
-                total_stats['running_vms'] += running_vms
-                
-                hypervisors.append(hyp_data)
-            
-            # Try to get enhanced statistics from Nova API
-            enhanced_stats = None
-            try:
-                stats_response = conn.compute.get('/os-hypervisors/statistics')
-                if stats_response.status_code == 200:
-                    stats_data = stats_response.json()
-                    hypervisor_statistics = stats_data.get('hypervisor_statistics', {})
-                    
-                    if hypervisor_statistics:
-                        enhanced_stats = {
-                            'count': hypervisor_statistics.get('count', 0),
-                            'vcpus': hypervisor_statistics.get('vcpus', 0),
-                            'vcpus_used': hypervisor_statistics.get('vcpus_used', 0),
-                            'memory_mb': hypervisor_statistics.get('memory_mb', 0),
-                            'memory_mb_used': hypervisor_statistics.get('memory_mb_used', 0),
-                            'local_gb': hypervisor_statistics.get('local_gb', 0),
-                            'local_gb_used': hypervisor_statistics.get('local_gb_used', 0),
-                            'running_vms': hypervisor_statistics.get('running_vms', 0),
-                            'data_source': 'nova_hypervisor_statistics_api'
-                        }
-            except Exception as e:
-                # Continue with regular response if statistics API fails
-                pass
-            
-            return {
-                'success': True,
-                'hypervisors': hypervisors,
-                'total_stats': total_stats,
-                'enhanced_stats': enhanced_stats
-            }
-        else:
-            # Get specific hypervisor
-            for hypervisor in conn.compute.hypervisors(details=True):
-                if getattr(hypervisor, 'name', '') == hypervisor_name:
-                    # Safely get attributes with proper None handling
-                    vcpus = getattr(hypervisor, 'vcpus', None) or 0
-                    vcpus_used = getattr(hypervisor, 'vcpus_used', None) or 0
-                    memory_mb = getattr(hypervisor, 'memory_mb', None) or getattr(hypervisor, 'memory_size_mb', None) or 0
-                    memory_mb_used = getattr(hypervisor, 'memory_mb_used', None) or getattr(hypervisor, 'memory_used_mb', None) or 0
-                    local_gb = getattr(hypervisor, 'local_gb', None) or getattr(hypervisor, 'local_disk_size_gb', None) or 0
-                    local_gb_used = getattr(hypervisor, 'local_gb_used', None) or getattr(hypervisor, 'local_disk_used_gb', None) or 0
-                    running_vms = getattr(hypervisor, 'running_vms', None) or 0
-                    
-                    return {
-                        'success': True,
-                        'hypervisor': {
-                            'id': hypervisor.id,
-                            'name': getattr(hypervisor, 'name', 'unknown'),
-                            'host_ip': getattr(hypervisor, 'host_ip', 'unknown'),
-                            'status': getattr(hypervisor, 'status', 'unknown'),
-                            'state': getattr(hypervisor, 'state', 'unknown'),
-                            'vcpus': vcpus,
-                            'vcpus_used': vcpus_used,
-                            'memory_mb': memory_mb,
-                            'memory_mb_used': memory_mb_used,
-                            'local_gb': local_gb,
-                            'local_gb_used': local_gb_used,
-                            'running_vms': running_vms,
-                            'hypervisor_type': getattr(hypervisor, 'hypervisor_type', 'unknown'),
-                            'hypervisor_version': getattr(hypervisor, 'hypervisor_version', 'unknown')
-                        }
+                for row in cur.fetchall():
+                    hyp_data = {
+                        'id': row.get("id"),
+                        'name': row.get("name") or "unknown",
+                        'host_ip': row.get("host_ip") or "unknown",
+                        'status': row.get("status") or "unknown",
+                        'state': row.get("state") or "unknown",
+                        'vcpus': row.get("vcpus") or 0,
+                        'vcpus_used': row.get("vcpus_used") or 0,
+                        'memory_mb': row.get("memory_mb") or 0,
+                        'memory_mb_used': row.get("memory_mb_used") or 0,
+                        'local_gb': row.get("local_gb") or 0,
+                        'local_gb_used': row.get("local_gb_used") or 0,
+                        'running_vms': row.get("running_vms") or 0,
+                        'hypervisor_type': row.get("hypervisor_type") or "unknown",
+                        'hypervisor_version': row.get("hypervisor_version") or "unknown",
+                        'data_source': 'mariadb',
                     }
-            
-            return {
-                'success': False,
-                'error': f'Hypervisor "{hypervisor_name}" not found'
-            }
+                    for key in total_stats:
+                        if key == 'count':
+                            continue
+                        total_stats[key] += hyp_data.get(key, 0)
+                    total_stats['count'] += 1
+                    hypervisors.append(hyp_data)
+
+                if hypervisor_name.lower() != "all":
+                    if not hypervisors:
+                        return {'success': False, 'error': f'Hypervisor "{hypervisor_name}" not found'}
+                    return {'success': True, 'hypervisor': hypervisors[0]}
+
+                return {
+                    'success': True,
+                    'hypervisors': hypervisors,
+                    'total_stats': total_stats,
+                    'enhanced_stats': {**total_stats, 'data_source': 'mariadb'},
+                }
+        finally:
+            conn.close()
             
     except Exception as e:
         logger.error(f"Failed to get hypervisor details: {e}")
@@ -1011,54 +989,57 @@ def get_availability_zones() -> Dict[str, Any]:
         Dict containing availability zones data
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        
+        from .compute import _bool_value, _column_expr, _get_nova_mariadb_connection, _table_columns
+
         zones_data = {
             'compute': [],
             'network': [],
             'volume': []
         }
-        
-        # Compute availability zones
+
+        conn = _get_nova_mariadb_connection()
         try:
-            compute_zones = list(conn.compute.availability_zones())
-            for zone in compute_zones:
-                zones_data['compute'].append({
-                    'name': getattr(zone, 'name', 'unknown'),
-                    'available': getattr(zone, 'available', False),
-                    'hosts': getattr(zone, 'hosts', {})
-                })
-        except Exception as e:
-            zones_data['compute'] = [{'error': str(e)}]
-        
-        # Network availability zones
-        try:
-            network_zones = list(conn.network.availability_zones())
-            for zone in network_zones:
-                zones_data['network'].append({
-                    'name': getattr(zone, 'name', 'unknown'),
-                    'state': getattr(zone, 'state', 'unknown'),
-                    'resource': getattr(zone, 'resource', 'network')
-                })
-        except Exception as e:
-            zones_data['network'] = [{'error': str(e)}]
-        
-        # Volume availability zones
-        try:
-            volume_zones = list(conn.volume.availability_zones())
-            for zone in volume_zones:
-                zones_data['volume'].append({
-                    'name': getattr(zone, 'name', 'unknown'),
-                    'available': getattr(zone, 'available', False)
-                })
-        except Exception as e:
-            zones_data['volume'] = [{'error': str(e)}]
+            with conn.cursor() as cur:
+                columns = _table_columns(cur, "services")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'services' is not available")
+
+                az_expr = _column_expr("s", columns, "availability_zone", default="'nova'")
+                host_expr = _column_expr("s", columns, "host", default="NULL")
+                disabled_expr = _column_expr("s", columns, "disabled", default="0")
+                forced_down_expr = _column_expr("s", columns, "forced_down", default="0")
+                deleted_expr = _column_expr("s", columns, "deleted", default="0")
+                binary_expr = _column_expr("s", columns, "binary", default="NULL")
+                cur.execute(
+                    "SELECT "
+                    f"{az_expr} AS zone_name, {host_expr} AS host, "
+                    f"{disabled_expr} AS disabled, {forced_down_expr} AS forced_down "
+                    "FROM services s "
+                    f"WHERE {binary_expr} = 'nova-compute' "
+                    f"AND ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+                    "ORDER BY zone_name ASC, host ASC"
+                )
+                zones: Dict[str, Dict[str, Any]] = {}
+                for row in cur.fetchall():
+                    zone_name = row.get("zone_name") or "nova"
+                    zone = zones.setdefault(zone_name, {"name": zone_name, "available": True, "hosts": {}})
+                    host = row.get("host") or "unknown"
+                    available = not _bool_value(row.get("disabled")) and not _bool_value(row.get("forced_down"))
+                    zone["hosts"][host] = {
+                        "available": available,
+                        "active": available,
+                        "updated_at": None,
+                    }
+                    if not available:
+                        zone["available"] = False
+                zones_data['compute'] = list(zones.values())
+        finally:
+            conn.close()
         
         return {
             'success': True,
-            'availability_zones': zones_data
+            'availability_zones': zones_data,
+            'data_source': 'mariadb',
         }
         
     except Exception as e:

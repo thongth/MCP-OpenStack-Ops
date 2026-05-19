@@ -250,21 +250,42 @@ def get_keypair_list() -> List[Dict[str, Any]]:
         List of keypair dictionaries
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        keypairs = []
-        
-        for keypair in conn.compute.keypairs():
-            keypairs.append({
-                'name': keypair.name,
-                'fingerprint': getattr(keypair, 'fingerprint', 'N/A'),
-                'public_key': getattr(keypair, 'public_key', 'N/A')[:100] + '...' if getattr(keypair, 'public_key', None) else 'N/A',
-                'type': getattr(keypair, 'type', 'ssh'),
-                'user_id': getattr(keypair, 'user_id', 'N/A')
-            })
-        
-        return keypairs
+        from .compute import _column_expr, _get_nova_mariadb_connection, _table_columns
+
+        conn = _get_nova_mariadb_connection()
+        try:
+            with conn.cursor() as cur:
+                columns = _table_columns(cur, "key_pairs")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'key_pairs' is not available")
+
+                deleted_expr = _column_expr("kp", columns, "deleted", default="0")
+                type_expr = _column_expr("kp", columns, "type", default="'ssh'")
+                public_key_expr = _column_expr("kp", columns, "public_key", default="NULL")
+                fingerprint_expr = _column_expr("kp", columns, "fingerprint", default="NULL")
+                user_expr = _column_expr("kp", columns, "user_id", default="NULL")
+                cur.execute(
+                    "SELECT kp.name, "
+                    f"{fingerprint_expr} AS fingerprint, {public_key_expr} AS public_key, "
+                    f"{type_expr} AS type, {user_expr} AS user_id "
+                    "FROM key_pairs kp "
+                    f"WHERE ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+                    "ORDER BY kp.name ASC"
+                )
+                keypairs = []
+                for row in cur.fetchall():
+                    public_key = row.get("public_key")
+                    keypairs.append({
+                        "name": row.get("name") or "unnamed",
+                        "fingerprint": row.get("fingerprint") or "N/A",
+                        "public_key": public_key[:100] + "..." if public_key else "N/A",
+                        "type": row.get("type") or "ssh",
+                        "user_id": row.get("user_id") or "N/A",
+                        "data_source": "mariadb",
+                    })
+                return keypairs
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get keypair list: {e}")
         return [
@@ -285,20 +306,8 @@ def set_keypair(keypair_name: str, action: str, **kwargs) -> Dict[str, Any]:
         Result of the keypair operation
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        
         if action.lower() == 'list':
-            keypairs = []
-            for keypair in conn.compute.keypairs():
-                keypairs.append({
-                    'name': keypair.name,
-                    'fingerprint': getattr(keypair, 'fingerprint', 'N/A'),
-                    'public_key': getattr(keypair, 'public_key', 'N/A'),
-                    'type': getattr(keypair, 'type', 'ssh'),
-                    'user_id': getattr(keypair, 'user_id', 'N/A')
-                })
+            keypairs = get_keypair_list()
             return {
                 'success': True,
                 'keypairs': keypairs,
@@ -306,6 +315,8 @@ def set_keypair(keypair_name: str, action: str, **kwargs) -> Dict[str, Any]:
             }
         
         elif action.lower() == 'create':
+            from ..connection import get_openstack_connection
+            conn = get_openstack_connection()
             public_key = kwargs.get('public_key')
             keypair_type = kwargs.get('type', 'ssh')
             
@@ -332,6 +343,8 @@ def set_keypair(keypair_name: str, action: str, **kwargs) -> Dict[str, Any]:
             
         elif action.lower() == 'delete':
             try:
+                from ..connection import get_openstack_connection
+                conn = get_openstack_connection()
                 conn.compute.delete_keypair(keypair_name)
                 return {
                     'success': True,
@@ -345,16 +358,12 @@ def set_keypair(keypair_name: str, action: str, **kwargs) -> Dict[str, Any]:
         
         elif action.lower() == 'show':
             try:
-                keypair = conn.compute.get_keypair(keypair_name)
+                keypairs = [kp for kp in get_keypair_list() if kp.get("name") == keypair_name]
+                if not keypairs:
+                    raise RuntimeError(f'Keypair "{keypair_name}" not found')
                 return {
                     'success': True,
-                    'keypair': {
-                        'name': keypair.name,
-                        'fingerprint': getattr(keypair, 'fingerprint', 'N/A'),
-                        'public_key': getattr(keypair, 'public_key', 'N/A'),
-                        'type': getattr(keypair, 'type', 'ssh'),
-                        'user_id': getattr(keypair, 'user_id', 'N/A')
-                    }
+                    'keypair': keypairs[0]
                 }
             except Exception as e:
                 return {
