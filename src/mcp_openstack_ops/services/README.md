@@ -15,6 +15,7 @@ Tai lieu nay tom tat nhanh cac module trong `src/mcp_openstack_ops/services/` va
 
 Quan ly Nova compute resources:
 - Lay thong tin instances: `get_instance_details`, `get_instance_by_name`, `get_instance_by_id`, `search_instances`, `get_instances_by_status`
+- Instance summary: `get_instance_summary`
 - Flavor: `get_flavor_list`
 - Event va grouping: `get_server_events`, `get_server_groups`
 

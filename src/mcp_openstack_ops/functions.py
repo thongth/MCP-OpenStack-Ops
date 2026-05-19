@@ -558,18 +558,23 @@ def set_metrics(
         elif action.lower() == 'summary':
             # Get summary metrics across all resource types
             summary = {
-                'compute': {'total': 0, 'active': 0, 'error': 0},
+                'compute': {'total': 0, 'active': 0, 'error': 0, 'states': {}},
                 'network': {'total': 0, 'active': 0, 'down': 0},
                 'storage': {'total': 0, 'available': 0, 'in_use': 0},
                 'timestamp': datetime.utcnow().isoformat()
             }
             
             try:
-                # Compute summary
-                servers = list(conn.compute.servers())
-                summary['compute']['total'] = len(servers)
-                summary['compute']['active'] = len([s for s in servers if s.status == 'ACTIVE'])
-                summary['compute']['error'] = len([s for s in servers if s.status == 'ERROR'])
+                # Compute summary from Nova DB includes all instance states, not only ACTIVE.
+                compute_summary = get_instance_summary(include_all_projects=True)
+                summary['compute']['total'] = compute_summary.get('total', 0)
+                summary['compute']['active'] = compute_summary.get('active', 0)
+                summary['compute']['error'] = compute_summary.get('error', 0)
+                summary['compute']['states'] = {
+                    row.get('status'): row.get('count', 0)
+                    for row in compute_summary.get('by_status', [])
+                }
+                summary['compute']['data_source'] = compute_summary.get('data_source')
                 
                 # Network summary
                 networks = list(conn.network.networks())
@@ -892,6 +897,7 @@ def set_compute_agents(
 # Import compute functions from services
 from .services.compute import (
     get_instance_details,
+    get_instance_summary,
     get_instance_by_name,
     get_instance_by_id,
     search_instances,

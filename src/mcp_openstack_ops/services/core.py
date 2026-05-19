@@ -163,21 +163,23 @@ def get_cluster_status() -> Dict[str, Any]:
         # Get resource counts
         try:
             # Compute resources
-            instances = list(conn.compute.servers())
+            from .compute import get_instance_summary
+
+            instance_summary = get_instance_summary(include_all_projects=True)
             flavors = list(conn.compute.flavors())
             keypairs = list(conn.compute.keypairs())
-            
-            # Analyze instance states
-            instance_states = {}
-            for instance in instances:
-                state = getattr(instance, 'status', 'UNKNOWN').upper()
-                instance_states[state] = instance_states.get(state, 0) + 1
+            instance_states = {
+                row.get('status'): row.get('count', 0)
+                for row in instance_summary.get('by_status', [])
+            }
             
             status_data['resources']['compute'] = {
-                'instances': len(instances),
+                'instances': instance_summary.get('total', 0),
                 'flavors': len(flavors),
                 'keypairs': len(keypairs),
-                'instance_states': instance_states
+                'instance_states': instance_states,
+                'instance_summary': instance_summary,
+                'data_source': instance_summary.get('data_source'),
             }
             
             # Network resources (enhanced)

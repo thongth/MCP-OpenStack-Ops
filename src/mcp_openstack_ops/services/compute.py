@@ -140,6 +140,73 @@ def _power_state_label(value: Any) -> str:
     return labels.get(int_value, f"UNKNOWN({int_value})")
 
 
+def _get_compute_group_counts(cur, group_expr: str, where_sql: str, params: List[Any], label: str) -> List[Dict[str, Any]]:
+    if group_expr == "NULL":
+        return []
+    cur.execute(
+        "SELECT COALESCE(group_value, 'unknown') AS value, COUNT(*) AS count FROM ("
+        f"SELECT {group_expr} AS group_value FROM instances i{where_sql}"
+        ") grouped_instances GROUP BY value ORDER BY count DESC, value ASC",
+        params,
+    )
+    return [{label: row.get("value"), "count": int(row.get("count") or 0)} for row in cur.fetchall()]
+
+
+def get_instance_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    """
+    Get Nova instance counts without filtering to ACTIVE only.
+    """
+    conn = _get_nova_mariadb_connection()
+    try:
+        scope_project_id = project_id or _scope_project_id(include_all_projects)
+        with conn.cursor() as cur:
+            columns = _table_columns(cur, "instances")
+            if not columns:
+                raise RuntimeError("MariaDB table 'instances' is not available")
+
+            deleted_expr = _column_expr("i", columns, "deleted", default="0")
+            status_expr = _column_expr("i", columns, "vm_state", default="'unknown'")
+            project_expr = _column_expr("i", columns, "project_id")
+            az_expr = _column_expr("i", columns, "availability_zone", default="NULL")
+            host_expr = _column_expr("i", columns, "host", default="NULL")
+            power_expr = _column_expr("i", columns, "power_state", default="0")
+
+            where = []
+            params: List[Any] = []
+            if deleted_expr != "0":
+                where.append(f"({deleted_expr} = 0 OR {deleted_expr} = '0')")
+            if scope_project_id:
+                where.append(f"{project_expr} = %s")
+                params.append(scope_project_id)
+            where_sql = " WHERE " + " AND ".join(where) if where else ""
+
+            cur.execute(f"SELECT COUNT(*) AS total FROM instances i{where_sql}", params)
+            total = int((cur.fetchone() or {}).get("total") or 0)
+
+            by_status = _get_compute_group_counts(cur, f"UPPER({status_expr})", where_sql, params, "status")
+            status_counts = {row["status"]: row["count"] for row in by_status}
+            error_count = sum(status_counts.get(status, 0) for status in ("ERROR", "CRASHED"))
+
+            return {
+                "resource": "instances",
+                "total": total,
+                "active": status_counts.get("ACTIVE", 0),
+                "error": error_count,
+                "by_status": by_status,
+                "by_project_id": _get_compute_group_counts(cur, project_expr, where_sql, params, "project_id"),
+                "by_availability_zone": _get_compute_group_counts(cur, az_expr, where_sql, params, "availability_zone"),
+                "by_host": _get_compute_group_counts(cur, host_expr, where_sql, params, "host"),
+                "by_power_state": _get_compute_group_counts(cur, power_expr, where_sql, params, "power_state"),
+                "scope": {
+                    "project_id": scope_project_id,
+                    "include_all_projects": include_all_projects,
+                },
+                "data_source": "mariadb",
+            }
+    finally:
+        conn.close()
+
+
 def get_instance_details(
     instance_names: Optional[List[str]] = None,
     limit: int = 50,
