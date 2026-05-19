@@ -1,4 +1,4 @@
-"""Tool implementation for get_snapshot_by_id_or_name."""
+"""Tool implementation for get_volume_snapshot_by_id_or_name."""
 
 import json
 from datetime import datetime
@@ -7,7 +7,7 @@ from ..mcp_main import logger, mcp
 
 
 @mcp.tool()
-async def get_snapshot_by_id_or_name(
+async def get_volume_snapshot_by_id_or_name(
     snapshot_id_or_name: str,
     include_all_projects: bool = False,
     project_id: str = "",

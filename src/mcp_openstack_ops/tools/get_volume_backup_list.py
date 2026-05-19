@@ -1,4 +1,4 @@
-"""Tool implementation for get_volume_backups."""
+"""Tool implementation for get_volume_backup_list."""
 
 import json
 from datetime import datetime
@@ -7,7 +7,7 @@ from ..mcp_main import logger, mcp
 
 
 @mcp.tool()
-async def get_volume_backups(
+async def get_volume_backup_list(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",

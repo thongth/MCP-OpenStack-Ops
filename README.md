@@ -189,7 +189,7 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | `openstack volume show` | `get_volume_list` (filtering) | ✅ | Specific volume query |
 | `openstack volume type list` | `get_volume_types` | ✅ | Volume type listing |
 | `openstack volume type create/delete` | (Not yet implemented) | 🚧 | Volume type management |
-| `openstack volume snapshot list` | `get_volume_snapshots` | ✅ | Snapshot listing |
+| `openstack volume snapshot list` | `get_volume_snapshot_list` | ✅ | Snapshot listing |
 | `openstack backup list` | (Not yet implemented) | 🚧 | Backup listing |
 | `openstack volume transfer request list` | (Not yet implemented) | 🚧 | Volume transfer |
 | `openstack server volume list` | `get_server_volumes` | ✅ | Server volume listing |

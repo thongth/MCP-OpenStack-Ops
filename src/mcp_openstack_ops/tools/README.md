@@ -44,20 +44,19 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 
 ### Storage
 
-- `get_volume.py`
+- `get_storage_resource.py`
+- `get_volume_list.py`
 - `get_volume_by_id_or_name.py`
 - `get_volume_by_project.py`
 - `get_volume_by_status.py`
 - `get_volume_summary.py`
 - `get_volume_types.py`
-- `get_snapshot.py`
-- `get_volume_snapshots.py`
-- `get_snapshot_by_id_or_name.py`
-- `get_snapshot_by_project.py`
-- `get_snapshot_by_status.py`
+- `get_volume_snapshot_list.py`
+- `get_volume_snapshot_by_id_or_name.py`
+- `get_volume_snapshot_by_project.py`
+- `get_volume_snapshot_by_status.py`
 - `get_volume_snapshot_summary.py`
-- `get_volume_backup.py`
-- `get_volume_backups.py`
+- `get_volume_backup_list.py`
 - `get_volume_backup_by_id_or_name.py`
 - `get_volume_backup_by_project.py`
 - `get_volume_backup_by_status.py`
