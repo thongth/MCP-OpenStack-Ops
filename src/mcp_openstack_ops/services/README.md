@@ -29,10 +29,10 @@ Quan ly Neutron networking:
 ### `storage.py`
 
 Quan ly Cinder storage:
-- Volumes: `get_volume_list`, `get_server_volumes`
+- Volumes: `get_volume_list`, `get_volume_summary`, `get_server_volumes`
 - Volume metadata: `get_volume_types`
-- Snapshots: `get_volume_snapshots`
-- Backups: `get_volume_backups`
+- Snapshots: `get_volume_snapshots`, `get_volume_snapshot_summary`
+- Backups: `get_volume_backups`, `get_volume_backup_summary`
 
 ### `image.py`
 

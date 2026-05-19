@@ -13,6 +13,9 @@ async def get_snapshot_by_project(
     project_id: str,
     include_all_projects: bool = True,
     status: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    fields: str = "",
 ) -> str:
     """Get snapshots owned by a specific project ID or exact project name."""
     try:
@@ -39,11 +42,19 @@ async def get_snapshot_by_project(
             include_all_projects=include_all_projects,
             project_id=target_project_id,
             status=status,
+            limit=limit,
+            offset=offset,
         )
         filtered_snapshots = [
             s for s in snapshots
             if str(s.get("project_id", "")) == target_project_id
         ]
+        if fields:
+            requested = [field.strip() for field in fields.split(",") if field.strip()]
+            filtered_snapshots = [
+                {field: s.get(field) for field in requested if field in s}
+                for s in filtered_snapshots
+            ]
 
         return json.dumps(
             {
@@ -53,6 +64,9 @@ async def get_snapshot_by_project(
                     "input_project": project_id,
                     "include_all_projects": include_all_projects,
                     "status": status,
+                    "limit": limit,
+                    "offset": offset,
+                    "fields": fields,
                 },
                 "mode": {
                     "all_projects_readonly": all_projects_mode,

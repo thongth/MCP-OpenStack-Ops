@@ -12,6 +12,7 @@ async def get_snapshot_by_id_or_name(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    fields: str = "",
 ) -> str:
     """Get snapshot details by exact snapshot ID or name."""
     try:
@@ -19,12 +20,19 @@ async def get_snapshot_by_id_or_name(
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
+            limit=0,
         )
         query = snapshot_id_or_name.strip()
         filtered_snapshots = [
             s for s in snapshots
             if str(s.get("id", "")) == query or str(s.get("name", "")) == query
         ]
+        if fields:
+            requested = [field.strip() for field in fields.split(",") if field.strip()]
+            filtered_snapshots = [
+                {field: s.get(field) for field in requested if field in s}
+                for s in filtered_snapshots
+            ]
 
         return json.dumps(
             {

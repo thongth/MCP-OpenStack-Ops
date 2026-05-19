@@ -94,10 +94,115 @@ def _scope_project_id(include_all_projects: bool = False, project_id: str = "") 
     )
 
 
+def _normalize_pagination(limit: int = 100, offset: int = 0) -> tuple[int, int]:
+    try:
+        limit = int(limit)
+    except Exception:
+        limit = 100
+    try:
+        offset = int(offset)
+    except Exception:
+        offset = 0
+    if limit < 0:
+        limit = 100
+    if limit > 500:
+        limit = 500
+    if offset < 0:
+        offset = 0
+    return limit, offset
+
+def _apply_limit_offset(sql: str, params: List[Any], limit: int, offset: int) -> tuple[str, List[Any]]:
+    limit, offset = _normalize_pagination(limit, offset)
+    if limit > 0:
+        sql += " LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+    return sql, params
+
+def _select_fields(items: List[Dict[str, Any]], fields: str = "") -> List[Dict[str, Any]]:
+    requested = [field.strip() for field in fields.split(",") if field.strip()]
+    if not requested:
+        return items
+    return [{field: item.get(field) for field in requested if field in item} for item in items]
+
+def _get_group_counts(
+    cur,
+    table_name: str,
+    alias: str,
+    columns: set[str],
+    group_expr: str,
+    where_sql: str,
+    params: List[Any],
+    label: str,
+) -> List[Dict[str, Any]]:
+    if group_expr == "NULL":
+        return []
+    cur.execute(
+        f"SELECT COALESCE({group_expr}, 'unknown') AS value, COUNT(*) AS count "
+        f"FROM {table_name} {alias}{where_sql} "
+        f"GROUP BY value ORDER BY count DESC, value ASC",
+        params,
+    )
+    return [{label: row.get("value"), "count": int(row.get("count") or 0)} for row in cur.fetchall()]
+
+def _storage_summary(table_name: str, alias: str, resource: str, include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    conn = _get_cinder_mariadb_connection()
+    try:
+        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        with conn.cursor() as cur:
+            columns = _table_columns(cur, table_name)
+            if not columns:
+                raise RuntimeError(f"MariaDB table '{table_name}' is not available")
+
+            deleted_expr = _column_expr(alias, columns, "deleted", default="0")
+            status_expr = _column_expr(alias, columns, "status", default="'unknown'")
+            project_expr = _column_expr(alias, columns, "project_id", "tenant_id")
+            az_expr = _column_expr(alias, columns, "availability_zone", default="NULL")
+            fail_reason_expr = _column_expr(alias, columns, "fail_reason", default="NULL")
+
+            where = []
+            params: List[Any] = []
+            if deleted_expr != "0":
+                where.append(f"({deleted_expr} = 0 OR {deleted_expr} = '0')")
+            if scope_project_id:
+                where.append(f"{project_expr} = %s")
+                params.append(scope_project_id)
+            where_sql = " WHERE " + " AND ".join(where) if where else ""
+
+            cur.execute(f"SELECT COUNT(*) AS total FROM {table_name} {alias}{where_sql}", params)
+            total = int((cur.fetchone() or {}).get("total") or 0)
+
+            return {
+                "resource": resource,
+                "total": total,
+                "scope": {
+                    "project_id": scope_project_id,
+                    "include_all_projects": include_all_projects,
+                },
+                "by_status": _get_group_counts(cur, table_name, alias, columns, status_expr, where_sql, params, "status"),
+                "by_project_id": _get_group_counts(cur, table_name, alias, columns, project_expr, where_sql, params, "project_id"),
+                "by_availability_zone": _get_group_counts(cur, table_name, alias, columns, az_expr, where_sql, params, "availability_zone"),
+                "by_fail_reason": _get_group_counts(cur, table_name, alias, columns, fail_reason_expr, where_sql, params, "fail_reason"),
+                "data_source": "mariadb",
+            }
+    finally:
+        conn.close()
+
+def get_volume_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    return _storage_summary("volumes", "v", "volumes", include_all_projects, project_id)
+
+def get_volume_snapshot_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    return _storage_summary("snapshots", "s", "snapshots", include_all_projects, project_id)
+
+def get_volume_backup_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    return _storage_summary("backups", "b", "backups", include_all_projects, project_id)
+
 def get_volume_list(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    fields: str = "",
 ) -> List[Dict[str, Any]]:
     """
     Get list of volumes with detailed information.
@@ -148,6 +253,7 @@ def get_volume_list(
                     sql += f"AND LOWER({status_expr}) = %s "
                     params.append(status_filter)
                 sql += "ORDER BY v.created_at DESC"
+                sql, params = _apply_limit_offset(sql, params, limit, offset)
                 cur.execute(sql, params)
                 rows = cur.fetchall()
 
@@ -220,7 +326,7 @@ def get_volume_list(
                         "attachment_count": len(attachments),
                         "data_source": "mariadb",
                     })
-                return volumes
+                return _select_fields(volumes, fields)
         finally:
             conn.close()
     except Exception as e:
@@ -558,6 +664,9 @@ def get_volume_snapshots(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    fields: str = "",
 ) -> List[Dict[str, Any]]:
     """
     Get list of volume snapshots.
@@ -598,6 +707,7 @@ def get_volume_snapshots(
                     sql += f"AND LOWER({status_expr}) = %s "
                     params.append(status_filter)
                 sql += "ORDER BY s.created_at DESC"
+                sql, params = _apply_limit_offset(sql, params, limit, offset)
                 cur.execute(sql, params)
                 rows = cur.fetchall()
 
@@ -615,7 +725,7 @@ def get_volume_snapshots(
                     for meta in cur.fetchall():
                         metadata_by_snapshot.setdefault(meta["snapshot_id"], {})[meta["key"]] = meta.get("value")
 
-                return [
+                snapshots = [
                     {
                         "id": row.get("id"),
                         "name": row.get("name") or "unnamed",
@@ -631,6 +741,7 @@ def get_volume_snapshots(
                     }
                     for row in rows
                 ]
+                return _select_fields(snapshots, fields)
         finally:
             conn.close()
     except Exception as e:
@@ -647,6 +758,9 @@ def get_volume_backups(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    fields: str = "",
 ) -> List[Dict[str, Any]]:
     """
     Get list of volume backups.
@@ -694,8 +808,9 @@ def get_volume_backups(
                     sql += f"AND LOWER({status_expr}) = %s "
                     params.append(status_filter)
                 sql += "ORDER BY b.created_at DESC"
+                sql, params = _apply_limit_offset(sql, params, limit, offset)
                 cur.execute(sql, params)
-                return [
+                backups = [
                     {
                         "id": row.get("id"),
                         "name": row.get("name") or "unnamed",
@@ -714,6 +829,7 @@ def get_volume_backups(
                     }
                     for row in cur.fetchall()
                 ]
+                return _select_fields(backups, fields)
         finally:
             conn.close()
     except Exception as e:

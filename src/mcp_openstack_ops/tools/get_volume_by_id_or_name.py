@@ -12,6 +12,7 @@ async def get_volume_by_id_or_name(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    fields: str = "",
 ) -> str:
     """Get volume details by exact volume ID or name."""
     try:
@@ -19,12 +20,19 @@ async def get_volume_by_id_or_name(
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
+            limit=0,
         )
         query = volume_id_or_name.strip()
         filtered_volumes = [
             v for v in volumes
             if str(v.get("id", "")) == query or str(v.get("name", "")) == query
         ]
+        if fields:
+            requested = [field.strip() for field in fields.split(",") if field.strip()]
+            filtered_volumes = [
+                {field: v.get(field) for field in requested if field in v}
+                for v in filtered_volumes
+            ]
 
         return json.dumps(
             {

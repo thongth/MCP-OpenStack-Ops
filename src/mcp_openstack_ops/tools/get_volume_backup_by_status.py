@@ -11,6 +11,9 @@ async def get_volume_backup_by_status(
     status: str,
     include_all_projects: bool = False,
     project_id: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    fields: str = "",
 ) -> str:
     """Get volume backups filtered by status."""
     try:
@@ -18,6 +21,9 @@ async def get_volume_backup_by_status(
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
+            limit=limit,
+            offset=offset,
+            fields=fields,
         )
         return json.dumps(
             {
@@ -26,6 +32,9 @@ async def get_volume_backup_by_status(
                     "status": status,
                     "include_all_projects": include_all_projects,
                     "project_id": project_id,
+                    "limit": limit,
+                    "offset": offset,
+                    "fields": fields,
                 },
                 "total_backups": len(backups),
                 "backups": backups,

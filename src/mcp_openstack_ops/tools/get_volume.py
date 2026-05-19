@@ -13,6 +13,9 @@ async def get_volume(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    fields: str = "",
 ) -> str:
     """
     Get list of all volumes with detailed information.
@@ -36,12 +39,17 @@ async def get_volume(
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
+            limit=limit,
+            offset=offset,
+            fields=fields,
         )
         
         response = {
             "timestamp": datetime.now().isoformat(),
             "volumes": volumes,
             "count": len(volumes),
+            "limit": limit,
+            "offset": offset,
             "operation": "list_volumes"
         }
         

@@ -930,10 +930,13 @@ from .services.network import (
 # Import storage functions from services
 from .services.storage import (
     get_volume_list,
+    get_volume_summary,
     set_volume,
     get_volume_types,
     get_volume_snapshots,
+    get_volume_snapshot_summary,
     get_volume_backups,
+    get_volume_backup_summary,
     set_snapshot,
     set_volume_backups,
     set_volume_groups,

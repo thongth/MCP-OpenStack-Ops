@@ -13,6 +13,9 @@ async def get_volume_by_project(
     project_id: str,
     include_all_projects: bool = True,
     status: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    fields: str = "",
 ) -> str:
     """Get volumes owned by a specific project ID (or exact project name)."""
     try:
@@ -40,11 +43,19 @@ async def get_volume_by_project(
             include_all_projects=include_all_projects,
             project_id=target_project_id,
             status=status,
+            limit=limit,
+            offset=offset,
         )
         filtered_volumes = [
             v for v in volumes
             if str(v.get("project_id", "")) == target_project_id
         ]
+        if fields:
+            requested = [field.strip() for field in fields.split(",") if field.strip()]
+            filtered_volumes = [
+                {field: v.get(field) for field in requested if field in v}
+                for v in filtered_volumes
+            ]
 
         return json.dumps(
             {
@@ -54,6 +65,9 @@ async def get_volume_by_project(
                     "input_project": project_id,
                     "include_all_projects": include_all_projects,
                     "status": status,
+                    "limit": limit,
+                    "offset": offset,
+                    "fields": fields,
                 },
                 "mode": {
                     "all_projects_readonly": all_projects_mode,

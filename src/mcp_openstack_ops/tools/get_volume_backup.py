@@ -11,6 +11,9 @@ async def get_volume_backup(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    fields: str = "",
 ) -> str:
     """Get list of volume backups."""
     try:
@@ -21,12 +24,17 @@ async def get_volume_backup(
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
+            limit=limit,
+            offset=offset,
+            fields=fields,
         )
 
         return json.dumps(
             {
                 "timestamp": datetime.now().isoformat(),
                 "total_backups": len(backups),
+                "limit": limit,
+                "offset": offset,
                 "backups": backups,
             },
             indent=2,

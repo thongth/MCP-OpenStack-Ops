@@ -12,6 +12,7 @@ async def get_volume_backup_by_id_or_name(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    fields: str = "",
 ) -> str:
     """Get volume backup details by exact backup ID or name."""
     try:
@@ -19,12 +20,19 @@ async def get_volume_backup_by_id_or_name(
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
+            limit=0,
         )
         query = backup_id_or_name.strip()
         filtered_backups = [
             b for b in backups
             if str(b.get("id", "")) == query or str(b.get("name", "")) == query
         ]
+        if fields:
+            requested = [field.strip() for field in fields.split(",") if field.strip()]
+            filtered_backups = [
+                {field: b.get(field) for field in requested if field in b}
+                for b in filtered_backups
+            ]
 
         return json.dumps(
             {
