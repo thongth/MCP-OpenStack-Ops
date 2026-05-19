@@ -14,6 +14,10 @@ async def get_network_details(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    name_contains: str = "",
+    limit: int = 0,
+    offset: int = 0,
+    include_subnets: bool = True,
 ) -> str:
     """
     Provides detailed information for OpenStack networks, subnets, routers, and security groups.
@@ -42,11 +46,28 @@ async def get_network_details(
             include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
+            name_contains=name_contains,
+            limit=limit,
+            offset=offset,
+            include_subnets=include_subnets,
         )
         
         result = {
             "timestamp": datetime.now().isoformat(), 
             "requested_network": network_name,
+            "returned_networks": len(details),
+            "pagination": {
+                "limit": limit,
+                "offset": offset,
+                "has_more": bool(limit and len(details) == limit),
+            },
+            "filters": {
+                "include_all_projects": include_all_projects,
+                "project_id": project_id,
+                "status": status,
+                "name_contains": name_contains,
+                "include_subnets": include_subnets,
+            },
             "network_details": details
         }
         

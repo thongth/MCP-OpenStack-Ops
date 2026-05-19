@@ -202,6 +202,10 @@ def get_network_details(
     include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
+    name_contains: str = "",
+    limit: int = 0,
+    offset: int = 0,
+    include_subnets: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Get detailed information about networks.
@@ -218,6 +222,9 @@ def get_network_details(
             scope_project_id = _scope_project_id(include_all_projects, project_id)
             status_filter = status.strip().lower() if status else ""
             target_name = network_name.strip().lower()
+            name_filter = name_contains.strip().lower()
+            safe_limit = max(int(limit or 0), 0)
+            safe_offset = max(int(offset or 0), 0)
 
             with conn.cursor() as cur:
                 network_columns = _table_columns(cur, "networks")
@@ -264,6 +271,9 @@ def get_network_details(
                 if target_name != "all":
                     sql += "AND (LOWER(n.id) = %s OR LOWER(n.name) = %s) "
                     params.extend([target_name, target_name])
+                if name_filter:
+                    sql += "AND LOWER(n.name) LIKE %s "
+                    params.append(f"%{name_filter}%")
                 if status_filter:
                     sql += f"AND LOWER({status_expr}) = %s "
                     params.append(status_filter)
@@ -271,12 +281,15 @@ def get_network_details(
                     sql += f"AND ({project_expr} = %s OR {shared_expr} = 1 OR {external_expr} = 1) "
                     params.append(scope_project_id)
                 sql += "ORDER BY n.name ASC"
+                if safe_limit:
+                    sql += " LIMIT %s OFFSET %s"
+                    params.extend([safe_limit, safe_offset])
                 cur.execute(sql, params)
                 rows = cur.fetchall()
 
                 network_ids = [row["id"] for row in rows if row.get("id")]
                 subnets_by_network: Dict[str, List[Dict[str, Any]]] = {}
-                if network_ids and subnet_columns:
+                if include_subnets and network_ids and subnet_columns:
                     placeholders = ",".join(["%s"] * len(network_ids))
                     subnet_project_expr = _column_expr("", subnet_columns, "project_id", "tenant_id").lstrip(".")
                     cur.execute(
@@ -541,8 +554,10 @@ def get_security_groups(
                 tenant_expr = _column_expr("sg", sg_columns, "tenant_id", "project_id")
                 created_expr = "sa.created_at" if {"id", "created_at"}.issubset(standard_attr_columns) and "standard_attr_id" in sg_columns else "NULL"
                 updated_expr = "sa.updated_at" if {"id", "updated_at"}.issubset(standard_attr_columns) and "standard_attr_id" in sg_columns else "NULL"
+                description_expr = _column_expr("sg", sg_columns, "description", default="''")
                 sql = (
-                    "SELECT sg.id, sg.name, sg.description, "
+                    "SELECT sg.id, sg.name, "
+                    f"{description_expr} AS description, "
                     f"{project_expr} AS project_id, {tenant_expr} AS tenant_id, "
                     f"{created_expr} AS created_at, {updated_expr} AS updated_at "
                     "FROM securitygroups sg "
