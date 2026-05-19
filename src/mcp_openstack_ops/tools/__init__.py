@@ -10,6 +10,7 @@ DISABLED_ALIAS_MODULES = {
     "get_snapshot_by_project",
     "get_snapshot_by_status",
     "get_volume",
+    "get_volume_by_name",
     "get_volume_backup",
     "get_volume_backups",
     "get_volume_snapshots",
