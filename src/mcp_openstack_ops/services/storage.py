@@ -6,10 +6,108 @@ volume types, and other storage-related components.
 """
 
 import logging
+import json
+import os
 from typing import Dict, List, Any, Optional
+
+try:
+    import pymysql
+except Exception:  # pragma: no cover - optional dependency at runtime
+    pymysql = None
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+TRUTHY_VALUES = {"1", "true", "yes", "on"}
+
+
+def _get_cinder_mariadb_connection():
+    if pymysql is None:
+        raise RuntimeError("PyMySQL is not installed")
+
+    cinder_db_name = os.getenv("CINDER_MARIADB_DATABASE")
+    db_name = (cinder_db_name or os.getenv("MARIADB_DATABASE", "")).strip()
+    if not db_name:
+        raise RuntimeError("CINDER_MARIADB_DATABASE or MARIADB_DATABASE is not configured")
+
+    allowed_raw = os.getenv("CINDER_MARIADB_ALLOWED_DATABASES")
+    if allowed_raw is None:
+        allowed_raw = db_name if cinder_db_name else os.getenv("MARIADB_ALLOWED_DATABASES", db_name)
+    allowed_databases = [
+        db.strip()
+        for db in allowed_raw.split(",")
+        if db.strip()
+    ]
+    if allowed_databases and db_name not in allowed_databases:
+        raise RuntimeError(f"CINDER_MARIADB_DATABASE '{db_name}' is not in CINDER_MARIADB_ALLOWED_DATABASES")
+
+    return pymysql.connect(
+        host=os.getenv("CINDER_MARIADB_HOST", os.getenv("MARIADB_HOST", "127.0.0.1")),
+        port=int(os.getenv("CINDER_MARIADB_PORT", os.getenv("MARIADB_PORT", "3306"))),
+        user=os.getenv("CINDER_MARIADB_USER", os.getenv("MARIADB_USER", "")),
+        password=os.getenv("CINDER_MARIADB_PASSWORD", os.getenv("MARIADB_PASSWORD", "")),
+        database=db_name,
+        charset=os.getenv("CINDER_MARIADB_CHARSET", os.getenv("MARIADB_CHARSET", "utf8mb4")),
+        connect_timeout=int(os.getenv("CINDER_MARIADB_CONNECT_TIMEOUT", os.getenv("MARIADB_CONNECT_TIMEOUT", "10"))),
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+
+def _table_columns(cur, table_name: str) -> set[str]:
+    try:
+        cur.execute(f"SHOW COLUMNS FROM `{table_name}`")
+        return {row["Field"] for row in cur.fetchall()}
+    except Exception:
+        return set()
+
+
+def _table_exists(cur, table_name: str) -> bool:
+    return bool(_table_columns(cur, table_name))
+
+
+def _column_expr(alias: str, columns: set[str], *names: str, default: str = "NULL") -> str:
+    prefix = f"{alias}." if alias else ""
+    for name in names:
+        if name in columns:
+            return f"{prefix}{name}"
+    return default
+
+
+def _bool_value(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value or "").strip().lower() in TRUTHY_VALUES
+
+
+def _json_value(value: Any, default: Any = None) -> Any:
+    if value in (None, ""):
+        return default
+    if isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(value)
+    except Exception:
+        return default
+
+
+def _str_time(value: Any) -> str:
+    return "unknown" if value in (None, "") else str(value)
+
+
+def _scope_project_id(include_all_projects: bool = False, project_id: str = "") -> Optional[str]:
+    if project_id:
+        return project_id
+    if include_all_projects:
+        return None
+    return (
+        os.getenv("CINDER_MARIADB_PROJECT_ID")
+        or os.getenv("MARIADB_PROJECT_ID")
+        or os.getenv("OS_PROJECT_ID")
+        or os.getenv("OS_TENANT_ID")
+        or None
+    )
 
 
 def get_volume_list(
@@ -24,76 +122,123 @@ def get_volume_list(
         List of volume dictionaries
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection, get_current_project_id, is_all_projects_readonly_mode
-        conn = get_openstack_connection()
-        current_project_id = get_current_project_id()
-        all_projects_mode = is_all_projects_readonly_mode()
-        has_project_filter = bool(project_id)
-        allow_cross_project = all_projects_mode and include_all_projects
-        # In all-projects read-only mode, explicit project_id must query all projects first,
-        # then apply strict project filtering below.
-        should_query_all_projects = all_projects_mode and (include_all_projects or has_project_filter)
-        scope_project_id = project_id if (all_projects_mode and has_project_filter) else (None if allow_cross_project else current_project_id)
-        status_filter = status.strip().lower() if status else ""
-        volumes = []
-
-        volume_iter = None
+        conn = _get_cinder_mariadb_connection()
         try:
-            if should_query_all_projects:
-                volume_iter = conn.volume.volumes(details=True, all_projects=True)
-            else:
-                volume_iter = conn.volume.volumes()
-        except TypeError:
-            # Older SDKs may not support all_projects argument.
-            volume_iter = conn.volume.volumes()
+            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            status_filter = status.strip().lower() if status else ""
+            with conn.cursor() as cur:
+                columns = _table_columns(cur, "volumes")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'volumes' is not available")
 
-        for volume in volume_iter:
-            volume_project_id = getattr(volume, 'project_id', None)
-            volume_status = str(getattr(volume, 'status', 'unknown')).lower()
-            if scope_project_id is None or volume_project_id == scope_project_id:
-                if status_filter and volume_status != status_filter:
-                    continue
-                # Get attachment information
-                attachments = []
-                for attachment in getattr(volume, 'attachments', []):
-                    attachments.append({
-                        'server_id': attachment.get('server_id', 'unknown'),
-                        'attachment_id': attachment.get('attachment_id', 'unknown'),
-                        'device': attachment.get('device', 'unknown'),
-                        'attached_at': attachment.get('attached_at', 'unknown')
+                name_expr = _column_expr("v", columns, "name", "display_name", default="NULL")
+                desc_expr = _column_expr("v", columns, "description", "display_description", default="''")
+                project_expr = _column_expr("v", columns, "project_id", "tenant_id")
+                tenant_expr = _column_expr("v", columns, "tenant_id", "project_id")
+                type_expr = _column_expr("v", columns, "volume_type_id", "volume_type", default="NULL")
+                bootable_expr = _column_expr("v", columns, "bootable", default="0")
+                multiattach_expr = _column_expr("v", columns, "multiattach", default="0")
+                encrypted_expr = _column_expr("v", columns, "encryption_key_id", default="NULL")
+                deleted_expr = _column_expr("v", columns, "deleted", default="0")
+                status_expr = _column_expr("v", columns, "status", default="'unknown'")
+                sql = (
+                    "SELECT v.id, "
+                    f"{name_expr} AS name, {status_expr} AS status, v.size, {type_expr} AS volume_type, "
+                    f"{bootable_expr} AS bootable, {multiattach_expr} AS multiattach, "
+                    f"{encrypted_expr} AS encryption_key_id, v.availability_zone, "
+                    f"{project_expr} AS project_id, {tenant_expr} AS tenant_id, "
+                    "v.created_at, v.updated_at, "
+                    f"{desc_expr} AS description, "
+                    f"{_column_expr('v', columns, 'source_volid')} AS source_volid, "
+                    f"{_column_expr('v', columns, 'snapshot_id')} AS snapshot_id, "
+                    f"{_column_expr('v', columns, 'image_id')} AS image_id "
+                    "FROM volumes v WHERE 1=1 "
+                )
+                params: List[Any] = []
+                if deleted_expr != "0":
+                    sql += f"AND ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+                if scope_project_id:
+                    sql += f"AND {project_expr} = %s "
+                    params.append(scope_project_id)
+                if status_filter:
+                    sql += f"AND LOWER({status_expr}) = %s "
+                    params.append(status_filter)
+                sql += "ORDER BY v.created_at DESC"
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+
+                volume_ids = [row["id"] for row in rows if row.get("id")]
+                attachments_by_volume: Dict[str, List[Dict[str, Any]]] = {}
+                metadata_by_volume: Dict[str, Dict[str, Any]] = {}
+                if volume_ids:
+                    placeholders = ",".join(["%s"] * len(volume_ids))
+                    attachment_columns = _table_columns(cur, "volume_attachment")
+                    if attachment_columns:
+                        attachment_deleted_expr = _column_expr("", attachment_columns, "deleted", default="0")
+                        attachment_id_expr = _column_expr("", attachment_columns, "id", default="NULL")
+                        instance_uuid_expr = _column_expr("", attachment_columns, "instance_uuid", default="NULL")
+                        attached_host_expr = _column_expr("", attachment_columns, "attached_host", default="NULL")
+                        mountpoint_expr = _column_expr("", attachment_columns, "mountpoint", default="NULL")
+                        attach_time_expr = _column_expr("", attachment_columns, "attach_time", "created_at", default="NULL")
+                        cur.execute(
+                            "SELECT "
+                            f"{attachment_id_expr} AS id, volume_id, "
+                            f"{instance_uuid_expr} AS instance_uuid, "
+                            f"{attached_host_expr} AS attached_host, "
+                            f"{mountpoint_expr} AS mountpoint, "
+                            f"{attach_time_expr} AS attach_time "
+                            f"FROM volume_attachment WHERE volume_id IN ({placeholders}) "
+                            f"AND ({attachment_deleted_expr} = 0 OR {attachment_deleted_expr} = '0')",
+                            volume_ids,
+                        )
+                        for attachment in cur.fetchall():
+                            attachments_by_volume.setdefault(attachment["volume_id"], []).append({
+                                "server_id": attachment.get("instance_uuid"),
+                                "attachment_id": attachment.get("id"),
+                                "device": attachment.get("mountpoint"),
+                                "attached_at": _str_time(attachment.get("attach_time")),
+                                "attached_host": attachment.get("attached_host"),
+                            })
+                    metadata_columns = _table_columns(cur, "volume_metadata")
+                    if {"volume_id", "key", "value"}.issubset(metadata_columns):
+                        metadata_deleted_expr = _column_expr("", metadata_columns, "deleted", default="0")
+                        cur.execute(
+                            f"SELECT volume_id, `key`, value FROM volume_metadata WHERE volume_id IN ({placeholders}) "
+                            f"AND ({metadata_deleted_expr} = 0 OR {metadata_deleted_expr} = '0')",
+                            volume_ids,
+                        )
+                        for meta in cur.fetchall():
+                            metadata_by_volume.setdefault(meta["volume_id"], {})[meta["key"]] = meta.get("value")
+
+                volumes = []
+                for row in rows:
+                    attachments = attachments_by_volume.get(row.get("id"), [])
+                    volumes.append({
+                        "id": row.get("id"),
+                        "name": row.get("name") or "unnamed",
+                        "status": row.get("status") or "unknown",
+                        "size": row.get("size") or 0,
+                        "volume_type": row.get("volume_type") or "unknown",
+                        "bootable": _bool_value(row.get("bootable")),
+                        "encrypted": bool(row.get("encryption_key_id")),
+                        "multiattach": _bool_value(row.get("multiattach")),
+                        "availability_zone": row.get("availability_zone") or "unknown",
+                        "tenant_id": row.get("tenant_id"),
+                        "project_id": row.get("project_id"),
+                        "created_at": _str_time(row.get("created_at")),
+                        "updated_at": _str_time(row.get("updated_at")),
+                        "description": row.get("description") or "",
+                        "metadata": metadata_by_volume.get(row.get("id"), {}),
+                        "source_volid": row.get("source_volid"),
+                        "snapshot_id": row.get("snapshot_id"),
+                        "image_id": row.get("image_id"),
+                        "attachments": attachments,
+                        "attachment_count": len(attachments),
+                        "data_source": "mariadb",
                     })
-                
-                volumes.append({
-                    'id': volume.id,
-                    'name': getattr(volume, 'name', 'unnamed'),
-                    'status': getattr(volume, 'status', 'unknown'),
-                    'size': getattr(volume, 'size', 0),
-                    'volume_type': getattr(volume, 'volume_type', 'unknown'),
-                    'bootable': getattr(volume, 'is_bootable', False),
-                    'encrypted': getattr(volume, 'is_encrypted', False),
-                    'multiattach': getattr(volume, 'multiattach', False),
-                    'availability_zone': getattr(volume, 'availability_zone', 'unknown'),
-                    'project_id': getattr(volume, 'project_id', current_project_id),
-                    'created_at': str(getattr(volume, 'created_at', 'unknown')),
-                    'updated_at': str(getattr(volume, 'updated_at', 'unknown')),
-                    'description': getattr(volume, 'description', ''),
-                    'metadata': getattr(volume, 'metadata', {}),
-                    'source_volid': getattr(volume, 'source_volid', None),
-                    'snapshot_id': getattr(volume, 'snapshot_id', None),
-                    'image_id': getattr(volume, 'image_id', None),
-                    'attachments': attachments,
-                    'attachment_count': len(attachments)
-                })
-        
-        logger.info(
-            "Retrieved %s volumes (project_id=%s, include_all_projects=%s, all_projects_mode=%s)",
-            len(volumes),
-            scope_project_id,
-            include_all_projects,
-            all_projects_mode,
-        )
-        return volumes
+                return volumes
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get volume list: {e}")
         return [
@@ -370,23 +515,51 @@ def get_volume_types() -> List[Dict[str, Any]]:
         List of volume type dictionaries
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        volume_types = []
-        
-        for vol_type in conn.volume.types():
-            volume_types.append({
-                'id': vol_type.id,
-                'name': getattr(vol_type, 'name', 'unnamed'),
-                'description': getattr(vol_type, 'description', ''),
-                'is_public': getattr(vol_type, 'is_public', True),
-                'extra_specs': getattr(vol_type, 'extra_specs', {}),
-                'created_at': str(getattr(vol_type, 'created_at', 'unknown')),
-                'updated_at': str(getattr(vol_type, 'updated_at', 'unknown'))
-            })
-        
-        return volume_types
+        conn = _get_cinder_mariadb_connection()
+        try:
+            with conn.cursor() as cur:
+                columns = _table_columns(cur, "volume_types")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'volume_types' is not available")
+
+                desc_expr = _column_expr("vt", columns, "description", default="''")
+                public_expr = _column_expr("vt", columns, "is_public", default="1")
+                deleted_expr = _column_expr("vt", columns, "deleted", default="0")
+                cur.execute(
+                    "SELECT vt.id, vt.name, "
+                    f"{desc_expr} AS description, {public_expr} AS is_public, "
+                    "vt.created_at, vt.updated_at "
+                    "FROM volume_types vt "
+                    f"WHERE ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+                    "ORDER BY vt.name ASC"
+                )
+                rows = cur.fetchall()
+                type_ids = [row["id"] for row in rows if row.get("id")]
+                specs_by_type: Dict[str, Dict[str, Any]] = {}
+                if type_ids and {"volume_type_id", "key", "value"}.issubset(_table_columns(cur, "volume_type_extra_specs")):
+                    placeholders = ",".join(["%s"] * len(type_ids))
+                    cur.execute(
+                        f"SELECT volume_type_id, `key`, value FROM volume_type_extra_specs WHERE volume_type_id IN ({placeholders})",
+                        type_ids,
+                    )
+                    for spec in cur.fetchall():
+                        specs_by_type.setdefault(spec["volume_type_id"], {})[spec["key"]] = spec.get("value")
+
+                return [
+                    {
+                        "id": row.get("id"),
+                        "name": row.get("name") or "unnamed",
+                        "description": row.get("description") or "",
+                        "is_public": _bool_value(row.get("is_public")),
+                        "extra_specs": specs_by_type.get(row.get("id"), {}),
+                        "created_at": _str_time(row.get("created_at")),
+                        "updated_at": _str_time(row.get("updated_at")),
+                        "data_source": "mariadb",
+                    }
+                    for row in rows
+                ]
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get volume types: {e}")
         return [
@@ -409,52 +582,73 @@ def get_volume_snapshots(
         List of snapshot dictionaries
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection, is_all_projects_readonly_mode
-        conn = get_openstack_connection()
-        current_project_id = conn.current_project_id
-        all_projects_mode = is_all_projects_readonly_mode()
-        allow_cross_project = all_projects_mode and include_all_projects
-        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
-        status_filter = status.strip().lower() if status else ""
-        snapshots = []
-
-        snapshot_iter = None
+        conn = _get_cinder_mariadb_connection()
         try:
-            if scope_project_id is None:
-                snapshot_iter = conn.volume.snapshots(details=True, all_projects=True)
-            else:
-                snapshot_iter = conn.volume.snapshots()
-        except TypeError:
-            snapshot_iter = conn.volume.snapshots()
+            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            status_filter = status.strip().lower() if status else ""
+            with conn.cursor() as cur:
+                columns = _table_columns(cur, "snapshots")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'snapshots' is not available")
 
-        for snapshot in snapshot_iter:
-            snapshot_project_id = getattr(snapshot, 'project_id', None)
-            snapshot_status = str(getattr(snapshot, 'status', 'unknown')).lower()
-            if scope_project_id is None or snapshot_project_id == scope_project_id:
-                if status_filter and snapshot_status != status_filter:
-                    continue
-                snapshots.append({
-                    'id': snapshot.id,
-                    'name': getattr(snapshot, 'name', 'unnamed'),
-                    'description': getattr(snapshot, 'description', ''),
-                    'status': getattr(snapshot, 'status', 'unknown'),
-                    'size': getattr(snapshot, 'size', 0),
-                    'volume_id': getattr(snapshot, 'volume_id', 'unknown'),
-                    'project_id': snapshot_project_id,
-                    'created_at': str(getattr(snapshot, 'created_at', 'unknown')),
-                    'updated_at': str(getattr(snapshot, 'updated_at', 'unknown')),
-                    'metadata': getattr(snapshot, 'metadata', {})
-                })
-        
-        logger.info(
-            "Retrieved %s snapshots (project_id=%s, include_all_projects=%s, all_projects_mode=%s)",
-            len(snapshots),
-            scope_project_id,
-            include_all_projects,
-            all_projects_mode,
-        )
-        return snapshots
+                name_expr = _column_expr("s", columns, "name", "display_name", default="NULL")
+                desc_expr = _column_expr("s", columns, "description", "display_description", default="''")
+                project_expr = _column_expr("s", columns, "project_id", "tenant_id")
+                size_expr = _column_expr("s", columns, "volume_size", "size", default="0")
+                deleted_expr = _column_expr("s", columns, "deleted", default="0")
+                status_expr = _column_expr("s", columns, "status", default="'unknown'")
+                sql = (
+                    "SELECT s.id, "
+                    f"{name_expr} AS name, {desc_expr} AS description, {status_expr} AS status, "
+                    f"{size_expr} AS size, s.volume_id, {project_expr} AS project_id, "
+                    "s.created_at, s.updated_at "
+                    "FROM snapshots s WHERE 1=1 "
+                )
+                params: List[Any] = []
+                if deleted_expr != "0":
+                    sql += f"AND ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+                if scope_project_id:
+                    sql += f"AND {project_expr} = %s "
+                    params.append(scope_project_id)
+                if status_filter:
+                    sql += f"AND LOWER({status_expr}) = %s "
+                    params.append(status_filter)
+                sql += "ORDER BY s.created_at DESC"
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+
+                snapshot_ids = [row["id"] for row in rows if row.get("id")]
+                metadata_by_snapshot: Dict[str, Dict[str, Any]] = {}
+                metadata_columns = _table_columns(cur, "snapshot_metadata")
+                if snapshot_ids and {"snapshot_id", "key", "value"}.issubset(metadata_columns):
+                    placeholders = ",".join(["%s"] * len(snapshot_ids))
+                    metadata_deleted_expr = _column_expr("", metadata_columns, "deleted", default="0")
+                    cur.execute(
+                        f"SELECT snapshot_id, `key`, value FROM snapshot_metadata WHERE snapshot_id IN ({placeholders}) "
+                        f"AND ({metadata_deleted_expr} = 0 OR {metadata_deleted_expr} = '0')",
+                        snapshot_ids,
+                    )
+                    for meta in cur.fetchall():
+                        metadata_by_snapshot.setdefault(meta["snapshot_id"], {})[meta["key"]] = meta.get("value")
+
+                return [
+                    {
+                        "id": row.get("id"),
+                        "name": row.get("name") or "unnamed",
+                        "description": row.get("description") or "",
+                        "status": row.get("status") or "unknown",
+                        "size": row.get("size") or 0,
+                        "volume_id": row.get("volume_id") or "unknown",
+                        "project_id": row.get("project_id"),
+                        "created_at": _str_time(row.get("created_at")),
+                        "updated_at": _str_time(row.get("updated_at")),
+                        "metadata": metadata_by_snapshot.get(row.get("id"), {}),
+                        "data_source": "mariadb",
+                    }
+                    for row in rows
+                ]
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get volume snapshots: {e}")
         return [
@@ -625,51 +819,54 @@ def set_volume_backups(
         Result of the backup operation
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection, is_all_projects_readonly_mode
-        conn = get_openstack_connection()
-        current_project_id = getattr(conn, "current_project_id", None)
-        all_projects_mode = is_all_projects_readonly_mode()
-        allow_cross_project = all_projects_mode and include_all_projects
-        scope_project_id = project_id if (all_projects_mode and project_id) else (None if allow_cross_project else current_project_id)
-        status_filter = status.strip().lower() if status else ""
-        
         if action.lower() == 'list':
-            backups = []
-            backup_iter = None
+            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            status_filter = status.strip().lower() if status else ""
+            conn = _get_cinder_mariadb_connection()
             try:
-                try:
-                    if scope_project_id is None:
-                        backup_iter = conn.volume.backups(details=True, all_projects=True)
-                    else:
-                        backup_iter = conn.volume.backups()
-                except TypeError:
-                    backup_iter = conn.volume.backups()
+                with conn.cursor() as cur:
+                    columns = _table_columns(cur, "backups")
+                    if not columns:
+                        raise RuntimeError("MariaDB table 'backups' is not available")
 
-                for backup in backup_iter:
-                    backup_project_id = getattr(backup, 'project_id', None)
-                    backup_status = str(getattr(backup, 'status', 'unknown')).lower()
-                    if scope_project_id is not None and backup_project_id != scope_project_id:
-                        continue
-                    if status_filter and backup_status != status_filter:
-                        continue
-                    backups.append({
-                        'id': backup.id,
-                        'name': getattr(backup, 'name', 'unnamed'),
-                        'status': getattr(backup, 'status', 'unknown'),
-                        'size': getattr(backup, 'size', 0),
-                        'volume_id': getattr(backup, 'volume_id', 'unknown'),
-                        'project_id': backup_project_id,
-                        'created_at': str(getattr(backup, 'created_at', 'unknown')),
-                        'description': getattr(backup, 'description', '')
-                    })
-            except Exception as e:
-                logger.warning(f"Backup service may not be available: {e}")
-                return {
-                    'success': False,
-                    'message': 'Backup service not available or configured',
-                    'backups': []
-                }
+                    name_expr = _column_expr("b", columns, "name", "display_name", default="NULL")
+                    desc_expr = _column_expr("b", columns, "description", "display_description", default="''")
+                    project_expr = _column_expr("b", columns, "project_id", "tenant_id")
+                    deleted_expr = _column_expr("b", columns, "deleted", default="0")
+                    status_expr = _column_expr("b", columns, "status", default="'unknown'")
+                    sql = (
+                        "SELECT b.id, "
+                        f"{name_expr} AS name, {status_expr} AS status, b.size, b.volume_id, "
+                        f"{project_expr} AS project_id, b.created_at, {desc_expr} AS description "
+                        "FROM backups b WHERE 1=1 "
+                    )
+                    params: List[Any] = []
+                    if deleted_expr != "0":
+                        sql += f"AND ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+                    if scope_project_id:
+                        sql += f"AND {project_expr} = %s "
+                        params.append(scope_project_id)
+                    if status_filter:
+                        sql += f"AND LOWER({status_expr}) = %s "
+                        params.append(status_filter)
+                    sql += "ORDER BY b.created_at DESC"
+                    cur.execute(sql, params)
+                    backups = [
+                        {
+                            "id": row.get("id"),
+                            "name": row.get("name") or "unnamed",
+                            "status": row.get("status") or "unknown",
+                            "size": row.get("size") or 0,
+                            "volume_id": row.get("volume_id") or "unknown",
+                            "project_id": row.get("project_id"),
+                            "created_at": _str_time(row.get("created_at")),
+                            "description": row.get("description") or "",
+                            "data_source": "mariadb",
+                        }
+                        for row in cur.fetchall()
+                    ]
+            finally:
+                conn.close()
             
             return {
                 'success': True,
@@ -678,11 +875,12 @@ def set_volume_backups(
                 'scope': {
                     'project_id': scope_project_id,
                     'include_all_projects': include_all_projects,
-                    'all_projects_mode': all_projects_mode,
                 }
             }
             
         elif action.lower() == 'create':
+            from ..connection import get_openstack_connection
+            conn = get_openstack_connection()
             volume_id = kwargs.get('volume_id')
             description = kwargs.get('description', f'Backup {backup_name}')
             
@@ -857,83 +1055,75 @@ def get_server_volumes(instance_name: str) -> List[Dict[str, Any]]:
     Get volumes attached to a specific server/instance.
     
     Args:
-        instance_name: Name or ID of the server
+        instance_name: Server ID / instance UUID. Cinder DB stores instance_uuid, not server name.
         
     Returns:
         List of attached volumes
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        
-        # Find the server first
-        server = None
-        for srv in conn.compute.servers():
-            if getattr(srv, 'name', '') == instance_name or srv.id == instance_name:
-                server = srv
-                break
-        
-        if not server:
-            return []
-        
-        attached_volumes = []
-        
-        # Get volume attachments for this server
+        conn = _get_cinder_mariadb_connection()
         try:
-            for attachment in conn.compute.volume_attachments(server.id):
-                # Get detailed volume information
-                volume_id = getattr(attachment, 'volume_id', attachment.get('volumeId', 'unknown'))
-                
-                try:
-                    volume = conn.volume.get_volume(volume_id)
-                    volume_info = {
-                        'volume_id': volume_id,
-                        'volume_name': getattr(volume, 'name', 'unnamed'),
-                        'device': getattr(attachment, 'device', 'unknown'),
-                        'size': getattr(volume, 'size', 0),
-                        'status': getattr(volume, 'status', 'unknown'),
-                        'volume_type': getattr(volume, 'volume_type', 'unknown'),
-                        'bootable': getattr(volume, 'is_bootable', False),
-                        'encrypted': getattr(volume, 'is_encrypted', False),
-                        'attachment_id': getattr(attachment, 'id', 'unknown'),
-                        'attached_at': str(getattr(attachment, 'attached_at', 'unknown'))
+            with conn.cursor() as cur:
+                attachment_columns = _table_columns(cur, "volume_attachment")
+                volume_columns = _table_columns(cur, "volumes")
+                if not attachment_columns:
+                    raise RuntimeError("MariaDB table 'volume_attachment' is not available")
+                if not volume_columns:
+                    raise RuntimeError("MariaDB table 'volumes' is not available")
+                if "instance_uuid" not in attachment_columns:
+                    raise RuntimeError("MariaDB table 'volume_attachment' has no instance_uuid column")
+
+                attachment_deleted_expr = _column_expr("va", attachment_columns, "deleted", default="0")
+                volume_deleted_expr = _column_expr("v", volume_columns, "deleted", default="0")
+                name_expr = _column_expr("v", volume_columns, "name", "display_name", default="NULL")
+                type_expr = _column_expr("v", volume_columns, "volume_type_id", "volume_type", default="NULL")
+                bootable_expr = _column_expr("v", volume_columns, "bootable", default="0")
+                encrypted_expr = _column_expr("v", volume_columns, "encryption_key_id", default="NULL")
+                status_expr = _column_expr("v", volume_columns, "status", default="'unknown'")
+                mountpoint_expr = _column_expr("va", attachment_columns, "mountpoint", default="NULL")
+                attach_time_expr = _column_expr("va", attachment_columns, "attach_time", "created_at", default="NULL")
+                attached_host_expr = _column_expr("va", attachment_columns, "attached_host", default="NULL")
+
+                sql = (
+                    "SELECT va.id AS attachment_id, va.volume_id, va.instance_uuid, "
+                    f"{mountpoint_expr} AS device, {attach_time_expr} AS attached_at, "
+                    f"{attached_host_expr} AS attached_host, "
+                    f"{name_expr} AS volume_name, v.size, {status_expr} AS status, "
+                    f"{type_expr} AS volume_type, {bootable_expr} AS bootable, "
+                    f"{encrypted_expr} AS encryption_key_id "
+                    "FROM volume_attachment va "
+                    "LEFT JOIN volumes v ON v.id = va.volume_id "
+                    "WHERE va.instance_uuid = %s "
+                )
+                params: List[Any] = [instance_name]
+                if attachment_deleted_expr != "0":
+                    sql += f"AND ({attachment_deleted_expr} = 0 OR {attachment_deleted_expr} = '0') "
+                if volume_deleted_expr != "0":
+                    sql += f"AND ({volume_deleted_expr} = 0 OR {volume_deleted_expr} = '0' OR v.id IS NULL) "
+                sql += "ORDER BY attached_at DESC"
+
+                cur.execute(sql, params)
+                return [
+                    {
+                        "volume_id": row.get("volume_id"),
+                        "volume_name": row.get("volume_name") or "unnamed",
+                        "device": row.get("device") or "unknown",
+                        "size": row.get("size") or 0,
+                        "status": row.get("status") or "unknown",
+                        "volume_type": row.get("volume_type") or "unknown",
+                        "bootable": _bool_value(row.get("bootable")),
+                        "encrypted": bool(row.get("encryption_key_id")),
+                        "attachment_id": row.get("attachment_id") or "unknown",
+                        "attached_at": _str_time(row.get("attached_at")),
+                        "attached_host": row.get("attached_host"),
+                        "server_id": row.get("instance_uuid"),
+                        "data_source": "mariadb",
                     }
-                except Exception as e:
-                    # If we can't get volume details, use basic info
-                    volume_info = {
-                        'volume_id': volume_id,
-                        'volume_name': 'unknown',
-                        'device': getattr(attachment, 'device', 'unknown'),
-                        'size': 0,
-                        'status': 'unknown',
-                        'attachment_id': getattr(attachment, 'id', 'unknown'),
-                        'error': f'Could not retrieve volume details: {e}'
-                    }
-                
-                attached_volumes.append(volume_info)
-                
-        except Exception as e:
-            logger.error(f"Failed to get volume attachments: {e}")
-            # Fallback: check volume attachments from volume side
-            for volume in conn.volume.volumes():
-                attachments = getattr(volume, 'attachments', [])
-                for attachment in attachments:
-                    if attachment.get('server_id') == server.id:
-                        attached_volumes.append({
-                            'volume_id': volume.id,
-                            'volume_name': getattr(volume, 'name', 'unnamed'),
-                            'device': attachment.get('device', 'unknown'),
-                            'size': getattr(volume, 'size', 0),
-                            'status': getattr(volume, 'status', 'unknown'),
-                            'volume_type': getattr(volume, 'volume_type', 'unknown'),
-                            'bootable': getattr(volume, 'is_bootable', False),
-                            'attachment_id': attachment.get('attachment_id', 'unknown'),
-                            'method': 'volume_fallback'
-                        })
-        
-        return attached_volumes
-        
+                    for row in cur.fetchall()
+                ]
+        finally:
+            conn.close()
+
     except Exception as e:
         logger.error(f"Failed to get server volumes: {e}")
         return [{'error': str(e), 'instance_name': instance_name}]

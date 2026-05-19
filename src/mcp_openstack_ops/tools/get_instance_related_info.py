@@ -117,7 +117,7 @@ async def get_instance_related_info(
         attached_volume_ids = [str(v) for v in (instance.get("attached_volumes", []) or []) if v]
         if include_volumes:
             try:
-                volumes = _get_server_volumes(instance_name_or_id)
+                volumes = _get_server_volumes(instance_id or instance_name_or_id)
                 if any(isinstance(v, dict) and v.get("error") for v in (volumes or [])):
                     warnings.append("Volume API returned partial/error entries; applying fallback from instance attachments")
                     volumes = [v for v in volumes if not (isinstance(v, dict) and v.get("error"))]

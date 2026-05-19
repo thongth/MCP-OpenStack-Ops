@@ -13,10 +13,10 @@ async def get_server_volumes(
     instance_name: str
 ) -> str:
     """
-    Get all volumes attached to a specific server
+    Get all volumes attached to a specific server from Cinder MariaDB.
     
     Args:
-        instance_name: Name or ID of the server instance
+        instance_name: Server ID / instance UUID. Server name cannot be resolved from Cinder DB.
     
     Returns:
         JSON string with server volumes information
