@@ -1,32 +1,13 @@
 services:
-  open-webui:
-    env_file: .env
-    # image: ghcr.io/open-webui/open-webui:main
-    # image: ghcr.io/open-webui/open-webui:0.6.22
-    image: ghcr.io/open-webui/open-webui:0.7.2
-    container_name: mcp-openstack-ops-open-webui
-    ports:
-      - "${DOCKER_EXTERNAL_PORT_OPENWEBUI}:8080"
-    environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-    volumes:
-      - open-webui-data:/app/backend/data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    restart: unless-stopped
-
   mcp-server:
     env_file: .env
-    image: call518/mcp-server-openstack-ops:1.0.3
-    container_name: mcp-openstack-ops-mcp-server
+    image: vcr.infiniband.vn/openstack.custom/mcpo-server-openstack-ops:latest
+    pull_policy: always
+    container_name: mcp-openstack-hcm-ops03-mcp-server
     ports:
-      - "${DOCKER_EXTERNAL_PORT_MCP_SERVER}:8000" ### (WARNING) Must be same with port number of 'FASTMCP_PORT', 'mcp-config.json' and 'mcp-config.json.http'
+      - "${DOCKER_EXTERNAL_PORT_MCP_SERVER}:8000"
     volumes:
-      - ./src:/app/src/
-      - ./scripts:/app/scripts
       - ./.env:/app/.env:ro
-      # Uncomment the line below to mount SSL CA certificate for HTTPS OpenStack connections
-      # - /path/to/your/ca-cert.pem:/etc/ssl/certs/openstack-ca.pem:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -39,8 +20,9 @@ services:
 
   mcpo-proxy:
     env_file: .env
-    image: call518/mcpo-proxy-openstack-ops:1.0.2
-    container_name: mcp-openstack-ops-mcpo-proxy
+    image: vcr.infiniband.vn/openstack.custom/mcpo-proxy-openstack-ops:latest
+    pull_policy: always
+    container_name: mcp-openstack-hcm-ops03-mcpo-proxy
     depends_on:
       mcp-server:
         condition: service_healthy
@@ -48,11 +30,6 @@ services:
       - "${DOCKER_EXTERNAL_PORT_MCPO_PROXY}:8000"
     volumes:
       - ./mcp-config.json.http:/app/config/mcp-config.json
-      - ./src:/app/src
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-
-volumes:
-  open-webui-data:
-    name: open-webui-data-mcp-openstack-ops
