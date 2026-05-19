@@ -1427,7 +1427,7 @@ def get_routers(
                     placeholders = ",".join(["%s"] * len(router_ids))
                     cur.execute(
                         "SELECT id, network_id, device_id, device_owner FROM ports "
-                        f"WHERE device_id IN ({placeholders}) AND device_owner LIKE 'network:router%'",
+                        f"WHERE device_id IN ({placeholders}) AND device_owner LIKE 'network:router%%'",
                         router_ids,
                     )
                     ports = cur.fetchall()
