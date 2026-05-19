@@ -8,6 +8,7 @@ authors = [{ name = "JungJungIn", email = "call518@gmail.com" }]
 dependencies = [
     "fastmcp>=2.12.3",
     "openstacksdk>=4.1.0,<=4.10.0",
+    "PyMySQL>=1.1.1",
     "python-dotenv>=1.1.1",
 ]
 
