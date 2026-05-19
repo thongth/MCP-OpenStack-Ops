@@ -22,10 +22,10 @@ Quan ly Nova compute resources:
 ### `network.py`
 
 Quan ly Neutron networking:
-- Truy van mang: `get_network_details`
+- Truy van mang: `get_network_details`, `get_network_summary`
 - Network agents: `get_network_agents`
-- Security va IP: `get_security_groups`, `get_floating_ips`, `get_floating_ip_pools`
-- Router va ports: `get_routers`
+- Security va IP: `get_security_groups`, `get_security_groups_summary`, `get_floating_ips`, `get_floating_ips_summary`, `get_floating_ip_pools`
+- Router va ports: `get_routers`, `get_routers_summary`
 
 ### `storage.py`
 

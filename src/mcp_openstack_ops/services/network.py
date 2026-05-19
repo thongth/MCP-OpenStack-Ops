@@ -101,6 +101,71 @@ def _range_size(start: Any, end: Any) -> int:
     except Exception:
         return 0
 
+def _get_network_group_counts(cur, group_expr: str, from_sql: str, where_sql: str, params: List[Any], label: str) -> List[Dict[str, Any]]:
+    if group_expr == "NULL":
+        return []
+    cur.execute(
+        "SELECT COALESCE(group_value, 'unknown') AS value, COUNT(*) AS count FROM ("
+        f"SELECT {group_expr} AS group_value {from_sql}{where_sql}"
+        ") grouped_resources GROUP BY value ORDER BY count DESC, value ASC",
+        params,
+    )
+    return [{label: row.get("value"), "count": int(row.get("count") or 0)} for row in cur.fetchall()]
+
+def get_network_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    """
+    Get Neutron network counts without returning full network records.
+    """
+    conn = _get_mariadb_connection()
+    try:
+        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        with conn.cursor() as cur:
+            network_columns = _table_columns(cur, "networks")
+            external_columns = _table_columns(cur, "externalnetworks")
+            if not network_columns:
+                raise RuntimeError("MariaDB table 'networks' is not available")
+
+            project_expr = _column_expr("n", network_columns, "project_id", "tenant_id")
+            status_expr = _column_expr("n", network_columns, "status", default="'unknown'")
+            admin_state_expr = _column_expr("n", network_columns, "admin_state_up", default="1")
+            shared_expr = _column_expr("n", network_columns, "shared", default="0")
+            external_expr = "CASE WHEN en.network_id IS NULL THEN 0 ELSE 1 END" if "network_id" in external_columns else "0"
+            from_sql = "FROM networks n "
+            if "network_id" in external_columns:
+                from_sql += "LEFT JOIN externalnetworks en ON en.network_id = n.id "
+
+            where = []
+            params: List[Any] = []
+            if scope_project_id:
+                where.append(f"({project_expr} = %s OR {shared_expr} = 1 OR {external_expr} = 1)")
+                params.append(scope_project_id)
+            where_sql = " WHERE " + " AND ".join(where) if where else ""
+
+            cur.execute(f"SELECT COUNT(*) AS total {from_sql}{where_sql}", params)
+            total = int((cur.fetchone() or {}).get("total") or 0)
+            by_status = _get_network_group_counts(cur, f"UPPER({status_expr})", from_sql, where_sql, params, "status")
+            status_counts = {row["status"]: row["count"] for row in by_status}
+
+            return {
+                "resource": "networks",
+                "total": total,
+                "active": status_counts.get("ACTIVE", 0),
+                "down": status_counts.get("DOWN", 0),
+                "error": status_counts.get("ERROR", 0),
+                "by_status": by_status,
+                "by_project_id": _get_network_group_counts(cur, project_expr, from_sql, where_sql, params, "project_id"),
+                "by_admin_state_up": _get_network_group_counts(cur, admin_state_expr, from_sql, where_sql, params, "admin_state_up"),
+                "by_shared": _get_network_group_counts(cur, shared_expr, from_sql, where_sql, params, "shared"),
+                "by_external": _get_network_group_counts(cur, external_expr, from_sql, where_sql, params, "external"),
+                "scope": {
+                    "project_id": scope_project_id,
+                    "include_all_projects": include_all_projects,
+                },
+                "data_source": "mariadb",
+            }
+    finally:
+        conn.close()
+
 
 def get_network_agents(agent_type: str = "", host: str = "", alive_only: bool = False) -> List[Dict[str, Any]]:
     """
@@ -613,6 +678,63 @@ def get_security_groups(
         ]
 
 
+def get_security_groups_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    """
+    Get security group and rule counts without returning full rule payloads.
+    """
+    conn = _get_mariadb_connection()
+    try:
+        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        with conn.cursor() as cur:
+            sg_columns = _table_columns(cur, "securitygroups")
+            rule_columns = _table_columns(cur, "securitygrouprules")
+            if not sg_columns:
+                raise RuntimeError("MariaDB table 'securitygroups' is not available")
+
+            project_expr = _column_expr("sg", sg_columns, "project_id", "tenant_id")
+            from_sql = "FROM securitygroups sg "
+            where = []
+            params: List[Any] = []
+            if scope_project_id:
+                where.append(f"{project_expr} = %s")
+                params.append(scope_project_id)
+            where_sql = " WHERE " + " AND ".join(where) if where else ""
+
+            cur.execute(f"SELECT COUNT(*) AS total {from_sql}{where_sql}", params)
+            total = int((cur.fetchone() or {}).get("total") or 0)
+            cur.execute(
+                f"SELECT COUNT(*) AS default_count {from_sql}{where_sql}{' AND' if where_sql else ' WHERE'} sg.name = %s",
+                params + ["default"],
+            )
+            default_count = int((cur.fetchone() or {}).get("default_count") or 0)
+
+            total_rules = 0
+            by_rule_direction: List[Dict[str, Any]] = []
+            by_rule_protocol: List[Dict[str, Any]] = []
+            if rule_columns:
+                rule_from_sql = "FROM securitygrouprules sgr INNER JOIN securitygroups sg ON sg.id = sgr.security_group_id "
+                cur.execute(f"SELECT COUNT(*) AS total_rules {rule_from_sql}{where_sql}", params)
+                total_rules = int((cur.fetchone() or {}).get("total_rules") or 0)
+                by_rule_direction = _get_network_group_counts(cur, "sgr.direction", rule_from_sql, where_sql, params, "direction")
+                by_rule_protocol = _get_network_group_counts(cur, "sgr.protocol", rule_from_sql, where_sql, params, "protocol")
+
+            return {
+                "resource": "security_groups",
+                "total": total,
+                "default_groups": default_count,
+                "total_rules": total_rules,
+                "by_project_id": _get_network_group_counts(cur, project_expr, from_sql, where_sql, params, "project_id"),
+                "by_rule_direction": by_rule_direction,
+                "by_rule_protocol": by_rule_protocol,
+                "scope": {
+                    "project_id": scope_project_id,
+                    "include_all_projects": include_all_projects,
+                },
+                "data_source": "mariadb",
+            }
+    finally:
+        conn.close()
+
 def get_floating_ips(
     include_all_projects: bool = False,
     project_id: str = "",
@@ -695,6 +817,58 @@ def get_floating_ips(
             }
         ]
 
+
+def get_floating_ips_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    """
+    Get floating IP counts without returning full floating IP records.
+    """
+    conn = _get_mariadb_connection()
+    try:
+        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        with conn.cursor() as cur:
+            columns = _table_columns(cur, "floatingips")
+            if not columns:
+                raise RuntimeError("MariaDB table 'floatingips' is not available")
+
+            project_expr = _column_expr("f", columns, "project_id", "tenant_id")
+            status_expr = _column_expr("f", columns, "status", default="'unknown'")
+            port_expr = _column_expr("f", columns, "fixed_port_id", "port_id")
+            floating_network_expr = _column_expr("f", columns, "floating_network_id")
+            router_expr = _column_expr("f", columns, "router_id")
+            bound_expr = f"CASE WHEN {port_expr} IS NULL OR {port_expr} = '' THEN 0 ELSE 1 END" if port_expr != "NULL" else "0"
+            router_bound_expr = f"CASE WHEN {router_expr} IS NULL OR {router_expr} = '' THEN 0 ELSE 1 END" if router_expr != "NULL" else "0"
+            from_sql = "FROM floatingips f "
+            where = []
+            params: List[Any] = []
+            if scope_project_id:
+                where.append(f"{project_expr} = %s")
+                params.append(scope_project_id)
+            where_sql = " WHERE " + " AND ".join(where) if where else ""
+
+            cur.execute(f"SELECT COUNT(*) AS total {from_sql}{where_sql}", params)
+            total = int((cur.fetchone() or {}).get("total") or 0)
+            by_status = _get_network_group_counts(cur, f"UPPER({status_expr})", from_sql, where_sql, params, "status")
+            status_counts = {row["status"]: row["count"] for row in by_status}
+
+            return {
+                "resource": "floating_ips",
+                "total": total,
+                "active": status_counts.get("ACTIVE", 0),
+                "down": status_counts.get("DOWN", 0),
+                "error": status_counts.get("ERROR", 0),
+                "by_status": by_status,
+                "by_project_id": _get_network_group_counts(cur, project_expr, from_sql, where_sql, params, "project_id"),
+                "by_floating_network_id": _get_network_group_counts(cur, floating_network_expr, from_sql, where_sql, params, "floating_network_id"),
+                "by_bound_port": _get_network_group_counts(cur, bound_expr, from_sql, where_sql, params, "bound_port"),
+                "by_router_bound": _get_network_group_counts(cur, router_bound_expr, from_sql, where_sql, params, "router_bound"),
+                "scope": {
+                    "project_id": scope_project_id,
+                    "include_all_projects": include_all_projects,
+                },
+                "data_source": "mariadb",
+            }
+    finally:
+        conn.close()
 
 def set_floating_ip(action: str, **kwargs) -> Dict[str, Any]:
     """
@@ -1496,6 +1670,59 @@ def get_routers(
                 'admin_state_up': True, 'interfaces': [], 'error': str(e)
             }
         ]
+
+def get_routers_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+    """
+    Get router counts without returning full router/interface details.
+    """
+    conn = _get_mariadb_connection()
+    try:
+        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        with conn.cursor() as cur:
+            router_columns = _table_columns(cur, "routers")
+            if not router_columns:
+                raise RuntimeError("MariaDB table 'routers' is not available")
+
+            project_expr = _column_expr("r", router_columns, "project_id", "tenant_id")
+            status_expr = _column_expr("r", router_columns, "status", default="'unknown'")
+            admin_state_expr = _column_expr("r", router_columns, "admin_state_up", default="1")
+            ha_expr = _column_expr("r", router_columns, "ha", default="0")
+            distributed_expr = _column_expr("r", router_columns, "distributed", default="0")
+            gw_port_expr = _column_expr("r", router_columns, "gw_port_id")
+            gateway_expr = f"CASE WHEN {gw_port_expr} IS NULL OR {gw_port_expr} = '' THEN 0 ELSE 1 END" if gw_port_expr != "NULL" else "0"
+            from_sql = "FROM routers r "
+            where = []
+            params: List[Any] = []
+            if scope_project_id:
+                where.append(f"{project_expr} = %s")
+                params.append(scope_project_id)
+            where_sql = " WHERE " + " AND ".join(where) if where else ""
+
+            cur.execute(f"SELECT COUNT(*) AS total {from_sql}{where_sql}", params)
+            total = int((cur.fetchone() or {}).get("total") or 0)
+            by_status = _get_network_group_counts(cur, f"UPPER({status_expr})", from_sql, where_sql, params, "status")
+            status_counts = {row["status"]: row["count"] for row in by_status}
+
+            return {
+                "resource": "routers",
+                "total": total,
+                "active": status_counts.get("ACTIVE", 0),
+                "down": status_counts.get("DOWN", 0),
+                "error": status_counts.get("ERROR", 0),
+                "by_status": by_status,
+                "by_project_id": _get_network_group_counts(cur, project_expr, from_sql, where_sql, params, "project_id"),
+                "by_admin_state_up": _get_network_group_counts(cur, admin_state_expr, from_sql, where_sql, params, "admin_state_up"),
+                "by_ha": _get_network_group_counts(cur, ha_expr, from_sql, where_sql, params, "ha"),
+                "by_distributed": _get_network_group_counts(cur, distributed_expr, from_sql, where_sql, params, "distributed"),
+                "by_external_gateway": _get_network_group_counts(cur, gateway_expr, from_sql, where_sql, params, "external_gateway"),
+                "scope": {
+                    "project_id": scope_project_id,
+                    "include_all_projects": include_all_projects,
+                },
+                "data_source": "mariadb",
+            }
+    finally:
+        conn.close()
 
 def _get_network_ports_from_mariadb(
     include_all_projects: bool = False,

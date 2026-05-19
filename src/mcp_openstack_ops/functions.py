@@ -921,13 +921,17 @@ from .services.compute import (
 # Import network functions from services
 from .services.network import (
     get_network_details,
+    get_network_summary,
     get_network_agents,
     get_security_groups,
+    get_security_groups_summary,
     get_floating_ips,
+    get_floating_ips_summary,
     get_floating_ip_pools,
     set_floating_ip,
     set_floating_ip_port_forwarding,
     get_routers,
+    get_routers_summary,
     set_networks,
     set_network_ports,
     set_subnets
