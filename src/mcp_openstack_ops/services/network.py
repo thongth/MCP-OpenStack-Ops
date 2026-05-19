@@ -21,30 +21,19 @@ except Exception:  # pragma: no cover - optional dependency at runtime
 logger = logging.getLogger(__name__)
 
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
+NEUTRON_DATABASE = "neutron"
 
 
 def _get_mariadb_connection():
     if pymysql is None:
         raise RuntimeError("PyMySQL is not installed")
 
-    db_name = os.getenv("MARIADB_DATABASE", "").strip()
-    if not db_name:
-        raise RuntimeError("MARIADB_DATABASE is not configured")
-
-    allowed_databases = [
-        db.strip()
-        for db in os.getenv("MARIADB_ALLOWED_DATABASES", db_name).split(",")
-        if db.strip()
-    ]
-    if allowed_databases and db_name not in allowed_databases:
-        raise RuntimeError(f"MARIADB_DATABASE '{db_name}' is not in MARIADB_ALLOWED_DATABASES")
-
     return pymysql.connect(
         host=os.getenv("MARIADB_HOST", "127.0.0.1"),
         port=int(os.getenv("MARIADB_PORT", "3306")),
         user=os.getenv("MARIADB_USER", ""),
         password=os.getenv("MARIADB_PASSWORD", ""),
-        database=db_name,
+        database=NEUTRON_DATABASE,
         charset=os.getenv("MARIADB_CHARSET", "utf8mb4"),
         connect_timeout=int(os.getenv("MARIADB_CONNECT_TIMEOUT", "10")),
         cursorclass=pymysql.cursors.DictCursor,

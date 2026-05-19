@@ -19,36 +19,21 @@ except Exception:  # pragma: no cover - optional dependency at runtime
 logger = logging.getLogger(__name__)
 
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
+CINDER_DATABASE = "cinder"
 
 
 def _get_cinder_mariadb_connection():
     if pymysql is None:
         raise RuntimeError("PyMySQL is not installed")
 
-    cinder_db_name = os.getenv("CINDER_MARIADB_DATABASE")
-    db_name = (cinder_db_name or os.getenv("MARIADB_DATABASE", "")).strip()
-    if not db_name:
-        raise RuntimeError("CINDER_MARIADB_DATABASE or MARIADB_DATABASE is not configured")
-
-    allowed_raw = os.getenv("CINDER_MARIADB_ALLOWED_DATABASES")
-    if allowed_raw is None:
-        allowed_raw = db_name if cinder_db_name else os.getenv("MARIADB_ALLOWED_DATABASES", db_name)
-    allowed_databases = [
-        db.strip()
-        for db in allowed_raw.split(",")
-        if db.strip()
-    ]
-    if allowed_databases and db_name not in allowed_databases:
-        raise RuntimeError(f"CINDER_MARIADB_DATABASE '{db_name}' is not in CINDER_MARIADB_ALLOWED_DATABASES")
-
     return pymysql.connect(
-        host=os.getenv("CINDER_MARIADB_HOST", os.getenv("MARIADB_HOST", "127.0.0.1")),
-        port=int(os.getenv("CINDER_MARIADB_PORT", os.getenv("MARIADB_PORT", "3306"))),
-        user=os.getenv("CINDER_MARIADB_USER", os.getenv("MARIADB_USER", "")),
-        password=os.getenv("CINDER_MARIADB_PASSWORD", os.getenv("MARIADB_PASSWORD", "")),
-        database=db_name,
-        charset=os.getenv("CINDER_MARIADB_CHARSET", os.getenv("MARIADB_CHARSET", "utf8mb4")),
-        connect_timeout=int(os.getenv("CINDER_MARIADB_CONNECT_TIMEOUT", os.getenv("MARIADB_CONNECT_TIMEOUT", "10"))),
+        host=os.getenv("MARIADB_HOST", "127.0.0.1"),
+        port=int(os.getenv("MARIADB_PORT", "3306")),
+        user=os.getenv("MARIADB_USER", ""),
+        password=os.getenv("MARIADB_PASSWORD", ""),
+        database=CINDER_DATABASE,
+        charset=os.getenv("MARIADB_CHARSET", "utf8mb4"),
+        connect_timeout=int(os.getenv("MARIADB_CONNECT_TIMEOUT", "10")),
         cursorclass=pymysql.cursors.DictCursor,
     )
 
@@ -102,8 +87,7 @@ def _scope_project_id(include_all_projects: bool = False, project_id: str = "") 
     if include_all_projects:
         return None
     return (
-        os.getenv("CINDER_MARIADB_PROJECT_ID")
-        or os.getenv("MARIADB_PROJECT_ID")
+        os.getenv("MARIADB_PROJECT_ID")
         or os.getenv("OS_PROJECT_ID")
         or os.getenv("OS_TENANT_ID")
         or None
