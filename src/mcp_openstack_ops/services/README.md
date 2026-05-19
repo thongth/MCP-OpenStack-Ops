@@ -32,6 +32,7 @@ Quan ly Cinder storage:
 - Volumes: `get_volume_list`, `get_server_volumes`
 - Volume metadata: `get_volume_types`
 - Snapshots: `get_volume_snapshots`
+- Backups: `get_volume_backups`
 
 ### `image.py`
 

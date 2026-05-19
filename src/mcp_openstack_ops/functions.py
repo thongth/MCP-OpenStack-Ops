@@ -933,6 +933,7 @@ from .services.storage import (
     set_volume,
     get_volume_types,
     get_volume_snapshots,
+    get_volume_backups,
     set_snapshot,
     set_volume_backups,
     set_volume_groups,
