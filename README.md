@@ -23,7 +23,6 @@
 ## Features
 
 - ✅ **Project-Scoped Operations**: Every tool enforces the configured `OS_PROJECT_NAME`, validating resource ownership so actions stay inside a single tenant.
-- ✅ **Safety-Gated Writes**: Modify (`set_*`) tooling only registers when `ALLOW_MODIFY_OPERATIONS=true`, keeping default deployments read-only and auditable.
 - ✅ **90+ Purpose-Built Tools**: Broad coverage across compute, networking, storage, images, identity, Heat, and Octavia load balancing tasks—all constrained to the current project.
 - ✅ **Bulk & Filtered Actions**: Instance, volume, network, image, snapshot, and keypair managers accept comma-delimited targets or filter criteria to orchestrate bulk changes intentionally.
 - ✅ **Post-Action Feedback & Async Guidance**: Mutating tools reuse a shared result handler that adds emoji status checks, asynchronous timing notes, and follow-up verification commands.
@@ -105,20 +104,11 @@ Revolutionary approach to resource management enabling one-step operations:
 ```bash
 # Traditional approach (multiple steps):
 1. search_instances("test") → get list
-2. set_instance("vm1", "stop") → stop individually  
-3. set_instance("vm2", "stop") → stop individually
 
 # NEW enhanced approach (single step):
-set_instance(action="stop", name_contains="test")  # ✨ Stops ALL instances containing "test"
 ```
 
 **Supported Tools with Enhanced Capabilities:**
-- **`set_instance`**: Bulk lifecycle management with filtering (name_contains, status, flavor_contains, image_contains)
-- **`set_volume`**: Bulk volume operations with filtering (name_contains, status, size filtering)
-- **`set_image`**: Bulk image management with filtering (name_contains, status)
-- **`set_networks`**: Bulk network operations with filtering (name_contains, status)
-- **`set_keypair`**: Bulk keypair management with filtering (name_contains)
-- **`set_snapshot`**: Bulk snapshot operations with filtering (name_contains, status)
 
 **Input Format Flexibility:**
 ```python
@@ -167,49 +157,10 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 |---------------------|---------|------|------|
 | `openstack server list` | `get_instance` | ✅ | **NEW UNIFIED** - Pagination, filtering support |
 | `openstack server show` | `get_instance` | ✅ | **ENHANCED** - Replaces get_instance_by_name, get_instance_by_id |
-| `openstack server create` | `set_instance` (action="create") | ✅ | **ENHANCED** - Bulk creation support |
-| `openstack server start/stop/reboot` | `set_instance` | ✅ | **ENHANCED** - Bulk operations with filtering |
-| `openstack server delete` | `set_instance` (action="delete") | ✅ | **ENHANCED** - Bulk deletion with name_contains filtering |
-| `openstack server backup create` | `set_server_backup` | ✅ | Backup creation with rotation |
-| `openstack server image create` | `set_instance` (action="snapshot") | ✅ | Image/snapshot creation |
-| `openstack server shelve/unshelve` | `set_instance` | ✅ | Instance shelving |
-| `openstack server lock/unlock` | `set_instance` | ✅ | Instance locking |
-| `openstack server pause/unpause` | `set_instance` | ✅ | Instance pausing |
-| `openstack server suspend/resume` | `set_instance` | ✅ | Instance suspension |
-| `openstack server resize` | `set_instance` (action="resize") | ✅ | Instance resizing |
-| `openstack server resize confirm` | `set_instance` (action="confirm_resize") | ✅ | Resize confirmation |
-| `openstack server resize revert` | `set_instance` (action="revert_resize") | ✅ | Resize revert |
-| `openstack server rebuild` | `set_instance` (action="rebuild") | ✅ | Instance rebuilding |
-| `openstack server rescue/unrescue` | `set_instance` | ✅ | Recovery mode |
-| `openstack server migrate` | `set_server_migration` (action="migrate") | ✅ | Live migration |
-| `openstack server evacuate` | `set_server_migration` (action="evacuate") | ✅ | Server evacuation |
-| `openstack server migration list` | `set_server_migration` (action="list") | ✅ | Migration listing |
-| `openstack server migration show` | `set_server_migration` (action="show") | ✅ | Migration details |
-| `openstack server migration abort` | `set_server_migration` (action="abort") | ✅ | Migration abort |
-| `openstack server migration confirm` | `set_server_migration` (action="confirm") | ✅ | Migration confirmation |
-| `openstack server migration force complete` | `set_server_migration` (action="force_complete") | ✅ | Force migration completion |
-| `openstack server add network` | `set_server_network` (action="add_network") | ✅ | Network attachment |
-| `openstack server remove network` | `set_server_network` (action="remove_network") | ✅ | Network detachment |
-| `openstack server add port` | `set_server_network` (action="add_port") | ✅ | Port attachment |
-| `openstack server remove port` | `set_server_network` (action="remove_port") | ✅ | Port detachment |
-| `openstack server add floating ip` | `set_server_floating_ip` (action="add") | ✅ | Floating IP association |
-| `openstack server remove floating ip` | `set_server_floating_ip` (action="remove") | ✅ | Floating IP disassociation |
-| `openstack server add fixed ip` | `set_server_fixed_ip` (action="add") | ✅ | Fixed IP addition |
-| `openstack server remove fixed ip` | `set_server_fixed_ip` (action="remove") | ✅ | Fixed IP removal |
-| `openstack server add security group` | `set_server_security_group` (action="add") | ✅ | Security group addition |
-| `openstack server remove security group` | `set_server_security_group` (action="remove") | ✅ | Security group removal |
-| `openstack server add volume` | `set_server_volume` (action="attach") | ✅ | Volume attachment |
-| `openstack server remove volume` | `set_server_volume` (action="detach") | ✅ | Volume detachment |
-| `openstack server set` | `set_server_properties` (action="set") | ✅ | Server property setting |
-| `openstack server unset` | `set_server_properties` (action="unset") | ✅ | Server property unsetting |
-| `openstack server dump create` | `set_server_dump` | ✅ | Server dump creation |
 | `openstack server event list` | `get_server_events` | ✅ | Server event tracking |
 | `openstack server group list` | `get_server_groups` | ✅ | Server group listing |
-| `openstack server group create/delete` | `set_server_group` | ✅ | Server group management |
 | `openstack flavor list` | `get_flavor_list` (via cluster_status) | ✅ | Flavor listing |
-| `openstack flavor create/delete` | `set_flavor` | ✅ | Flavor management |
 | `openstack keypair list` | `get_keypair_list` | ✅ | Keypair listing |
-| `openstack keypair create/delete` | `set_keypair` | ✅ | Keypair management |
 | `openstack hypervisor list` | `get_hypervisor_details` | ✅ | Hypervisor querying |
 | `openstack availability zone list` | `get_availability_zones` | ✅ | Availability zone listing |
 
@@ -219,33 +170,16 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 |---------------------|---------|------|------|
 | `openstack network list` | `get_network_details` | ✅ | Detailed network information |
 | `openstack network show` | `get_network_details` (name param) | ✅ | Specific network query |
-| `openstack network create` | `set_networks` (action="create") | ✅ | **ENHANCED** - Bulk network creation |
-| `openstack network delete` | `set_networks` (action="delete") | ✅ | **ENHANCED** - Bulk deletion with filtering |
-| `openstack network set` | `set_networks` (action="update") | ✅ | **ENHANCED** - Bulk updates |
 | `openstack subnet list` | `get_network_details` (includes subnets) | ✅ | Subnet information included |
-| `openstack subnet create/delete` | `set_subnets` | ✅ | Subnet management |
 | `openstack router list` | `get_routers` | ✅ | Router listing |
 | `openstack router create/delete` | (Not yet implemented) | 🚧 | Router management |
 | `openstack floating ip list` | `get_floating_ips` | ✅ | Floating IP listing |
-| `openstack floating ip create` | `set_floating_ip` (action="create") | ✅ | Floating IP creation |
-| `openstack floating ip delete` | `set_floating_ip` (action="delete") | ✅ | Floating IP deletion |
-| `openstack floating ip set` | `set_floating_ip` (action="set") | ✅ | Floating IP property setting |
-| `openstack floating ip show` | `set_floating_ip` (action="show") | ✅ | Floating IP details |
-| `openstack floating ip unset` | `set_floating_ip` (action="unset") | ✅ | Floating IP property clearing |
 | `openstack floating ip pool list` | `get_floating_ip_pools` | ✅ | Floating IP pool listing |
-| `openstack floating ip port forwarding create` | `set_floating_ip_port_forwarding` (action="create") | ✅ | Port forwarding creation |
-| `openstack floating ip port forwarding delete` | `set_floating_ip_port_forwarding` (action="delete") | ✅ | Port forwarding deletion |
-| `openstack floating ip port forwarding list` | `set_floating_ip_port_forwarding` (action="list") | ✅ | Port forwarding listing |
-| `openstack floating ip port forwarding set` | `set_floating_ip_port_forwarding` (action="set") | ✅ | Port forwarding updates |
-| `openstack floating ip port forwarding show` | `set_floating_ip_port_forwarding` (action="show") | ✅ | Port forwarding details |
 | `openstack security group list` | `get_security_groups` | ✅ | Security group listing |
 | `openstack security group create/delete` | (Not yet implemented) | 🚧 | Security group management |
 | `openstack port list` | `get_network_details` (includes ports) | ✅ | Port information included |
-| `openstack port create/delete` | `set_network_ports` | ✅ | Port management |
 | `openstack network qos policy list` | (Not yet implemented) | 🚧 | QoS policy listing |
-| `openstack network qos policy create` | `set_network_qos_policies` | ✅ | QoS policy management |
 | `openstack network agent list` | `get_service_status` (includes agents) | ✅ | Network agents |
-| `openstack network agent set` | `set_network_agents` | ✅ | Network agent management |
 
 ### 3. 💾 **Storage (Cinder)**
 
@@ -253,21 +187,14 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 |---------------------|---------|------|------|
 | `openstack volume list` | `get_volume_list` | ✅ | Volume listing |
 | `openstack volume show` | `get_volume_list` (filtering) | ✅ | Specific volume query |
-| `openstack volume create/delete` | `set_volume` | ✅ | Volume creation/deletion |
-| `openstack volume set` | `set_volume` (action="modify") | ✅ | Volume property modification |
 | `openstack volume type list` | `get_volume_types` | ✅ | Volume type listing |
 | `openstack volume type create/delete` | (Not yet implemented) | 🚧 | Volume type management |
 | `openstack volume snapshot list` | `get_volume_snapshots` | ✅ | Snapshot listing |
-| `openstack volume snapshot create/delete` | `set_snapshot` | ✅ | Snapshot management |
 | `openstack backup list` | (Not yet implemented) | 🚧 | Backup listing |
-| `openstack backup create/delete` | `set_volume_backups` | ✅ | Volume backup management |
 | `openstack volume transfer request list` | (Not yet implemented) | 🚧 | Volume transfer |
 | `openstack server volume list` | `get_server_volumes` | ✅ | Server volume listing |
-| `openstack server add/remove volume` | `set_server_volume` | ✅ | Server volume attach/detach |
 | `openstack volume group list` | (Not yet implemented) | 🚧 | Volume group listing |
-| `openstack volume group create` | `set_volume_groups` | ✅ | Volume group management |
 | `openstack volume qos list` | (Not yet implemented) | 🚧 | QoS listing |
-| `openstack volume qos create` | `set_volume_qos` | ✅ | QoS management |
 
 ### 4. 🖼️ **Image (Glance)**
 
@@ -275,15 +202,8 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 |---------------------|---------|------|------|
 | `openstack image list` | `get_image_detail_list` | ✅ | Image listing |
 | `openstack image show` | `get_image_detail_list` (filtering) | ✅ | Specific image query |
-| `openstack image create` | `set_image` (action="create") | ✅ | Enhanced image creation with min_disk, min_ram, properties |
-| `openstack image delete` | `set_image` (action="delete") | ✅ | Image deletion |
-| `openstack image set` | `set_image` (action="update") | ✅ | Image property modification |
-| `openstack image save` | `set_image` (action="save") | ✅ | Image download |
 | `openstack image add project` | (Not yet implemented) | 🚧 | Project sharing |
 | `openstack image member list` | (Not yet implemented) | 🚧 | Member listing |
-| `openstack image member create` | `set_image_members` | ✅ | Image member management |
-| `openstack image set --property` | `set_image_metadata` | ✅ | Image metadata |
-| `openstack image set --public/private` | `set_image_visibility` | ✅ | Image visibility setting |
 
 ### 5. 👥 **Identity (Keystone)**
 
@@ -294,16 +214,11 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | `openstack user create/delete` | (Not yet implemented) | 🚧 | User management |
 | `openstack project list` | `get_project_details` | ✅ | Project listing |
 | `openstack project show` | `get_project_details` (name param) | ✅ | Specific project query |
-| `openstack project create/delete` | `set_project` | ✅ | Project management |
 | `openstack role list` | `get_role_assignments` | ✅ | Role listing |
 | `openstack role assignment list` | `get_role_assignments` | ✅ | Role assignment listing |
-| `openstack role create/delete` | `set_roles` | ✅ | Role management |
 | `openstack domain list` | (Not yet implemented) | 🚧 | Domain listing |
-| `openstack domain create/delete` | `set_domains` | ✅ | Domain management |
 | `openstack group list` | (Not yet implemented) | 🚧 | Group listing |
-| `openstack group create/delete` | `set_identity_groups` | ✅ | Group management |
 | `openstack service list` | `get_service_status` | ✅ | Service listing |
-| `openstack service create/delete` | `set_services` | ✅ | Service management |
 | `openstack endpoint list` | `get_service_status` (includes endpoints) | ✅ | Endpoint information |
 
 ### 6. 🔥 **Orchestration (Heat)**
@@ -312,10 +227,6 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 |---------------------|---------|------|------|
 | `openstack stack list` | `get_heat_stacks` | ✅ | Stack listing |
 | `openstack stack show` | `get_heat_stacks` (filtering) | ✅ | Specific stack query |
-| `openstack stack create` | `set_heat_stack` (action="create") | ✅ | Stack creation |
-| `openstack stack delete` | `set_heat_stack` (action="delete") | ✅ | Stack deletion |
-| `openstack stack update` | `set_heat_stack` (action="update") | ✅ | Stack update |
-| `openstack stack suspend/resume` | `set_heat_stack` | ✅ | Stack suspend/resume |
 | `openstack stack resource list` | (Not yet implemented) | 🚧 | Stack resource listing |
 | `openstack stack event list` | (Not yet implemented) | 🚧 | Stack event listing |
 | `openstack stack template show` | (Not yet implemented) | 🚧 | Template query |
@@ -327,62 +238,30 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 |---------------------|---------|------|------|
 | `openstack loadbalancer list` | `get_load_balancer_status` | ✅ | Load balancer listing with pagination |
 | `openstack loadbalancer show` | `get_load_balancer_status` | ✅ | Load balancer detailed information |
-| `openstack loadbalancer create` | `set_load_balancer` (action="create") | ✅ | Load balancer creation |
-| `openstack loadbalancer delete` | `set_load_balancer` (action="delete") | ✅ | Load balancer deletion |
-| `openstack loadbalancer set` | `set_load_balancer` (action="update") | ✅ | Load balancer property update |
 | `openstack loadbalancer stats show` | `get_load_balancer_status` | ✅ | Load balancer statistics |
 | `openstack loadbalancer status show` | `get_load_balancer_status` | ✅ | Load balancer status tree |
-| `openstack loadbalancer failover` | `set_load_balancer` (action="failover") | ✅ | Load balancer failover |
-| `openstack loadbalancer unset` | `set_load_balancer` (action="unset") | ✅ | Load balancer property unset |
 | **Listener Management** | | | |
 | `openstack loadbalancer listener list` | `get_load_balancer_listeners` | ✅ | Listener listing for load balancer |
-| `openstack loadbalancer listener create` | `set_load_balancer_listener` (action="create") | ✅ | Listener creation (HTTP/HTTPS/TCP/UDP) |
-| `openstack loadbalancer listener delete` | `set_load_balancer_listener` (action="delete") | ✅ | Listener deletion |
 | `openstack loadbalancer listener show` | `get_load_balancer_listeners` | ✅ | Listener detailed information |
-| `openstack loadbalancer listener set` | `set_load_balancer_listener` (action="update") | ✅ | Listener property update |
 | `openstack loadbalancer listener stats show` | `get_load_balancer_listeners` | ✅ | Listener statistics |
-| `openstack loadbalancer listener unset` | `set_load_balancer_listener` (action="unset") | ✅ | Listener property unset |
 | **Pool Management** | | | |
 | `openstack loadbalancer pool list` | `get_load_balancer_pools` | ✅ | Pool listing (all or by listener) |
-| `openstack loadbalancer pool create` | `set_load_balancer_pool` (action="create") | ✅ | Pool creation with algorithms |
-| `openstack loadbalancer pool delete` | `set_load_balancer_pool` (action="delete") | ✅ | Pool deletion |
-| `openstack loadbalancer pool set` | `set_load_balancer_pool` (action="update") | ✅ | Pool property update |
 | `openstack loadbalancer pool show` | `get_load_balancer_pools` | ✅ | Pool detailed information |
 | `openstack loadbalancer pool stats show` | `get_load_balancer_pools` | ✅ | Pool statistics |
-| `openstack loadbalancer pool unset` | `set_load_balancer_pool` (action="unset") | ✅ | Pool property unset |
 | **Member Management** | | | |
 | `openstack loadbalancer member list` | `get_load_balancer_members` | ✅ | Pool member listing |
-| `openstack loadbalancer member create` | `set_load_balancer_member` (action="create") | ✅ | Pool member creation |
-| `openstack loadbalancer member delete` | `set_load_balancer_member` (action="delete") | ✅ | Pool member deletion |
-| `openstack loadbalancer member set` | `set_load_balancer_member` (action="update") | ✅ | Pool member property update |
 | `openstack loadbalancer member show` | `get_load_balancer_members` | ✅ | Pool member detailed information |
-| `openstack loadbalancer member unset` | `set_load_balancer_member` (action="unset") | ✅ | Pool member property unset |
 | **Health Monitor Management** | | | |
 | `openstack loadbalancer healthmonitor list` | `get_load_balancer_health_monitors` | ✅ | Health monitor listing |
-| `openstack loadbalancer healthmonitor create` | `set_load_balancer_health_monitor` (action="create") | ✅ | Health monitor creation |
-| `openstack loadbalancer healthmonitor delete` | `set_load_balancer_health_monitor` (action="delete") | ✅ | Health monitor deletion |
-| `openstack loadbalancer healthmonitor set` | `set_load_balancer_health_monitor` (action="update") | ✅ | Health monitor update |
 | `openstack loadbalancer healthmonitor show` | `get_load_balancer_health_monitors` | ✅ | Health monitor detailed information |
-| `openstack loadbalancer healthmonitor unset` | `set_load_balancer_health_monitor` (action="unset") | ✅ | Health monitor property unset |
 | **L7 Policy Management** | | | |
 | `openstack loadbalancer l7policy list` | `get_load_balancer_l7_policies` | ✅ | L7 policy listing |
-| `openstack loadbalancer l7policy create` | `set_load_balancer_l7_policy` (action="create") | ✅ | L7 policy creation |
-| `openstack loadbalancer l7policy delete` | `set_load_balancer_l7_policy` (action="delete") | ✅ | L7 policy deletion |
-| `openstack loadbalancer l7policy set` | `set_load_balancer_l7_policy` (action="update") | ✅ | L7 policy update |
 | `openstack loadbalancer l7policy show` | `get_load_balancer_l7_policies` | ✅ | L7 policy details |
-| `openstack loadbalancer l7policy unset` | `set_load_balancer_l7_policy` (action="unset") | ✅ | L7 policy property unset |
 | **L7 Rule Management** 🆕 | | | |
 | `openstack loadbalancer l7rule list` | `get_load_balancer_l7_rules` | ✅ | L7 rule listing |
-| `openstack loadbalancer l7rule create` | `set_load_balancer_l7_rule` (action="create") | ✅ | L7 rule creation |
-| `openstack loadbalancer l7rule delete` | `set_load_balancer_l7_rule` (action="delete") | ✅ | L7 rule deletion |
-| `openstack loadbalancer l7rule set` | `set_load_balancer_l7_rule` (action="update") | ✅ | L7 rule update |
 | `openstack loadbalancer l7rule show` | `get_load_balancer_l7_rules` | ✅ | L7 rule details |
-| `openstack loadbalancer l7rule unset` | `set_load_balancer_l7_rule` (action="unset") | ✅ | L7 rule property unset |
 | **Amphora Management** 🆕 | | | |
 | `openstack loadbalancer amphora list` | `get_load_balancer_amphorae` | ✅ | Amphora listing |
-| `openstack loadbalancer amphora show` | `set_load_balancer_amphora` (action="show") | ✅ | Amphora details |
-| `openstack loadbalancer amphora configure` | `set_load_balancer_amphora` (action="configure") | ✅ | Amphora configuration |
-| `openstack loadbalancer amphora failover` | `set_load_balancer_amphora` (action="failover") | ✅ | Amphora failover |
 | `openstack loadbalancer amphora delete` | N/A | ❌ | Not supported by OpenStack SDK |
 | `openstack loadbalancer amphora stats show` | N/A | ❌ | Not supported by OpenStack SDK |
 | **Provider Management** | | | |
@@ -391,29 +270,15 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | **Availability Zone Management** 🆕 | | | |
 | `openstack loadbalancer availabilityzone list` | `get_load_balancer_availability_zones` | ✅ | Availability zone listing |
 | `openstack loadbalancer availabilityzone show` | `get_load_balancer_availability_zones` | ✅ | Availability zone details |
-| `openstack loadbalancer availabilityzone create` | `set_load_balancer_availability_zone` (action="create") | ✅ | Availability zone creation |
-| `openstack loadbalancer availabilityzone delete` | `set_load_balancer_availability_zone` (action="delete") | ✅ | Availability zone deletion |
-| `openstack loadbalancer availabilityzone set` | `set_load_balancer_availability_zone` (action="update") | ✅ | Availability zone update |
-| `openstack loadbalancer availabilityzone unset` | `set_load_balancer_availability_zone` (action="unset") | ✅ | Availability zone property unset |
 | **Flavor Management** 🆕 | | | |
 | `openstack loadbalancer flavor list` | `get_load_balancer_flavors` | ✅ | Flavor listing |
 | `openstack loadbalancer flavor show` | `get_load_balancer_flavors` | ✅ | Flavor details |
-| `openstack loadbalancer flavor create` | `set_load_balancer_flavor` (action="create") | ✅ | Flavor creation |
-| `openstack loadbalancer flavor delete` | `set_load_balancer_flavor` (action="delete") | ✅ | Flavor deletion |
-| `openstack loadbalancer flavor set` | `set_load_balancer_flavor` (action="update") | ✅ | Flavor update |
-| `openstack loadbalancer flavor unset` | `set_load_balancer_flavor` (action="unset") | ✅ | Flavor property unset |
 | **Flavor Profile Management** | | | |
 | `openstack loadbalancer flavorprofile list` | `get_load_balancer_flavor_profiles` | ✅ | Flavor profile listing |
 | `openstack loadbalancer flavorprofile show` | `get_load_balancer_flavor_profiles` | ✅ | Flavor profile details |
-| `openstack loadbalancer flavorprofile create` | `set_load_balancer_flavor_profile` (action="create") | ✅ | Flavor profile creation |
-| `openstack loadbalancer flavorprofile set` | `set_load_balancer_flavor_profile` (action="update") | ✅ | Flavor profile update |
-| `openstack loadbalancer flavorprofile unset` | `set_load_balancer_flavor_profile` (action="unset") | ✅ | Flavor profile property unset |
-| `openstack loadbalancer flavorprofile delete` | `set_load_balancer_flavor_profile` (action="delete") | 🚧 | Pending implementation |
 | **Quota Management** 🆕 | | | |
 | `openstack loadbalancer quota list` | `get_load_balancer_quotas` | ✅ | Quota listing |
 | `openstack loadbalancer quota show` | `get_load_balancer_quotas` | ✅ | Quota details |
-| `openstack loadbalancer quota set` | `set_load_balancer_quota` (action="set") | ✅ | Quota setting |
-| `openstack loadbalancer quota reset` | `set_load_balancer_quota` (action="reset") | ✅ | Quota reset |
 
 ### 8. 📊 **Monitoring & Logging**
 
@@ -423,10 +288,6 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | System monitoring (compute services, block storage services, network agents) | `get_system_information` | ✅ | Infrastructure component health overview |
 | Service status | `get_service_status` | ✅ | Service status query |
 | Cluster overview | `get_cluster_status` | ✅ | Cluster overview |
-| Service logs | `set_service_logs` | ✅ | Service log management |
-| System metrics | `set_metrics` | ✅ | Metrics management |
-| Alarm management | `set_alarms` | ✅ | Alarm management |
-| Compute agents | `set_compute_agents` | ✅ | Compute agent management |
 | Usage statistics | `get_usage_statistics` | ✅ | Usage statistics |
 
 ### 9. 📏 **Usage & Quota**
@@ -434,7 +295,6 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | OpenStack CLI Command | MCP Tool | Status | Notes |
 |---------------------|---------|------|------|
 | `openstack quota show` | `get_quota` | ✅ | Quota query |
-| `openstack quota set` | `set_quota` | ✅ | Quota setting |
 | `openstack usage show` | `get_usage_statistics` | ✅ | Usage query |
 | `openstack limits show` | `get_quota` (includes limits) | ✅ | Limits query |
 | Resource utilization | `get_resource_monitoring` | ✅ | Resource utilization |
@@ -663,7 +523,6 @@ Options:
 
 ### Scope Behavior Update (2026-05-13)
 
-- `get_load_balancer_list`, `get_volume_list`, `get_volume_snapshots`, and `set_volume_backups(action="list")` now support optional `include_all_projects` and `project_id` filters.
 - Cross-project reads are enforced by policy:
   - `ALLOW_ALL_PROJECTS_READONLY=false`: forced single-project scope (current project only).
   - `ALLOW_ALL_PROJECTS_READONLY=true`: allows all-project reads or project-specific reads via `project_id`.
@@ -1230,24 +1089,20 @@ async def get_your_custom_analysis(limit: int = 50, target_name: Optional[str] =
 If your tool performs modify operations, use the `@conditional_tool` decorator instead:
 
 ```python
-"""Tool implementation for set_your_custom_resource."""
 
 from ..mcp_main import (
     conditional_tool,  # Use this instead of @mcp.tool()
     handle_operation_result,
     logger,
 )
-from ..functions import set_your_custom_resource
 
 @conditional_tool  # Only registers when ALLOW_MODIFY_OPERATIONS=true
-async def set_your_custom_resource(resource_name: str, action: str) -> str:
     """
     Manage your custom OpenStack resources.
     
     Use when user requests custom resource management.
     """
     try:
-        result = set_your_custom_resource(resource_name, action)
         
         return handle_operation_result(
             result=result,

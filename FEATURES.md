@@ -1,14 +1,13 @@
 # MCP-OpenStack-Ops Features
 
 ## Overview
-MCP-OpenStack-Ops is a Model Context Protocol server designed for safe, project-scoped OpenStack operations and monitoring. It provides a wide range of read and write tools while enforcing tenant boundaries and configurable safety gates.
+MCP-OpenStack-Ops is a Model Context Protocol server designed for safe, project-scoped OpenStack operations and monitoring. It provides read-oriented tools while enforcing tenant boundaries.
 
 ## Core Features
 
 - **Project-Scoped Operations**: All tools are scoped to the configured `OS_PROJECT_NAME`, preventing cross-tenant access.
-- **Safety-Gated Writes**: Mutating tools (`set_*`) are only registered when `ALLOW_MODIFY_OPERATIONS=true`, making default deployments read-only.
 - **Wide OpenStack Coverage**: Supports compute, networking, storage, image, identity, orchestration, monitoring, and load balancer operations.
-- **Bulk & Filtered Actions**: Accepts comma-separated lists and filter conditions for bulk resource targeting.
+- **Filtered Queries**: Accepts filters and pagination for focused resource discovery.
 - **Monitoring & Usage Insights**: Includes tools for service status, system monitoring (compute services, block storage services, network agents), resource consumption, usage statistics, and quota monitoring.
 - **Unified Instance Queries**: Consolidated instance lookup with pagination, summary/detail modes, and flexible targeting.
 - **Audit-Friendly Diagnostics**: Access to server events, hypervisor details, availability zones, project details, and role assignments.
@@ -17,7 +16,7 @@ MCP-OpenStack-Ops is a Model Context Protocol server designed for safe, project-
 
 ## Safety & Deployment
 
-- `ALLOW_MODIFY_OPERATIONS=false` by default to keep the server read-only.
+- Deployments are documented as read-only by default.
 - Connection caching reduces repeated authentication overhead while automatically resetting invalid sessions.
 - Works with both `stdio` and `streamable-http` transport modes.
 
@@ -28,7 +27,6 @@ MCP-OpenStack-Ops is a Model Context Protocol server designed for safe, project-
 
 ## Recommended Usage
 
-- Use the new `set_*` tools for bulk lifecycle and configuration updates.
 - Use `get_*` tools for unified and filtered resource discovery.
 - Combine status and monitoring tools to quickly diagnose project-level health and capacity.
 
