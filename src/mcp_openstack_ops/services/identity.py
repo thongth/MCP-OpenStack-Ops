@@ -7,9 +7,25 @@ This module contains functions for managing projects, users, roles, domains, and
 import logging
 from typing import Dict, List, Any, Optional
 from ..connection import get_openstack_connection
+from .db import bool_value, column_expr, get_mariadb_connection, json_value, str_time, table_columns, table_exists
 
 # Configure logging
 logger = logging.getLogger(__name__)
+KEYSTONE_DATABASE = "keystone"
+
+
+def _get_keystone_mariadb_connection():
+    return get_mariadb_connection(KEYSTONE_DATABASE)
+
+
+def _get_project_by_id(project_id: str) -> Optional[Dict[str, Any]]:
+    result = get_project_list()
+    if not result.get("success"):
+        return None
+    for project in result.get("projects", []):
+        if project.get("id") == project_id:
+            return project
+    return None
 
 
 def set_domains(action: str, domain_name: Optional[str] = None, **kwargs) -> Dict[str, Any]:
@@ -126,51 +142,15 @@ def get_project_info() -> Dict[str, Any]:
         Dict containing project information
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        
-        project_id = conn.current_project_id
-        project = conn.identity.get_project(project_id)
-        
-        # Get project quotas
-        quotas = {}
-        try:
-            compute_quotas = conn.compute.get_quota_set(project_id)
-            network_quotas = conn.network.get_quota(project_id)
-            volume_quotas = conn.volume.get_quota_set(project_id)
-            
-            quotas = {
-                'compute': {
-                    'instances': getattr(compute_quotas, 'instances', -1),
-                    'cores': getattr(compute_quotas, 'cores', -1),
-                    'ram': getattr(compute_quotas, 'ram', -1)
-                },
-                'network': {
-                    'networks': getattr(network_quotas, 'networks', -1),
-                    'subnets': getattr(network_quotas, 'subnets', -1),
-                    'ports': getattr(network_quotas, 'ports', -1),
-                    'routers': getattr(network_quotas, 'routers', -1),
-                    'floatingips': getattr(network_quotas, 'floatingips', -1)
-                },
-                'volume': {
-                    'volumes': getattr(volume_quotas, 'volumes', -1),
-                    'snapshots': getattr(volume_quotas, 'snapshots', -1),
-                    'gigabytes': getattr(volume_quotas, 'gigabytes', -1)
-                }
-            }
-        except Exception as quota_e:
-            logger.warning(f"Could not retrieve quotas: {quota_e}")
-            quotas = {'error': str(quota_e)}
-        
-        return {
-            'id': project.id,
-            'name': project.name,
-            'description': getattr(project, 'description', 'N/A'),
-            'domain_id': getattr(project, 'domain_id', 'N/A'),
-            'enabled': project.is_enabled,
-            'quotas': quotas
-        }
+        project_id = (
+            __import__("os").getenv("MARIADB_PROJECT_ID")
+            or __import__("os").getenv("OS_PROJECT_ID")
+            or __import__("os").getenv("OS_TENANT_ID")
+        )
+        if not project_id:
+            return {'error': 'OS_PROJECT_ID/MARIADB_PROJECT_ID is not set', 'name': 'unknown-project', 'id': 'unknown'}
+        project = _get_project_by_id(project_id)
+        return project or {'error': f'Project {project_id} not found', 'id': project_id, 'name': 'unknown-project'}
     except Exception as e:
         logger.error(f"Failed to get project info: {e}")
         return {'error': str(e), 'name': 'unknown-project', 'id': 'unknown'}
@@ -184,24 +164,45 @@ def get_user_list() -> List[Dict[str, Any]]:
         List of user dictionaries for current project
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        users = []
-
-        # Return all users visible to the current credentials.
-        for user in conn.identity.users():
-            users.append({
-                'id': user.id,
-                'name': user.name,
-                'email': getattr(user, 'email', 'N/A'),
-                'enabled': user.is_enabled,
-                'domain_id': getattr(user, 'domain_id', 'N/A'),
-                'created_at': str(getattr(user, 'created_at', 'N/A')),
-                'updated_at': str(getattr(user, 'updated_at', 'N/A'))
-            })
-        
-        return users
+        conn = _get_keystone_mariadb_connection()
+        try:
+            with conn.cursor() as cur:
+                user_columns = table_columns(cur, "user")
+                if not user_columns:
+                    raise RuntimeError("MariaDB table 'user' is not available")
+                local_columns = table_columns(cur, "local_user")
+                name_expr = "lu.name" if {"user_id", "name"}.issubset(local_columns) else column_expr("u", user_columns, "name", default="u.id")
+                domain_expr = "COALESCE(lu.domain_id, u.domain_id)" if "domain_id" in user_columns and "domain_id" in local_columns else column_expr("u", user_columns, "domain_id", default="NULL")
+                enabled_expr = column_expr("u", user_columns, "enabled", default="1")
+                extra_expr = column_expr("u", user_columns, "extra", default="NULL")
+                created_expr = column_expr("u", user_columns, "created_at", default="NULL")
+                updated_expr = column_expr("u", user_columns, "updated_at", default="NULL")
+                sql = (
+                    "SELECT u.id, "
+                    f"{name_expr} AS name, {domain_expr} AS domain_id, {enabled_expr} AS enabled, "
+                    f"{extra_expr} AS extra, {created_expr} AS created_at, {updated_expr} AS updated_at "
+                    "FROM user u "
+                )
+                if {"user_id", "name"}.issubset(local_columns):
+                    sql += "LEFT JOIN local_user lu ON lu.user_id = u.id "
+                sql += "ORDER BY name ASC"
+                cur.execute(sql)
+                users = []
+                for row in cur.fetchall():
+                    extra = json_value(row.get("extra"), {}) or {}
+                    users.append({
+                        'id': row.get("id"),
+                        'name': row.get("name") or row.get("id"),
+                        'email': extra.get("email", "N/A"),
+                        'enabled': bool_value(row.get("enabled")),
+                        'domain_id': row.get("domain_id") or "N/A",
+                        'created_at': str_time(row.get("created_at")),
+                        'updated_at': str_time(row.get("updated_at")),
+                        'data_source': 'mariadb',
+                    })
+                return users
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get user list: {e}")
         return [{'error': str(e)}]
@@ -215,25 +216,43 @@ def get_role_assignments() -> List[Dict[str, Any]]:
         List of role assignment dictionaries for current project
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        current_project_id = conn.current_project_id
-        assignments = []
-        
-        for assignment in conn.identity.role_assignments():
-            scope = getattr(assignment, 'scope', {})
-            # Only include assignments for current project
-            if 'project' in scope and scope['project'].get('id') == current_project_id:
-                assignments.append({
-                    'user_id': getattr(assignment, 'user', {}).get('id', 'N/A'),
-                    'project_id': scope['project'].get('id', 'N/A'),
-                    'role_id': getattr(assignment, 'role', {}).get('id', 'N/A'),
-                    'role_name': getattr(assignment, 'role', {}).get('name', 'N/A'),
-                    'scope_type': ['project']
-                })
-        
-        return assignments
+        conn = _get_keystone_mariadb_connection()
+        try:
+            with conn.cursor() as cur:
+                columns = table_columns(cur, "assignment")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'assignment' is not available")
+                role_columns = table_columns(cur, "role")
+                type_expr = column_expr("a", columns, "type", default="NULL")
+                actor_expr = column_expr("a", columns, "actor_id", default="NULL")
+                target_expr = column_expr("a", columns, "target_id", default="NULL")
+                role_expr = column_expr("a", columns, "role_id", default="NULL")
+                inherited_expr = column_expr("a", columns, "inherited", default="0")
+                role_name_expr = column_expr("r", role_columns, "name", default="NULL")
+                sql = (
+                    "SELECT "
+                    f"{type_expr} AS assignment_type, {actor_expr} AS actor_id, {target_expr} AS target_id, "
+                    f"{role_expr} AS role_id, {inherited_expr} AS inherited, {role_name_expr} AS role_name "
+                    "FROM assignment a "
+                )
+                if role_columns:
+                    sql += "LEFT JOIN role r ON r.id = a.role_id "
+                sql += "ORDER BY target_id ASC, actor_id ASC"
+                cur.execute(sql)
+                assignments = []
+                for row in cur.fetchall():
+                    assignments.append({
+                        'user_id': row.get("actor_id") or "N/A",
+                        'project_id': row.get("target_id") or "N/A",
+                        'role_id': row.get("role_id") or "N/A",
+                        'role_name': row.get("role_name") or "N/A",
+                        'scope_type': [row.get("assignment_type") or "project"],
+                        'inherited': bool_value(row.get("inherited")),
+                        'data_source': 'mariadb',
+                    })
+                return assignments
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get role assignments: {e}")
         return [
@@ -397,40 +416,16 @@ def get_project_details(project_name: str = "") -> Dict[str, Any]:
         Dict containing current project details only
     """
     try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        
-        # Get current project information
-        current_project_id = conn.current_project_id
-        current_project = conn.identity.get_project(current_project_id)
-        
-        # If specific project name is requested, validate it matches current project
-        if project_name and current_project.name != project_name:
-            return {
-                'success': False,
-                'message': f'Project {project_name} not accessible. Current scope: {current_project.name}',
-                'current_project': current_project.name
-            }
-        
-        # Get detailed information for current project only
-        project_detail = _get_single_project_details(conn, current_project)
-        
+        projects = get_project_list(name_filter=project_name)
+        if not projects.get("success"):
+            return projects
         return {
             'success': True,
-            'total_projects': 1,
-            'projects': [project_detail],
-            'message': f'Retrieved details for current project: {current_project.name}',
-            'scope': 'single-project'
+            'total_projects': projects.get("count", 0),
+            'projects': projects.get("projects", []),
+            'message': 'Retrieved project details from Keystone MariaDB',
+            'scope': 'mariadb',
         }
-            
-    except Exception as e:
-        logger.error(f"Failed to get project details: {e}")
-        return {
-            'success': False,
-            'message': str(e)
-        }
-        
     except Exception as e:
         logger.error(f"Failed to get project details: {e}")
         return {
@@ -452,45 +447,59 @@ def get_project_list(name_filter: str = "", enabled_only: bool = False) -> Dict[
         Dict containing project list summary
     """
     try:
-        conn = get_openstack_connection()
-        projects = []
-
-        normalized_filter = name_filter.strip().lower()
-
-        for project in conn.identity.projects():
-            project_name = getattr(project, "name", "")
-            project_enabled = bool(getattr(project, "is_enabled", False))
-
-            if enabled_only and not project_enabled:
-                continue
-
-            if normalized_filter and normalized_filter not in project_name.lower():
-                continue
-
-            projects.append({
-                "id": project.id,
-                "name": project_name,
-                "description": getattr(project, "description", ""),
-                "domain_id": getattr(project, "domain_id", ""),
-                "enabled": project_enabled,
-                "parent_id": getattr(project, "parent_id", None),
-                "is_domain": bool(getattr(project, "is_domain", False)),
-                "tags": getattr(project, "tags", []) or [],
-                "created_at": str(getattr(project, "created_at", "N/A")),
-                "updated_at": str(getattr(project, "updated_at", "N/A")),
-            })
-
-        projects.sort(key=lambda p: p.get("name", "").lower())
-
-        return {
-            "success": True,
-            "count": len(projects),
-            "filter": {
-                "name_filter": name_filter,
-                "enabled_only": enabled_only,
-            },
-            "projects": projects,
-        }
+        conn = _get_keystone_mariadb_connection()
+        try:
+            with conn.cursor() as cur:
+                columns = table_columns(cur, "project")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'project' is not available")
+                enabled_expr = column_expr("p", columns, "enabled", default="1")
+                desc_expr = column_expr("p", columns, "description", default="''")
+                domain_expr = column_expr("p", columns, "domain_id", default="NULL")
+                parent_expr = column_expr("p", columns, "parent_id", default="NULL")
+                is_domain_expr = column_expr("p", columns, "is_domain", default="0")
+                extra_expr = column_expr("p", columns, "extra", default="NULL")
+                created_expr = column_expr("p", columns, "created_at", default="NULL")
+                updated_expr = column_expr("p", columns, "updated_at", default="NULL")
+                sql = (
+                    "SELECT p.id, p.name, "
+                    f"{desc_expr} AS description, {domain_expr} AS domain_id, {enabled_expr} AS enabled, "
+                    f"{parent_expr} AS parent_id, {is_domain_expr} AS is_domain, {extra_expr} AS extra, "
+                    f"{created_expr} AS created_at, {updated_expr} AS updated_at "
+                    "FROM project p WHERE 1=1 "
+                )
+                params: List[Any] = []
+                if name_filter.strip():
+                    sql += "AND LOWER(p.name) LIKE %s "
+                    params.append(f"%{name_filter.strip().lower()}%")
+                if enabled_only:
+                    sql += f"AND {enabled_expr} = 1 "
+                sql += "ORDER BY p.name ASC"
+                cur.execute(sql, params)
+                projects = []
+                for row in cur.fetchall():
+                    extra = json_value(row.get("extra"), {}) or {}
+                    projects.append({
+                        "id": row.get("id"),
+                        "name": row.get("name") or "unnamed",
+                        "description": row.get("description") or extra.get("description", ""),
+                        "domain_id": row.get("domain_id"),
+                        "enabled": bool_value(row.get("enabled")),
+                        "parent_id": row.get("parent_id"),
+                        "is_domain": bool_value(row.get("is_domain")),
+                        "tags": extra.get("tags", []),
+                        "created_at": str_time(row.get("created_at")),
+                        "updated_at": str_time(row.get("updated_at")),
+                        "data_source": "mariadb",
+                    })
+                return {
+                    "success": True,
+                    "count": len(projects),
+                    "filter": {"name_filter": name_filter, "enabled_only": enabled_only},
+                    "projects": projects,
+                }
+        finally:
+            conn.close()
     except Exception as e:
         logger.error(f"Failed to get project list: {e}")
         return {

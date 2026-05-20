@@ -8,6 +8,8 @@ including getting amphora information, failover, configuration, and status.
 import logging
 from typing import Dict, Any
 from ...connection import get_openstack_connection
+from ..db import bool_value, str_time, table_columns
+from .db import find_load_balancer, get_octavia_connection
 
 logger = logging.getLogger(__name__)
 
@@ -26,46 +28,56 @@ def get_load_balancer_amphorae(lb_name_or_id: str = "", **kwargs) -> Dict[str, A
         Dictionary containing amphora information
     """
     try:
-        conn = get_openstack_connection()
-        
-        # Handle both parameter styles for compatibility
         loadbalancer_id = kwargs.get('loadbalancer_id') or lb_name_or_id
-        
-        amphorae = []
-        
         if loadbalancer_id:
-            # Find specific load balancer
-            lb = conn.load_balancer.find_load_balancer(lb_name_or_id)
-            if not lb:
+            lb = find_load_balancer(loadbalancer_id)
+            if lb:
+                loadbalancer_id = lb.get("id")
+
+        conn = get_octavia_connection()
+        try:
+            with conn.cursor() as cur:
+                if not table_columns(cur, "amphora"):
+                    return {'success': True, 'amphorae': [], 'amphora_count': 0}
+                sql = "SELECT * FROM amphora WHERE 1=1 "
+                params = []
+                if loadbalancer_id:
+                    sql += "AND load_balancer_id = %s "
+                    params.append(loadbalancer_id)
+                sql += "ORDER BY created_at DESC"
+                cur.execute(sql, params)
+                amphorae = cur.fetchall()
+        finally:
+            conn.close()
+
+        if loadbalancer_id:
+            if not amphorae:
                 return {
                     'success': False,
                     'message': f'Load balancer not found: {lb_name_or_id}'
                 }
-            amphorae = list(conn.load_balancer.amphorae(loadbalancer_id=lb.id))
-        else:
-            # Get all amphorae
-            amphorae = list(conn.load_balancer.amphorae())
         
         amphora_details = []
         for amphora in amphorae:
             amphora_info = {
-                'id': amphora.id,
-                'loadbalancer_id': getattr(amphora, 'loadbalancer_id', None),
-                'compute_id': getattr(amphora, 'compute_id', None),
-                'lb_network_ip': getattr(amphora, 'lb_network_ip', None),
-                'vrrp_ip': getattr(amphora, 'vrrp_ip', None),
-                'ha_ip': getattr(amphora, 'ha_ip', None),
-                'vrrp_port_id': getattr(amphora, 'vrrp_port_id', None),
-                'ha_port_id': getattr(amphora, 'ha_port_id', None),
-                'cert_expiration': getattr(amphora, 'cert_expiration', None),
-                'cert_busy': getattr(amphora, 'cert_busy', False),
-                'role': getattr(amphora, 'role', None),
-                'status': getattr(amphora, 'status', None),
-                'cached_zone': getattr(amphora, 'cached_zone', None),
-                'image_id': getattr(amphora, 'image_id', None),
-                'compute_flavor': getattr(amphora, 'compute_flavor', None),
-                'created_at': str(amphora.created_at) if hasattr(amphora, 'created_at') else 'N/A',
-                'updated_at': str(amphora.updated_at) if hasattr(amphora, 'updated_at') else 'N/A'
+                'id': amphora.get("id"),
+                'loadbalancer_id': amphora.get("load_balancer_id") or amphora.get("loadbalancer_id"),
+                'compute_id': amphora.get("compute_id"),
+                'lb_network_ip': amphora.get("lb_network_ip"),
+                'vrrp_ip': amphora.get("vrrp_ip"),
+                'ha_ip': amphora.get("ha_ip"),
+                'vrrp_port_id': amphora.get("vrrp_port_id"),
+                'ha_port_id': amphora.get("ha_port_id"),
+                'cert_expiration': str_time(amphora.get("cert_expiration")),
+                'cert_busy': bool_value(amphora.get("cert_busy")),
+                'role': amphora.get("role"),
+                'status': amphora.get("status"),
+                'cached_zone': amphora.get("cached_zone"),
+                'image_id': amphora.get("image_id"),
+                'compute_flavor': amphora.get("compute_flavor"),
+                'created_at': str_time(amphora.get("created_at")),
+                'updated_at': str_time(amphora.get("updated_at")),
+                'data_source': 'mariadb',
             }
             amphora_details.append(amphora_info)
         

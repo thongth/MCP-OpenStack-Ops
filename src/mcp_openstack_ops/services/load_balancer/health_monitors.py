@@ -8,6 +8,8 @@ including creating, updating, deleting, and querying health monitors.
 import logging
 from typing import Dict, Any
 from ...connection import get_openstack_connection
+from ..db import bool_value, column_expr, str_time, table_columns
+from .db import get_octavia_connection, list_pools
 
 logger = logging.getLogger(__name__)
 
@@ -23,49 +25,52 @@ def get_load_balancer_health_monitors(pool_name_or_id: str = "") -> Dict[str, An
         Dictionary with health monitor information
     """
     try:
-        conn = get_openstack_connection()
-        
-        monitor_details = []
-        
-        # If pool is specified, find it first
-        target_pool = None
+        target_pool_id = ""
         if pool_name_or_id:
-            for lb_pool in conn.load_balancer.pools():
-                if lb_pool.name == pool_name_or_id or lb_pool.id == pool_name_or_id:
-                    target_pool = lb_pool
-                    break
-            
-            if not target_pool:
+            pool = next((p for p in list_pools() if p.get("name") == pool_name_or_id or p.get("id") == pool_name_or_id), None)
+            if not pool:
                 return {
                     'success': False,
                     'message': f'Pool not found: {pool_name_or_id}'
                 }
-        
-        # Get health monitors
-        for monitor in conn.load_balancer.health_monitors():
-            # If pool filter is specified, only include monitors for that pool
-            if target_pool and getattr(monitor, 'pool_id', None) != target_pool.id:
-                continue
-                
-            monitor_info = {
-                'id': monitor.id,
-                'name': getattr(monitor, 'name', ''),
-                'type': monitor.type,
-                'delay': monitor.delay,
-                'timeout': monitor.timeout,
-                'max_retries': monitor.max_retries,
-                'max_retries_down': getattr(monitor, 'max_retries_down', None),
-                'admin_state_up': monitor.admin_state_up,
-                'provisioning_status': monitor.provisioning_status,
-                'operating_status': monitor.operating_status,
-                'pool_id': getattr(monitor, 'pool_id', None),
-                'http_method': getattr(monitor, 'http_method', None),
-                'url_path': getattr(monitor, 'url_path', None),
-                'expected_codes': getattr(monitor, 'expected_codes', None),
-                'created_at': str(monitor.created_at) if hasattr(monitor, 'created_at') else 'N/A',
-                'updated_at': str(monitor.updated_at) if hasattr(monitor, 'updated_at') else 'N/A'
-            }
-            monitor_details.append(monitor_info)
+            target_pool_id = pool.get("id")
+        conn = get_octavia_connection()
+        try:
+            with conn.cursor() as cur:
+                columns = table_columns(cur, "health_monitor")
+                if not columns:
+                    raise RuntimeError("MariaDB table 'health_monitor' is not available")
+                pool_expr = column_expr("hm", columns, "pool_id", default="NULL")
+                sql = "SELECT hm.* FROM health_monitor hm WHERE 1=1 "
+                params = []
+                if target_pool_id:
+                    sql += f"AND {pool_expr} = %s "
+                    params.append(target_pool_id)
+                sql += "ORDER BY hm.created_at DESC"
+                cur.execute(sql, params)
+                monitor_details = []
+                for monitor in cur.fetchall():
+                    monitor_details.append({
+                        'id': monitor.get("id"),
+                        'name': monitor.get("name") or "",
+                        'type': monitor.get("type"),
+                        'delay': monitor.get("delay"),
+                        'timeout': monitor.get("timeout"),
+                        'max_retries': monitor.get("max_retries"),
+                        'max_retries_down': monitor.get("max_retries_down"),
+                        'admin_state_up': bool_value(monitor.get("admin_state_up")),
+                        'provisioning_status': monitor.get("provisioning_status"),
+                        'operating_status': monitor.get("operating_status"),
+                        'pool_id': monitor.get("pool_id"),
+                        'http_method': monitor.get("http_method"),
+                        'url_path': monitor.get("url_path"),
+                        'expected_codes': monitor.get("expected_codes"),
+                        'created_at': str_time(monitor.get("created_at")),
+                        'updated_at': str_time(monitor.get("updated_at")),
+                        'data_source': 'mariadb',
+                    })
+        finally:
+            conn.close()
         
         return {
             'success': True,

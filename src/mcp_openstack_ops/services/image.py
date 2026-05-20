@@ -7,9 +7,15 @@ This module contains functions for managing images, image metadata, and image sh
 import json
 import logging
 from typing import Dict, List, Any, Optional
+from .db import bool_value, column_expr, get_mariadb_connection, scope_project_id, str_time, table_columns
 
 # Configure logging
 logger = logging.getLogger(__name__)
+GLANCE_DATABASE = "glance"
+
+
+def _get_glance_mariadb_connection():
+    return get_mariadb_connection(GLANCE_DATABASE)
 
 
 def get_image_list() -> List[Dict[str, Any]]:
@@ -19,64 +25,8 @@ def get_image_list() -> List[Dict[str, Any]]:
     Returns:
         List of image dictionaries for current project
     """
-    try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        current_project_id = conn.current_project_id
-        images = []
-        
-        for image in conn.image.images():
-            # Skip if image name starts with '.' (system images)
-            if image.name and image.name.startswith('.'):
-                continue
-            
-            # Include images that are accessible by current project:
-            # 1. Public images (visibility='public') - accessible to all projects
-            # 2. Community images (visibility='community') - accessible to all projects  
-            # 3. Private images owned by current project (owner=current_project_id)
-            # 4. Shared images (visibility='shared') - we include all shared images for now
-            visibility = getattr(image, 'visibility', 'private')
-            owner = getattr(image, 'owner', None)
-            
-            # More permissive filtering - include most accessible images
-            include_image = False
-            
-            if visibility in ['public', 'community']:
-                include_image = True
-            elif visibility == 'shared':
-                # For shared images, we include them all since checking member list is complex
-                include_image = True
-            elif visibility == 'private' and owner == current_project_id:
-                include_image = True
-            elif owner == current_project_id:  # Catch-all for project-owned images
-                include_image = True
-                
-            if include_image:
-                images.append({
-                    'id': image.id,
-                    'name': image.name,
-                    'status': image.status,
-                    'visibility': visibility,
-                    'owner': owner,
-                    'size': getattr(image, 'size', 0),
-                    'disk_format': getattr(image, 'disk_format', 'unknown'),
-                    'container_format': getattr(image, 'container_format', 'unknown'),
-                    'min_disk': getattr(image, 'min_disk', 0),
-                    'min_ram': getattr(image, 'min_ram', 0),
-                    'created_at': str(getattr(image, 'created_at', 'unknown')),
-                    'updated_at': str(getattr(image, 'updated_at', 'unknown')),
-                    'properties': getattr(image, 'properties', {}),
-                    'tags': list(getattr(image, 'tags', []))
-                })
-        
-        return images
-    except Exception as e:
-        logger.error(f"Failed to get image list: {e}")
-        return [
-            {'id': 'ubuntu-20.04', 'name': 'Ubuntu 20.04', 'status': 'active', 'error': str(e)},
-            {'id': 'centos-8', 'name': 'CentOS 8', 'status': 'active', 'error': str(e)}
-        ]
+    result = get_image_list_filtered(limit=200, offset=0)
+    return result.get("images", []) if result.get("success") else [{"error": result.get("message", "unknown error")}]
 
 
 def get_image_detail_list() -> List[Dict[str, Any]]:
@@ -86,80 +36,29 @@ def get_image_detail_list() -> List[Dict[str, Any]]:
     Returns:
         List of detailed image information dictionaries for current project
     """
-    try:
-        # Import here to avoid circular imports
-        from ..connection import get_openstack_connection
-        conn = get_openstack_connection()
-        current_project_id = conn.current_project_id
-        images = []
-        
-        for image in conn.image.images():
-            # Include images that are accessible by current project:
-            # 1. Public images (visibility='public') - accessible to all projects
-            # 2. Community images (visibility='community') - accessible to all projects  
-            # 3. Private images owned by current project (owner=current_project_id)
-            # 4. Shared images (visibility='shared') - we include all shared images for now
-            visibility = getattr(image, 'visibility', 'private')
-            owner = getattr(image, 'owner', None)
-            
-            # More permissive filtering - include most accessible images
-            include_image = False
-            
-            if visibility in ['public', 'community']:
-                include_image = True
-            elif visibility == 'shared':
-                # For shared images, we include them all since checking member list is complex
-                include_image = True
-            elif visibility == 'private' and owner == current_project_id:
-                include_image = True
-            elif owner == current_project_id:  # Catch-all for project-owned images
-                include_image = True
-                
-            if include_image:
-                images.append({
-                    'id': image.id,
-                    'name': image.name,
-                    'status': image.status,
-                    'visibility': visibility,
-                    'size': getattr(image, 'size', 0),
-                    'disk_format': getattr(image, 'disk_format', 'unknown'),
-                    'container_format': getattr(image, 'container_format', 'unknown'),
-                    'min_disk': getattr(image, 'min_disk', 0),
-                    'min_ram': getattr(image, 'min_ram', 0),
-                    'owner': owner,
-                    'created_at': str(getattr(image, 'created_at', 'unknown')),
-                    'updated_at': str(getattr(image, 'updated_at', 'unknown')),
-                    'protected': getattr(image, 'is_protected', False),
-                    'checksum': getattr(image, 'checksum', None),
-                    'properties': getattr(image, 'properties', {})
-                })
-        
-        logger.info(f"Retrieved {len(images)} detailed images for project {current_project_id}")
-        return images
-        
-    except Exception as e:
-        logger.error(f"Failed to get detailed image list: {e}")
-        return []
+    result = get_image_list_filtered(include_all_projects=True, limit=200, offset=0)
+    return result.get("images", []) if result.get("success") else []
 
 
-def _serialize_image(image: Any) -> Dict[str, Any]:
+def _serialize_image_row(row: Dict[str, Any], properties: Dict[str, Any], tags: List[str]) -> Dict[str, Any]:
     return {
-        'id': getattr(image, 'id', ''),
-        'name': getattr(image, 'name', ''),
-        'status': getattr(image, 'status', 'unknown'),
-        'visibility': getattr(image, 'visibility', 'private'),
-        'owner': getattr(image, 'owner', None),
-        'size': getattr(image, 'size', 0),
-        'disk_format': getattr(image, 'disk_format', 'unknown'),
-        'container_format': getattr(image, 'container_format', 'unknown'),
-        'min_disk': getattr(image, 'min_disk', 0),
-        'min_ram': getattr(image, 'min_ram', 0),
-        'created_at': str(getattr(image, 'created_at', 'unknown')),
-        'updated_at': str(getattr(image, 'updated_at', 'unknown')),
-        'protected': getattr(image, 'is_protected', False),
-        'checksum': getattr(image, 'checksum', None),
-        'properties': getattr(image, 'properties', {}) or {},
-        'tags': list(getattr(image, 'tags', []) or []),
+        'id': row.get('id', ''),
+        'name': row.get('name') or '',
+        'status': row.get('status') or 'unknown',
+        'visibility': row.get('visibility') or 'private',
+        'owner': row.get('owner'),
+        'size': row.get('size') or 0,
+        'disk_format': row.get('disk_format') or 'unknown',
+        'container_format': row.get('container_format') or 'unknown',
+        'min_disk': row.get('min_disk') or 0,
+        'min_ram': row.get('min_ram') or 0,
+        'created_at': str_time(row.get('created_at')),
+        'updated_at': str_time(row.get('updated_at')),
+        'protected': bool_value(row.get('protected')),
+        'checksum': row.get('checksum'),
+        'properties': properties,
+        'tags': tags,
+        'data_source': 'mariadb',
     }
 
 
@@ -171,44 +70,82 @@ def _base_filtered_images(
     owner: str = "",
     name_filter: str = "",
 ) -> List[Dict[str, Any]]:
-    from ..connection import get_openstack_connection, is_all_projects_readonly_mode
-
-    conn = get_openstack_connection()
-    current_project_id = conn.current_project_id
-    all_projects_mode = is_all_projects_readonly_mode()
-
+    scope_owner = scope_project_id(include_all_projects, project_id)
     owner_filter = owner.strip() or project_id.strip()
     status_filter = status.strip().lower()
     visibility_filter = visibility.strip().lower()
     name_filter_norm = name_filter.strip().lower()
 
-    results: List[Dict[str, Any]] = []
-    for image in conn.image.images():
-        item = _serialize_image(image)
-        item_owner = str(item.get('owner', '') or '')
-        item_visibility = str(item.get('visibility', 'private')).lower()
+    conn = _get_glance_mariadb_connection()
+    try:
+        with conn.cursor() as cur:
+            columns = table_columns(cur, "images")
+            if not columns:
+                raise RuntimeError("MariaDB table 'images' is not available")
 
-        if all_projects_mode and include_all_projects:
-            pass
-        elif all_projects_mode and owner_filter:
-            if item_owner != owner_filter:
-                continue
-        else:
-            if item_visibility not in ['public', 'community', 'shared'] and item_owner != current_project_id:
-                continue
+            deleted_expr = column_expr("i", columns, "deleted", default="0")
+            visibility_expr = column_expr("i", columns, "visibility", default="'private'")
+            owner_expr = column_expr("i", columns, "owner", default="NULL")
+            protected_expr = column_expr("i", columns, "protected", default="0")
+            checksum_expr = column_expr("i", columns, "checksum", default="NULL")
+            updated_expr = column_expr("i", columns, "updated_at", default="NULL")
+            sql = (
+                "SELECT i.id, i.name, i.status, "
+                f"{visibility_expr} AS visibility, {owner_expr} AS owner, "
+                "i.size, i.disk_format, i.container_format, i.min_disk, i.min_ram, "
+                f"{protected_expr} AS protected, {checksum_expr} AS checksum, "
+                f"i.created_at, {updated_expr} AS updated_at "
+                "FROM images i WHERE 1=1 "
+            )
+            params: List[Any] = []
+            if deleted_expr != "0":
+                sql += f"AND ({deleted_expr} = 0 OR {deleted_expr} = '0') "
+            if not include_all_projects and scope_owner:
+                sql += f"AND ({owner_expr} = %s OR LOWER({visibility_expr}) IN ('public', 'community', 'shared')) "
+                params.append(scope_owner)
+            if owner_filter:
+                sql += f"AND {owner_expr} = %s "
+                params.append(owner_filter)
+            if status_filter:
+                sql += "AND LOWER(i.status) = %s "
+                params.append(status_filter)
+            if visibility_filter:
+                sql += f"AND LOWER({visibility_expr}) = %s "
+                params.append(visibility_filter)
+            if name_filter_norm:
+                sql += "AND LOWER(i.name) LIKE %s "
+                params.append(f"%{name_filter_norm}%")
+            sql += "ORDER BY i.created_at DESC"
+            cur.execute(sql, params)
+            rows = cur.fetchall()
 
-        if owner_filter and item_owner != owner_filter:
-            continue
-        if status_filter and str(item.get('status', '')).lower() != status_filter:
-            continue
-        if visibility_filter and item_visibility != visibility_filter:
-            continue
-        if name_filter_norm and name_filter_norm not in str(item.get('name', '')).lower():
-            continue
+            image_ids = [row["id"] for row in rows if row.get("id")]
+            properties_by_image: Dict[str, Dict[str, Any]] = {image_id: {} for image_id in image_ids}
+            tags_by_image: Dict[str, List[str]] = {image_id: [] for image_id in image_ids}
+            if image_ids:
+                placeholders = ",".join(["%s"] * len(image_ids))
+                prop_columns = table_columns(cur, "image_properties")
+                if {"image_id", "name", "value"}.issubset(prop_columns):
+                    prop_deleted_expr = column_expr("", prop_columns, "deleted", default="0")
+                    cur.execute(
+                        f"SELECT image_id, name, value FROM image_properties WHERE image_id IN ({placeholders}) "
+                        f"AND ({prop_deleted_expr} = 0 OR {prop_deleted_expr} = '0')",
+                        image_ids,
+                    )
+                    for prop in cur.fetchall():
+                        properties_by_image.setdefault(prop["image_id"], {})[prop["name"]] = prop.get("value")
+                tag_columns = table_columns(cur, "image_tags")
+                if {"image_id", "value"}.issubset(tag_columns):
+                    cur.execute(f"SELECT image_id, value FROM image_tags WHERE image_id IN ({placeholders})", image_ids)
+                    for tag in cur.fetchall():
+                        tags_by_image.setdefault(tag["image_id"], []).append(tag.get("value"))
 
-        results.append(item)
-
-    return results
+            return [
+                _serialize_image_row(row, properties_by_image.get(row.get("id"), {}), tags_by_image.get(row.get("id"), []))
+                for row in rows
+            ]
+    finally:
+        conn.close()
 
 
 def get_image_list_filtered(

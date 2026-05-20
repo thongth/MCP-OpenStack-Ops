@@ -2,11 +2,14 @@
 
 import json
 from datetime import datetime
-from ..connection import get_openstack_connection
 from ..functions import get_instance_by_name as _get_instance_by_name
 from ..functions import get_server_events as _get_server_events
 from ..functions import get_server_volumes as _get_server_volumes
 from ..mcp_main import logger, mcp
+from ..services.identity import get_project_list
+from ..services.image import get_image_by_id_or_name
+from ..services.network import _get_network_ports_from_mariadb, get_floating_ips
+from ..services.compute import get_server_groups
 
 
 @mcp.tool()
@@ -41,57 +44,22 @@ async def get_instance_related_info(
         ports = []
         if include_ports:
             try:
-                conn = get_openstack_connection()
-                try:
-                    port_iter = conn.network.ports(device_id=instance_id)
-                except TypeError:
-                    port_iter = conn.network.ports()
-
-                for port in port_iter:
-                    if getattr(port, "device_id", "") != instance_id:
+                for port in _get_network_ports_from_mariadb(include_all_projects=True):
+                    if str(port.get("device_id") or "") != instance_id:
                         continue
-
-                    port_fixed_ips = []
-                    for fip in getattr(port, "fixed_ips", []) or []:
-                        ip_addr = fip.get("ip_address") if isinstance(fip, dict) else None
-                        subnet_id = fip.get("subnet_id") if isinstance(fip, dict) else None
-                        if ip_addr:
-                            fixed_ip_set.add(str(ip_addr))
-                        port_fixed_ips.append(
-                            {
-                                "ip_address": ip_addr,
-                                "subnet_id": subnet_id,
-                            }
-                        )
-
-                    ports.append(
-                        {
-                            "id": getattr(port, "id", ""),
-                            "name": getattr(port, "name", ""),
-                            "network_id": getattr(port, "network_id", None),
-                            "mac_address": getattr(port, "mac_address", None),
-                            "status": getattr(port, "status", None),
-                            "admin_state_up": getattr(port, "admin_state_up", None),
-                            "device_owner": getattr(port, "device_owner", None),
-                            "fixed_ips": port_fixed_ips,
-                            "security_group_ids": getattr(port, "security_group_ids", []) or [],
-                        }
-                    )
+                    for fixed_ip in port.get("fixed_ips", []) or []:
+                        if fixed_ip.get("ip_address"):
+                            fixed_ip_set.add(str(fixed_ip.get("ip_address")))
+                    ports.append(port)
             except Exception as e:
                 warnings.append(f"Failed to collect ports: {e}")
 
         floating_ips = []
         if include_fips:
             try:
-                conn = get_openstack_connection()
-                try:
-                    fip_iter = conn.network.ips()
-                except Exception:
-                    fip_iter = []
-
-                for fip in fip_iter:
-                    fip_port_id = getattr(fip, "port_id", None)
-                    fip_fixed_ip = getattr(fip, "fixed_ip_address", None)
+                for fip in get_floating_ips(include_all_projects=True):
+                    fip_port_id = fip.get("port_id")
+                    fip_fixed_ip = fip.get("fixed_ip_address")
 
                     match_by_port = any(str(p.get("id", "")) == str(fip_port_id) for p in ports)
                     match_by_fixed_ip = bool(fip_fixed_ip and str(fip_fixed_ip) in fixed_ip_set)
@@ -101,13 +69,13 @@ async def get_instance_related_info(
 
                     floating_ips.append(
                         {
-                            "id": getattr(fip, "id", ""),
-                            "floating_ip_address": getattr(fip, "floating_ip_address", None),
+                            "id": fip.get("id", ""),
+                            "floating_ip_address": fip.get("floating_ip_address"),
                             "fixed_ip_address": fip_fixed_ip,
                             "port_id": fip_port_id,
-                            "status": getattr(fip, "status", None),
-                            "floating_network_id": getattr(fip, "floating_network_id", None),
-                            "project_id": getattr(fip, "project_id", None) or getattr(fip, "tenant_id", None),
+                            "status": fip.get("status"),
+                            "floating_network_id": fip.get("floating_network_id"),
+                            "project_id": fip.get("project_id") or fip.get("tenant_id"),
                         }
                     )
             except Exception as e:
@@ -122,30 +90,6 @@ async def get_instance_related_info(
                     warnings.append("Volume API returned partial/error entries; applying fallback from instance attachments")
                     volumes = [v for v in volumes if not (isinstance(v, dict) and v.get("error"))]
 
-                if attached_volume_ids and len(volumes) < len(attached_volume_ids):
-                    conn = get_openstack_connection()
-                    existing_ids = {str(v.get("volume_id") or v.get("id") or "") for v in volumes if isinstance(v, dict)}
-                    for volume_id in attached_volume_ids:
-                        if volume_id in existing_ids:
-                            continue
-                        try:
-                            vol = conn.volume.get_volume(volume_id)
-                            volumes.append(
-                                {
-                                    "volume_id": getattr(vol, "id", volume_id),
-                                    "volume_name": getattr(vol, "name", ""),
-                                    "size": getattr(vol, "size", 0),
-                                    "status": getattr(vol, "status", "unknown"),
-                                    "volume_type": getattr(vol, "volume_type", None),
-                                    "bootable": getattr(vol, "is_bootable", False),
-                                    "encrypted": getattr(vol, "is_encrypted", False),
-                                    "attachment_id": None,
-                                    "device": None,
-                                    "source": "instance_attached_volumes_fallback",
-                                }
-                            )
-                        except Exception as e:
-                            warnings.append(f"Failed to resolve attached volume '{volume_id}': {e}")
                 if attached_volume_ids and not volumes:
                     warnings.append("Instance has attached_volumes metadata but no volume detail could be retrieved")
             except Exception as e:
@@ -177,100 +121,35 @@ async def get_instance_related_info(
         project_info = None
         try:
             if project_id:
-                conn = get_openstack_connection()
-                project = conn.identity.find_project(project_id, ignore_missing=True)
-                if project:
-                    project_info = {
-                        "id": getattr(project, "id", project_id),
-                        "name": getattr(project, "name", None),
-                        "description": getattr(project, "description", ""),
-                        "domain_id": getattr(project, "domain_id", None),
-                        "enabled": bool(getattr(project, "is_enabled", False)),
-                    }
-                else:
-                    project_info = {"id": project_id}
+                projects = get_project_list().get("projects", [])
+                project_info = next((p for p in projects if p.get("id") == project_id), {"id": project_id})
         except Exception as e:
             warnings.append(f"Failed to collect project info: {e}")
 
         image_info = instance.get("image")
         if include_image:
             try:
-                # Priority 1: image metadata from boot volume (volume_image_metadata).
-                volume_image_metadata = {}
-                for vol_item in volumes:
-                    if not isinstance(vol_item, dict):
-                        continue
-                    vol_id = str(vol_item.get("volume_id") or vol_item.get("id") or "").strip()
-                    if not vol_id:
-                        continue
-                    try:
-                        conn = get_openstack_connection()
-                        vol_obj = conn.volume.get_volume(vol_id)
-                        meta = getattr(vol_obj, "volume_image_metadata", None) or {}
-                        if meta:
-                            volume_image_metadata = meta
-                            break
-                    except Exception:
-                        continue
-
-                if volume_image_metadata:
-                    image_info = {
-                        "id": volume_image_metadata.get("image_id"),
-                        "name": volume_image_metadata.get("image_name"),
-                        "checksum": volume_image_metadata.get("image_checksum"),
-                        "container_format": volume_image_metadata.get("container_format"),
-                        "disk_format": volume_image_metadata.get("disk_format"),
-                        "min_disk": volume_image_metadata.get("min_disk"),
-                        "min_ram": volume_image_metadata.get("min_ram"),
-                        "size": volume_image_metadata.get("size"),
-                        "visibility": volume_image_metadata.get("visibility"),
-                        "owner": volume_image_metadata.get("owner_id"),
-                        "source": "volume_image_metadata",
-                        "volume_image_metadata": volume_image_metadata,
-                    }
-
-                # Priority 2: instance image reference/API lookup.
                 image_ref = instance.get("image") if isinstance(instance.get("image"), dict) else {}
                 image_id = str(image_ref.get("id", "")).strip()
                 if not image_info and image_id and image_id != "unknown":
-                    conn = get_openstack_connection()
-                    image = conn.image.get_image(image_id)
-                    image_info = {
-                        "id": getattr(image, "id", image_id),
-                        "name": getattr(image, "name", image_ref.get("name")),
-                        "status": getattr(image, "status", None),
-                        "visibility": getattr(image, "visibility", None),
-                        "owner": getattr(image, "owner", None),
-                        "size": getattr(image, "size", None),
-                        "disk_format": getattr(image, "disk_format", None),
-                        "container_format": getattr(image, "container_format", None),
-                        "min_disk": getattr(image, "min_disk", None),
-                        "min_ram": getattr(image, "min_ram", None),
-                        "created_at": str(getattr(image, "created_at", "unknown")),
-                        "updated_at": str(getattr(image, "updated_at", "unknown")),
-                        "source": "image_api",
-                    }
+                    image_result = get_image_by_id_or_name(image_id, include_all_projects=True)
+                    image_info = image_result.get("image") or image_info
             except Exception as e:
                 warnings.append(f"Failed to collect image detail: {e}")
 
         server_groups = []
         if include_server_groups:
             try:
-                conn = get_openstack_connection()
-                for group in conn.compute.server_groups():
-                    members = getattr(group, "members", []) or []
+                for group in get_server_groups():
+                    members = group.get("members", []) or []
                     if instance_id not in [str(m) for m in members]:
                         continue
-                    policies = getattr(group, "policies", []) or []
-                    policy = getattr(group, "policy", None)
-                    if policy and not policies:
-                        policies = [policy]
                     server_groups.append(
                         {
-                            "id": getattr(group, "id", ""),
-                            "name": getattr(group, "name", ""),
-                            "project_id": getattr(group, "project_id", None),
-                            "policies": policies,
+                            "id": group.get("id", ""),
+                            "name": group.get("name", ""),
+                            "project_id": group.get("project_id"),
+                            "policies": group.get("policies", []),
                             "members": members,
                             "member_count": len(members),
                         }

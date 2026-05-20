@@ -8,6 +8,7 @@ including creating, updating, deleting, and querying listeners.
 import logging
 from typing import Dict, Any
 from ...connection import get_openstack_connection
+from .db import find_load_balancer, list_listeners
 
 logger = logging.getLogger(__name__)
 
@@ -23,48 +24,20 @@ def get_load_balancer_listeners(lb_name_or_id: str) -> Dict[str, Any]:
         Dictionary containing listeners information
     """
     try:
-        conn = get_openstack_connection()
-        
-        # Find load balancer
-        lb = conn.load_balancer.find_load_balancer(lb_name_or_id)
+        lb = find_load_balancer(lb_name_or_id)
         if not lb:
             return {
                 'success': False,
                 'message': f'Load balancer not found: {lb_name_or_id}'
             }
         
-        # Get listeners (defensive client-side filtering for SDK/API variants
-        # that may ignore `loadbalancer_id` server-side filter).
-        raw_listeners = list(conn.load_balancer.listeners(loadbalancer_id=lb.id))
-        listeners = []
-        for listener in raw_listeners:
-            listener_lb_id = str(getattr(listener, 'loadbalancer_id', '') or '')
-            listener_lbs = getattr(listener, 'load_balancers', []) or []
-            in_lb_refs = any(str((ref or {}).get('id', '')) == str(lb.id) for ref in listener_lbs if isinstance(ref, dict))
-            if listener_lb_id == str(lb.id) or in_lb_refs:
-                listeners.append(listener)
-        listener_details = []
-        
-        for listener in listeners:
-            listener_info = {
-                'id': listener.id,
-                'name': listener.name,
-                'description': listener.description,
-                'protocol': listener.protocol,
-                'protocol_port': listener.protocol_port,
-                'admin_state_up': getattr(listener, 'admin_state_up', None),
-                'loadbalancer_id': listener.loadbalancer_id,
-                'default_pool_id': getattr(listener, 'default_pool_id', None),
-                'created_at': str(listener.created_at) if hasattr(listener, 'created_at') else 'N/A',
-                'updated_at': str(listener.updated_at) if hasattr(listener, 'updated_at') else 'N/A'
-            }
-            listener_details.append(listener_info)
+        listener_details = list_listeners(loadbalancer_id=lb.get("id"))
         
         return {
             'success': True,
             'load_balancer': {
-                'id': lb.id,
-                'name': lb.name
+                'id': lb.get("id"),
+                'name': lb.get("name")
             },
             'listeners': listener_details,
             'listener_count': len(listener_details)

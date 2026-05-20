@@ -8,6 +8,7 @@ including creating, updating, deleting, and querying pools and their members.
 import logging
 from typing import Dict, Any
 from ...connection import get_openstack_connection
+from .db import list_listeners, list_members, list_pools
 
 logger = logging.getLogger(__name__)
 
@@ -23,68 +24,25 @@ def get_load_balancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
         Dictionary containing pools information
     """
     try:
-        conn = get_openstack_connection()
-        
         if listener_name_or_id:
-            # Find listener and get its pools
-            listener = conn.load_balancer.find_listener(listener_name_or_id)
-            if not listener:
+            listeners = [l for l in list_listeners() if l.get("id") == listener_name_or_id or l.get("name") == listener_name_or_id]
+            if not listeners:
                 return {
                     'success': False,
                     'message': f'Listener not found: {listener_name_or_id}'
                 }
-            
-            try:
-                pools = list(conn.load_balancer.pools(listener_id=listener.id))
-            except Exception:
-                # Compatibility fallback for SDKs/endpoints that reject listener_id filter
-                all_pools = list(conn.load_balancer.pools())
-                listener_default_pool_id = str(getattr(listener, 'default_pool_id', '') or '')
-                pools = [
-                    p for p in all_pools
-                    if str(getattr(p, 'listener_id', '')) == str(listener.id)
-                    or str(getattr(p, 'id', '')) == listener_default_pool_id
-                    or any(
-                        str((ref or {}).get('id', '')) == str(listener.id)
-                        for ref in (getattr(p, 'listeners', []) or [])
-                        if isinstance(ref, dict)
-                    )
-                ]
+            listener = listeners[0]
+            pools = list_pools(listener_id=listener.get("id"))
+            default_pool_id = str(listener.get("default_pool_id") or "")
+            if default_pool_id:
+                pools.extend([p for p in list_pools() if str(p.get("id")) == default_pool_id])
         else:
-            # Get all pools
-            pools = list(conn.load_balancer.pools())
+            pools = list_pools()
         
         pool_details = []
         for pool in pools:
-            # Get members for this pool
-            members = list(conn.load_balancer.members(pool))
-            member_summary = []
-            
-            for member in members:
-                member_info = {
-                    'id': member.id,
-                    'name': getattr(member, 'name', ''),
-                    'address': member.address,
-                    'protocol_port': member.protocol_port,
-                    'weight': getattr(member, 'weight', 1),
-                    'admin_state_up': member.admin_state_up,
-                    'operating_status': getattr(member, 'operating_status', 'Unknown')
-                }
-                member_summary.append(member_info)
-            
-            pool_info = {
-                'id': pool.id,
-                'name': pool.name,
-                'description': pool.description,
-                'protocol': pool.protocol,
-                'lb_algorithm': pool.lb_algorithm,
-                'admin_state_up': pool.admin_state_up,
-                'listener_id': getattr(pool, 'listener_id', None),
-                'members': member_summary,
-                'member_count': len(member_summary),
-                'created_at': str(pool.created_at) if hasattr(pool, 'created_at') else 'N/A',
-                'updated_at': str(pool.updated_at) if hasattr(pool, 'updated_at') else 'N/A'
-            }
+            member_summary = list_members(pool.get("id"))
+            pool_info = {**pool, 'members': member_summary, 'member_count': len(member_summary)}
             pool_details.append(pool_info)
         
         return {
@@ -330,14 +288,7 @@ def get_load_balancer_pool_members(pool_name_or_id: str) -> Dict[str, Any]:
         Dictionary with pool members information
     """
     try:
-        conn = get_openstack_connection()
-        
-        # Find pool
-        pool = None
-        for lb_pool in conn.load_balancer.pools():
-            if lb_pool.name == pool_name_or_id or lb_pool.id == pool_name_or_id:
-                pool = lb_pool
-                break
+        pool = next((p for p in list_pools() if p.get("name") == pool_name_or_id or p.get("id") == pool_name_or_id), None)
         
         if not pool:
             return {
@@ -345,32 +296,14 @@ def get_load_balancer_pool_members(pool_name_or_id: str) -> Dict[str, Any]:
                 'message': f'Pool not found: {pool_name_or_id}'
             }
         
-        # Get pool members
-        member_details = []
-        for member in conn.load_balancer.members(pool):
-            member_info = {
-                'id': member.id,
-                'name': getattr(member, 'name', ''),
-                'address': member.address,
-                'protocol_port': member.protocol_port,
-                'weight': member.weight,
-                'admin_state_up': member.admin_state_up,
-                'provisioning_status': member.provisioning_status,
-                'operating_status': member.operating_status,
-                'backup': getattr(member, 'backup', False),
-                'monitor_address': getattr(member, 'monitor_address', None),
-                'monitor_port': getattr(member, 'monitor_port', None),
-                'created_at': str(member.created_at) if hasattr(member, 'created_at') else 'N/A',
-                'updated_at': str(member.updated_at) if hasattr(member, 'updated_at') else 'N/A'
-            }
-            member_details.append(member_info)
+        member_details = list_members(pool.get("id"))
         
         return {
             'success': True,
             'pool': {
-                'id': pool.id,
-                'name': pool.name,
-                'protocol': pool.protocol
+                'id': pool.get("id"),
+                'name': pool.get("name"),
+                'protocol': pool.get("protocol")
             },
             'members': member_details,
             'member_count': len(member_details)

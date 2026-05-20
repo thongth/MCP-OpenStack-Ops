@@ -20,88 +20,86 @@ def get_service_status() -> List[Dict[str, Any]]:
         List of service status dictionaries with comprehensive information.
     """
     try:
-        conn = get_openstack_connection()
+        from .services.compute import _get_nova_mariadb_connection, _table_columns as nova_columns
+        from .services.network import get_network_agents
+        from .services.storage import _get_cinder_mariadb_connection, _table_columns as cinder_columns
+
         services = []
-        
-        # Get compute services
         try:
-            for service in conn.compute.services():
-                services.append({
-                    'binary': service.binary,
-                    'host': service.host,
-                    'status': service.status,
-                    'state': service.state,
-                    'zone': getattr(service, 'zone', 'unknown'),
-                    'updated_at': str(getattr(service, 'updated_at', 'unknown')),
-                    'disabled_reason': getattr(service, 'disabled_reason', None),
-                    'service_type': 'compute'
-                })
+            conn = _get_nova_mariadb_connection()
+            try:
+                with conn.cursor() as cur:
+                    columns = nova_columns(cur, "services")
+                    if columns:
+                        cur.execute("SELECT binary, host, status, disabled, disabled_reason, updated_at FROM services ORDER BY host, binary")
+                        for service in cur.fetchall():
+                            services.append({
+                                'binary': service.get('binary'),
+                                'host': service.get('host'),
+                                'status': service.get('status') or ('disabled' if service.get('disabled') else 'enabled'),
+                                'state': 'up',
+                                'zone': 'nova',
+                                'updated_at': str(service.get('updated_at') or 'unknown'),
+                                'disabled_reason': service.get('disabled_reason'),
+                                'service_type': 'compute',
+                                'data_source': 'mariadb',
+                            })
+            finally:
+                conn.close()
         except Exception as e:
-            logger.warning(f"Failed to get compute services: {e}")
-            
-        # Get network services if available
-        try:
-            for agent in conn.network.agents():
-                services.append({
-                    'binary': agent.binary,
-                    'host': agent.host,
-                    'status': 'enabled' if agent.is_admin_state_up else 'disabled',
-                    'state': 'up' if agent.alive else 'down',
-                    'zone': getattr(agent, 'availability_zone', 'unknown'),
-                    'updated_at': str(getattr(agent, 'heartbeat_timestamp', 'unknown')),
-                    'agent_type': agent.agent_type,
-                    'service_type': 'network'
-                })
-        except Exception as e:
-            logger.warning(f"Failed to get network agents: {e}")
-            
-        # Get volume services (Cinder)
-        try:
-            for service in conn.volume.services():
-                services.append({
-                    'binary': service.binary,
-                    'host': service.host,
-                    'status': service.status,
-                    'state': service.state,
-                    'zone': getattr(service, 'zone', 'unknown'),
-                    'updated_at': str(getattr(service, 'updated_at', 'unknown')),
-                    'disabled_reason': getattr(service, 'disabled_reason', None),
-                    'service_type': 'volume'
-                })
-        except Exception as e:
-            logger.warning(f"Failed to get volume services: {e}")
-            
-        # Get image service status (Glance) - Check if service catalog is available
-        try:
-            # Test if image service is available by trying to list images (with limit)
-            list(conn.image.images(limit=1))
+            logger.warning(f"Failed to get compute services from DB: {e}")
+
+        for agent in get_network_agents():
+            if 'error' in agent:
+                continue
             services.append({
-                'binary': 'glance-api',
-                'host': 'controller',  # Default host name
-                'status': 'enabled',
-                'state': 'up',
-                'zone': 'internal',
-                'updated_at': datetime.now().isoformat(),
-                'disabled_reason': None,
-                'service_type': 'image'
+                'binary': agent.get('binary'),
+                'host': agent.get('host'),
+                'status': 'enabled' if agent.get('admin_state_up') else 'disabled',
+                'state': 'up' if agent.get('alive') else 'down',
+                'zone': agent.get('availability_zone'),
+                'updated_at': agent.get('heartbeat_timestamp'),
+                'agent_type': agent.get('agent_type'),
+                'service_type': 'network',
+                'data_source': 'mariadb',
             })
+
+        try:
+            conn = _get_cinder_mariadb_connection()
+            try:
+                with conn.cursor() as cur:
+                    columns = cinder_columns(cur, "services")
+                    if columns:
+                        cur.execute("SELECT binary, host, status, disabled, disabled_reason, updated_at, availability_zone FROM services ORDER BY host, binary")
+                        for service in cur.fetchall():
+                            services.append({
+                                'binary': service.get('binary'),
+                                'host': service.get('host'),
+                                'status': service.get('status') or ('disabled' if service.get('disabled') else 'enabled'),
+                                'state': 'up',
+                                'zone': service.get('availability_zone') or 'unknown',
+                                'updated_at': str(service.get('updated_at') or 'unknown'),
+                                'disabled_reason': service.get('disabled_reason'),
+                                'service_type': 'volume',
+                                'data_source': 'mariadb',
+                            })
+            finally:
+                conn.close()
         except Exception as e:
-            logger.warning(f"Image service (Glance) appears to be down: {e}")
-            services.append({
-                'binary': 'glance-api',
-                'host': 'controller',
-                'status': 'enabled',
-                'state': 'down',
-                'zone': 'internal',
-                'updated_at': 'unknown',
-                'disabled_reason': f'Service check failed: {str(e)}',
-                'service_type': 'image'
-            })
-            
-        return services if services else [
-            {'binary': 'nova-compute', 'host': 'controller', 'status': 'enabled', 'state': 'up', 'zone': 'nova', 'service_type': 'compute'},
-            {'binary': 'neutron-server', 'host': 'controller', 'status': 'enabled', 'state': 'up', 'zone': 'internal', 'service_type': 'network'}
-        ]
+            logger.warning(f"Failed to get volume services from DB: {e}")
+
+        services.append({
+            'binary': 'glance-api',
+            'host': os.getenv('MARIADB_HOST', 'controller'),
+            'status': 'enabled',
+            'state': 'unknown',
+            'zone': 'internal',
+            'updated_at': datetime.now().isoformat(),
+            'disabled_reason': None,
+            'service_type': 'image',
+            'data_source': 'mariadb',
+        })
+        return services
     except Exception as e:
         logger.error(f"Failed to get service status: {e}")
         return [
