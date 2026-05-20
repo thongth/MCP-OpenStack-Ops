@@ -13,7 +13,6 @@ async def get_load_balancer_list(
     limit: int = 50,
     offset: int = 0,
     include_all: bool = False,
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """
@@ -36,7 +35,6 @@ async def get_load_balancer_list(
         limit: Maximum load balancers to return (1-200, default: 50)
         offset: Number of load balancers to skip for pagination (default: 0)  
         include_all: Return all load balancers ignoring limit/offset (default: False)
-        include_all_projects: Return load balancers across all projects (default: False)
         project_id: Optional project ID filter (default: "")
         
     Returns:
@@ -45,13 +43,12 @@ async def get_load_balancer_list(
     try:
         logger.info(
             f"Getting load balancer list (limit={limit}, offset={offset}, include_all={include_all}, "
-            f"include_all_projects={include_all_projects}, project_id={project_id})"
+            f"project_id={project_id})"
         )
         result = _get_load_balancer_list(
             limit=limit,
             offset=offset, 
             include_all=include_all,
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         

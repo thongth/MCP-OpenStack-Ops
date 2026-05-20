@@ -11,7 +11,6 @@ from ..mcp_main import (
 
 @mcp.tool()
 async def get_network(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     name_contains: str = "",
@@ -23,8 +22,7 @@ async def get_network(
     Get list of OpenStack networks.
 
     Args:
-        include_all_projects: Include resources from all projects when all-project read-only mode is enabled.
-        project_id: Optional project ID filter (effective only in all-project read-only mode).
+        project_id: Optional project ID filter.
         status: Optional network status filter (case-insensitive exact match, e.g. ACTIVE, DOWN).
         name_contains: Optional substring filter for network name.
         limit: Maximum networks to return. Use 0 for no limit.
@@ -36,9 +34,8 @@ async def get_network(
     """
     try:
         logger.info(
-            "Fetching network list (include_all_projects=%s, project_id=%s, status=%s, "
+            "Fetching network list (project_id=%s, status=%s, "
             "name_contains=%s, limit=%s, offset=%s, include_subnets=%s)",
-            include_all_projects,
             project_id,
             status,
             name_contains,
@@ -48,7 +45,6 @@ async def get_network(
         )
         networks = _get_network_details(
             network_name="all",
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             name_contains=name_contains,
@@ -66,7 +62,6 @@ async def get_network(
                 "has_more": bool(limit and len(networks) == limit),
             },
             "filters": {
-                "include_all_projects": include_all_projects,
                 "project_id": project_id,
                 "status": status,
                 "name_contains": name_contains,

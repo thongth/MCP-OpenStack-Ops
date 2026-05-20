@@ -82,7 +82,7 @@ def _str_time(value: Any) -> str:
     return "unknown" if value in (None, "") else str(value)
 
 
-def _scope_project_id(include_all_projects: bool = False, project_id: str = "") -> Optional[str]:
+def _scope_project_id(project_id: str = "") -> Optional[str]:
     if project_id:
         return project_id
     # MariaDB read tools default to backend-wide reads; pass project_id explicitly to filter.
@@ -106,13 +106,13 @@ def _get_network_group_counts(cur, group_expr: str, from_sql: str, where_sql: st
     )
     return [{label: row.get("value"), "count": int(row.get("count") or 0)} for row in cur.fetchall()]
 
-def get_network_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+def get_network_summary(project_id: str = "") -> Dict[str, Any]:
     """
     Get Neutron network counts without returning full network records.
     """
     conn = _get_mariadb_connection()
     try:
-        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        scope_project_id = _scope_project_id(project_id)
         with conn.cursor() as cur:
             network_columns = _table_columns(cur, "networks")
             external_columns = _table_columns(cur, "externalnetworks")
@@ -153,7 +153,6 @@ def get_network_summary(include_all_projects: bool = False, project_id: str = ""
                 "by_external": _get_network_group_counts(cur, external_expr, from_sql, where_sql, params, "external"),
                 "scope": {
                     "project_id": scope_project_id,
-                    "include_all_projects": include_all_projects,
                 },
                 "data_source": "mariadb",
             }
@@ -247,7 +246,6 @@ def get_network_agents(agent_type: str = "", host: str = "", alive_only: bool = 
 
 def get_network_details(
     network_name: str = "all",
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     name_contains: str = "",
@@ -267,7 +265,7 @@ def get_network_details(
     try:
         conn = _get_mariadb_connection()
         try:
-            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            scope_project_id = _scope_project_id(project_id)
             status_filter = status.strip().lower() if status else ""
             target_name = network_name.strip().lower()
             name_filter = name_contains.strip().lower()
@@ -578,7 +576,6 @@ def set_networks(action: str, network_name: Optional[str] = None, **kwargs) -> D
 
 
 def get_security_groups(
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> List[Dict[str, Any]]:
     """
@@ -590,7 +587,7 @@ def get_security_groups(
     try:
         conn = _get_mariadb_connection()
         try:
-            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            scope_project_id = _scope_project_id(project_id)
             with conn.cursor() as cur:
                 sg_columns = _table_columns(cur, "securitygroups")
                 rule_columns = _table_columns(cur, "securitygrouprules")
@@ -672,13 +669,13 @@ def get_security_groups(
         ]
 
 
-def get_security_groups_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+def get_security_groups_summary(project_id: str = "") -> Dict[str, Any]:
     """
     Get security group and rule counts without returning full rule payloads.
     """
     conn = _get_mariadb_connection()
     try:
-        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        scope_project_id = _scope_project_id(project_id)
         with conn.cursor() as cur:
             sg_columns = _table_columns(cur, "securitygroups")
             rule_columns = _table_columns(cur, "securitygrouprules")
@@ -722,7 +719,6 @@ def get_security_groups_summary(include_all_projects: bool = False, project_id: 
                 "by_rule_protocol": by_rule_protocol,
                 "scope": {
                     "project_id": scope_project_id,
-                    "include_all_projects": include_all_projects,
                 },
                 "data_source": "mariadb",
             }
@@ -730,7 +726,6 @@ def get_security_groups_summary(include_all_projects: bool = False, project_id: 
         conn.close()
 
 def get_floating_ips(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
 ) -> List[Dict[str, Any]]:
@@ -743,7 +738,7 @@ def get_floating_ips(
     try:
         conn = _get_mariadb_connection()
         try:
-            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            scope_project_id = _scope_project_id(project_id)
             status_filter = status.strip().lower() if status else ""
             with conn.cursor() as cur:
                 columns = _table_columns(cur, "floatingips")
@@ -812,13 +807,13 @@ def get_floating_ips(
         ]
 
 
-def get_floating_ips_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+def get_floating_ips_summary(project_id: str = "") -> Dict[str, Any]:
     """
     Get floating IP counts without returning full floating IP records.
     """
     conn = _get_mariadb_connection()
     try:
-        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        scope_project_id = _scope_project_id(project_id)
         with conn.cursor() as cur:
             columns = _table_columns(cur, "floatingips")
             if not columns:
@@ -857,7 +852,6 @@ def get_floating_ips_summary(include_all_projects: bool = False, project_id: str
                 "by_router_bound": _get_network_group_counts(cur, router_bound_expr, from_sql, where_sql, params, "router_bound"),
                 "scope": {
                     "project_id": scope_project_id,
-                    "include_all_projects": include_all_projects,
                 },
                 "data_source": "mariadb",
             }
@@ -1542,7 +1536,6 @@ def set_floating_ip_port_forwarding(action: str, **kwargs) -> Dict[str, Any]:
 
 
 def get_routers(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
 ) -> List[Dict[str, Any]]:
@@ -1555,7 +1548,7 @@ def get_routers(
     try:
         conn = _get_mariadb_connection()
         try:
-            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            scope_project_id = _scope_project_id(project_id)
             status_filter = status.strip().lower() if status else ""
             with conn.cursor() as cur:
                 router_columns = _table_columns(cur, "routers")
@@ -1665,13 +1658,13 @@ def get_routers(
             }
         ]
 
-def get_routers_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+def get_routers_summary(project_id: str = "") -> Dict[str, Any]:
     """
     Get router counts without returning full router/interface details.
     """
     conn = _get_mariadb_connection()
     try:
-        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        scope_project_id = _scope_project_id(project_id)
         with conn.cursor() as cur:
             router_columns = _table_columns(cur, "routers")
             if not router_columns:
@@ -1711,7 +1704,6 @@ def get_routers_summary(include_all_projects: bool = False, project_id: str = ""
                 "by_external_gateway": _get_network_group_counts(cur, gateway_expr, from_sql, where_sql, params, "external_gateway"),
                 "scope": {
                     "project_id": scope_project_id,
-                    "include_all_projects": include_all_projects,
                 },
                 "data_source": "mariadb",
             }
@@ -1719,14 +1711,13 @@ def get_routers_summary(include_all_projects: bool = False, project_id: str = ""
         conn.close()
 
 def _get_network_ports_from_mariadb(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     port_name: str = "",
 ) -> List[Dict[str, Any]]:
     conn = _get_mariadb_connection()
     try:
-        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        scope_project_id = _scope_project_id(project_id)
         status_filter = status.strip().lower() if status else ""
         target = port_name.strip().lower()
         with conn.cursor() as cur:
@@ -1824,11 +1815,9 @@ def set_network_ports(action: str, port_name: Optional[str] = None, **kwargs) ->
     """
     try:
         if action.lower() == 'list':
-            include_all_projects = bool(kwargs.get('include_all_projects', False))
             project_id = str(kwargs.get('project_id', '') or '')
             status_filter = str(kwargs.get('status', '') or '')
             ports = _get_network_ports_from_mariadb(
-                include_all_projects=include_all_projects,
                 project_id=project_id,
                 status=status_filter,
             )

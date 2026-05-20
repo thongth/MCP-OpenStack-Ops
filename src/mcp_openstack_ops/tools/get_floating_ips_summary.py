@@ -7,13 +7,11 @@ from ..mcp_main import logger, mcp
 
 @mcp.tool()
 async def get_floating_ips_summary(
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get floating IP counts grouped by status, project, network, port binding, and router binding."""
     try:
         summary = _get_floating_ips_summary(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         return json.dumps(

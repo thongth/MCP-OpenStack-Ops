@@ -10,7 +10,6 @@ from ..mcp_main import (
 
 @mcp.tool()
 async def get_volume_list(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     limit: int = 100,
@@ -33,10 +32,9 @@ async def get_volume_list(
     """
     try:
         logger.info(
-            f"Fetching volume list (include_all_projects={include_all_projects}, project_id={project_id}, status={status})"
+            f"Fetching volume list (project_id={project_id}, status={status})"
         )
         volumes = _get_volume_list(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             limit=limit,

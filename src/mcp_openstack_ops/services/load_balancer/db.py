@@ -44,10 +44,10 @@ def find_load_balancer(identifier: str) -> Optional[Dict[str, Any]]:
         conn.close()
 
 
-def list_load_balancers(include_all_projects: bool = False, project_id: str = "") -> List[Dict[str, Any]]:
+def list_load_balancers(project_id: str = "") -> List[Dict[str, Any]]:
     conn = get_octavia_connection()
     try:
-        scope_project = scope_project_id(include_all_projects, project_id)
+        scope_project = scope_project_id(project_id)
         with conn.cursor() as cur:
             columns = table_columns(cur, "load_balancer")
             if not columns:

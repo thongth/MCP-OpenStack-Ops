@@ -8,7 +8,6 @@ from ..mcp_main import logger, mcp
 
 @mcp.tool()
 async def get_image_list(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     visibility: str = "",
@@ -20,7 +19,6 @@ async def get_image_list(
     """List images with summary output and optional filters."""
     try:
         result = _get_image_list_filtered(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             visibility=visibility,
@@ -32,7 +30,6 @@ async def get_image_list(
         response = {
             "timestamp": datetime.now().isoformat(),
             "filter": {
-                "include_all_projects": include_all_projects,
                 "project_id": project_id,
                 "status": status,
                 "visibility": visibility,

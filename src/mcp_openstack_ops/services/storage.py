@@ -81,7 +81,7 @@ def _str_time(value: Any) -> str:
     return "unknown" if value in (None, "") else str(value)
 
 
-def _scope_project_id(include_all_projects: bool = False, project_id: str = "") -> Optional[str]:
+def _scope_project_id(project_id: str = "") -> Optional[str]:
     if project_id:
         return project_id
     # MariaDB read tools default to backend-wide reads; pass project_id explicitly to filter.
@@ -138,10 +138,10 @@ def _get_group_counts(
     )
     return [{label: row.get("value"), "count": int(row.get("count") or 0)} for row in cur.fetchall()]
 
-def _storage_summary(table_name: str, alias: str, resource: str, include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+def _storage_summary(table_name: str, alias: str, resource: str, project_id: str = "") -> Dict[str, Any]:
     conn = _get_cinder_mariadb_connection()
     try:
-        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        scope_project_id = _scope_project_id(project_id)
         with conn.cursor() as cur:
             columns = _table_columns(cur, table_name)
             if not columns:
@@ -170,7 +170,6 @@ def _storage_summary(table_name: str, alias: str, resource: str, include_all_pro
                 "total": total,
                 "scope": {
                     "project_id": scope_project_id,
-                    "include_all_projects": include_all_projects,
                 },
                 "by_status": _get_group_counts(cur, table_name, alias, columns, status_expr, where_sql, params, "status"),
                 "by_project_id": _get_group_counts(cur, table_name, alias, columns, project_expr, where_sql, params, "project_id"),
@@ -181,17 +180,16 @@ def _storage_summary(table_name: str, alias: str, resource: str, include_all_pro
     finally:
         conn.close()
 
-def get_volume_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
-    return _storage_summary("volumes", "v", "volumes", include_all_projects, project_id)
+def get_volume_summary(project_id: str = "") -> Dict[str, Any]:
+    return _storage_summary("volumes", "v", "volumes", project_id)
 
-def get_volume_snapshot_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
-    return _storage_summary("snapshots", "s", "snapshots", include_all_projects, project_id)
+def get_volume_snapshot_summary(project_id: str = "") -> Dict[str, Any]:
+    return _storage_summary("snapshots", "s", "snapshots", project_id)
 
-def get_volume_backup_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
-    return _storage_summary("backups", "b", "backups", include_all_projects, project_id)
+def get_volume_backup_summary(project_id: str = "") -> Dict[str, Any]:
+    return _storage_summary("backups", "b", "backups", project_id)
 
 def get_volume_list(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     limit: int = 100,
@@ -207,7 +205,7 @@ def get_volume_list(
     try:
         conn = _get_cinder_mariadb_connection()
         try:
-            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            scope_project_id = _scope_project_id(project_id)
             status_filter = status.strip().lower() if status else ""
             with conn.cursor() as cur:
                 columns = _table_columns(cur, "volumes")
@@ -655,7 +653,6 @@ def get_volume_types() -> List[Dict[str, Any]]:
 
 
 def get_volume_snapshots(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     limit: int = 100,
@@ -671,7 +668,7 @@ def get_volume_snapshots(
     try:
         conn = _get_cinder_mariadb_connection()
         try:
-            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            scope_project_id = _scope_project_id(project_id)
             status_filter = status.strip().lower() if status else ""
             with conn.cursor() as cur:
                 columns = _table_columns(cur, "snapshots")
@@ -749,7 +746,6 @@ def get_volume_snapshots(
 
 
 def get_volume_backups(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     limit: int = 100,
@@ -763,7 +759,7 @@ def get_volume_backups(
         List of backup dictionaries
     """
     try:
-        scope_project_id = _scope_project_id(include_all_projects, project_id)
+        scope_project_id = _scope_project_id(project_id)
         status_filter = status.strip().lower() if status else ""
         conn = _get_cinder_mariadb_connection()
         try:
@@ -978,7 +974,6 @@ def set_snapshot(snapshot_name: str, action: str, **kwargs) -> Dict[str, Any]:
 def set_volume_backups(
     action: str,
     backup_name: Optional[str] = None,
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     **kwargs
@@ -996,9 +991,8 @@ def set_volume_backups(
     """
     try:
         if action.lower() == 'list':
-            scope_project_id = _scope_project_id(include_all_projects, project_id)
+            scope_project_id = _scope_project_id(project_id)
             backups = get_volume_backups(
-                include_all_projects=include_all_projects,
                 project_id=project_id,
                 status=status,
             )
@@ -1009,7 +1003,6 @@ def set_volume_backups(
                 'count': len(backups),
                 'scope': {
                     'project_id': scope_project_id,
-                    'include_all_projects': include_all_projects,
                 }
             }
             

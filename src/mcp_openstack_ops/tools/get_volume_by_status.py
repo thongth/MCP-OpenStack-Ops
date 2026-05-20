@@ -9,7 +9,6 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_volume_by_status(
     status: str,
-    include_all_projects: bool = False,
     project_id: str = "",
     limit: int = 100,
     offset: int = 0,
@@ -18,7 +17,6 @@ async def get_volume_by_status(
     """Get volumes filtered by status (e.g. available, in-use, error)."""
     try:
         volumes = _get_volume_list(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             limit=limit,
@@ -30,7 +28,6 @@ async def get_volume_by_status(
                 "timestamp": datetime.now().isoformat(),
                 "filter": {
                     "status": status,
-                    "include_all_projects": include_all_projects,
                     "project_id": project_id,
                     "limit": limit,
                     "offset": offset,

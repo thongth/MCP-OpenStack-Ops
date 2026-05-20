@@ -21,7 +21,6 @@ def _project(items, fields: str):
 async def get_storage_resource(
     resource_type: str = "volume",
     query: str = "",
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     availability_zone: str = "",
@@ -37,7 +36,6 @@ async def get_storage_resource(
     Args:
         resource_type: volume, snapshot, volume_snapshot, backup, or volume_backup.
         query: Optional exact id/name filter.
-        include_all_projects: Query without default project scope when enabled.
         project_id: Optional project ID filter.
         status: Optional status filter.
         availability_zone: Optional availability zone filter.
@@ -51,7 +49,6 @@ async def get_storage_resource(
         normalized_type = resource_type.strip().lower()
         if normalized_type in {"volume", "volumes"}:
             items = _get_volume_list(
-                include_all_projects=include_all_projects,
                 project_id=project_id,
                 status=status,
                 limit=limit,
@@ -60,7 +57,6 @@ async def get_storage_resource(
             result_key = "volumes"
         elif normalized_type in {"snapshot", "snapshots", "volume_snapshot", "volume_snapshots"}:
             items = _get_volume_snapshots(
-                include_all_projects=include_all_projects,
                 project_id=project_id,
                 status=status,
                 limit=limit,
@@ -69,7 +65,6 @@ async def get_storage_resource(
             result_key = "snapshots"
         elif normalized_type in {"backup", "backups", "volume_backup", "volume_backups"}:
             items = _get_volume_backups(
-                include_all_projects=include_all_projects,
                 project_id=project_id,
                 status=status,
                 limit=limit,
@@ -109,7 +104,6 @@ async def get_storage_resource(
                 "resource_type": normalized_type,
                 "filter": {
                     "query": query,
-                    "include_all_projects": include_all_projects,
                     "project_id": project_id,
                     "status": status,
                     "availability_zone": availability_zone,

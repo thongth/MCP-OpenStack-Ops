@@ -9,7 +9,6 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_routers_by_state(
     state: str,
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """
@@ -18,7 +17,6 @@ async def get_routers_by_state(
     """
     try:
         routers = _get_routers(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         normalized = state.strip().lower()
@@ -27,7 +25,7 @@ async def get_routers_by_state(
         return json.dumps(
             {
                 "timestamp": datetime.now().isoformat(),
-                "filter": {"state": state, "include_all_projects": include_all_projects, "project_id": project_id},
+                "filter": {"state": state, "project_id": project_id},
                 "total_routers": len(filtered),
                 "routers": filtered,
             },

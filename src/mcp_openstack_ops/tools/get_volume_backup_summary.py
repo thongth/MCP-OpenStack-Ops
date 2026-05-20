@@ -8,13 +8,11 @@ from ..mcp_main import logger, mcp
 
 @mcp.tool()
 async def get_volume_backup_summary(
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get backup counts grouped by status, project, availability zone, and fail reason."""
     try:
         summary = _get_volume_backup_summary(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         return json.dumps(

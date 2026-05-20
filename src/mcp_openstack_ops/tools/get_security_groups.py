@@ -10,7 +10,6 @@ from ..mcp_main import (
 
 @mcp.tool()
 async def get_security_groups(
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """
@@ -29,10 +28,9 @@ async def get_security_groups(
     """
     try:
         logger.info(
-            f"Fetching security groups (include_all_projects={include_all_projects}, project_id={project_id})"
+            f"Fetching security groups (project_id={project_id})"
         )
         security_groups = _get_security_groups(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         

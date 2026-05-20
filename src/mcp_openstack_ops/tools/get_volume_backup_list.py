@@ -8,7 +8,6 @@ from ..mcp_main import logger, mcp
 
 @mcp.tool()
 async def get_volume_backup_list(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     limit: int = 100,
@@ -18,10 +17,9 @@ async def get_volume_backup_list(
     """Get list of volume backups."""
     try:
         logger.info(
-            f"Fetching volume backups (include_all_projects={include_all_projects}, project_id={project_id}, status={status})"
+            f"Fetching volume backups (project_id={project_id}, status={status})"
         )
         backups = _get_volume_backups(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             limit=limit,

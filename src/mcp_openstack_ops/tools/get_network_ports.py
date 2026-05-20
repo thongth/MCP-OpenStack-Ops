@@ -11,7 +11,6 @@ from ..mcp_main import (
 
 @mcp.tool()
 async def get_network_ports(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
 ) -> str:
@@ -19,8 +18,7 @@ async def get_network_ports(
     Get list of network ports with optional scope and status filters.
 
     Args:
-        include_all_projects: Include resources from all projects when all-project read-only mode is enabled.
-        project_id: Optional project ID filter (effective only in all-project read-only mode).
+        project_id: Optional project ID filter.
         status: Optional port status filter (case-insensitive exact match, e.g. ACTIVE, DOWN).
 
     Returns:
@@ -28,14 +26,12 @@ async def get_network_ports(
     """
     try:
         logger.info(
-            "Fetching network ports (include_all_projects=%s, project_id=%s, status=%s)",
-            include_all_projects,
+            "Fetching network ports (project_id=%s, status=%s)",
             project_id,
             status,
         )
         result = _set_network_ports(
             action="list",
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
         )

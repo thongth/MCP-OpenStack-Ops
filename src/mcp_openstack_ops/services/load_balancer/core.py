@@ -8,7 +8,7 @@ creation, deletion, and basic load balancer operations.
 import logging
 from datetime import datetime
 from typing import Dict, List, Any, Optional
-from ...connection import get_openstack_connection, is_all_projects_readonly_mode
+from ...connection import get_openstack_connection
 from .db import find_load_balancer, list_listeners, list_load_balancers, list_members, list_pools
 
 # Configure logging
@@ -19,7 +19,6 @@ def get_load_balancer_list(
     limit: int = 50,
     offset: int = 0,
     include_all: bool = False,
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> Dict[str, Any]:
     """
@@ -29,7 +28,6 @@ def get_load_balancer_list(
         limit: Maximum number of load balancers to return (1-200, default: 50)
         offset: Number of load balancers to skip (default: 0)
         include_all: If True, return all load balancers (ignores limit/offset)
-        include_all_projects: If True, list load balancers across all projects
         project_id: Optional project ID to filter
     
     Returns:
@@ -37,7 +35,7 @@ def get_load_balancer_list(
     """
     try:
         start_time = datetime.now()
-        scope = "all-projects" if include_all_projects else "project"
+        scope = "project-filtered" if project_id else "all-projects"
 
         logger.info(
             "Fetching load balancers (scope=%s, scope_project_id=%s, limit=%s, offset=%s, include_all=%s)",
@@ -52,7 +50,7 @@ def get_load_balancer_list(
         if not include_all:
             limit = max(1, min(limit, 200))
         
-        all_lbs = list_load_balancers(include_all_projects=include_all_projects, project_id=project_id)
+        all_lbs = list_load_balancers(project_id=project_id)
         
         # Apply pagination
         if include_all:

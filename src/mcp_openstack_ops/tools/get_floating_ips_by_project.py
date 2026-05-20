@@ -9,13 +9,11 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_floating_ips_by_project(
     project_id: str,
-    include_all_projects: bool = True,
-    status: str = "",
+        status: str = "",
 ) -> str:
     """Get floating IPs owned by a specific project."""
     try:
         floating_ips = _get_floating_ips(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
         )
@@ -24,7 +22,6 @@ async def get_floating_ips_by_project(
                 "timestamp": datetime.now().isoformat(),
                 "filter": {
                     "project_id": project_id,
-                    "include_all_projects": include_all_projects,
                     "status": status,
                 },
                 "total_floating_ips": len(floating_ips),

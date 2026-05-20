@@ -9,13 +9,11 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_routers_by_project(
     project_id: str,
-    include_all_projects: bool = True,
-    status: str = "",
+        status: str = "",
 ) -> str:
     """Get routers for a specific project ID."""
     try:
         routers = _get_routers(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
         )
@@ -24,7 +22,6 @@ async def get_routers_by_project(
                 "timestamp": datetime.now().isoformat(),
                 "filter": {
                     "project_id": project_id,
-                    "include_all_projects": include_all_projects,
                     "status": status,
                 },
                 "total_routers": len(routers),

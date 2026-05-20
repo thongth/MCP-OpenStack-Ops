@@ -7,13 +7,11 @@ from ..mcp_main import logger, mcp
 
 @mcp.tool()
 async def get_network_summary(
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get network counts grouped by status, project, admin state, shared, and external."""
     try:
         summary = _get_network_summary(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         return json.dumps(

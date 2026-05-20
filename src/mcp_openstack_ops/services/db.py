@@ -71,7 +71,7 @@ def str_time(value: Any) -> str:
     return "unknown" if value in (None, "") else str(value)
 
 
-def scope_project_id(include_all_projects: bool = False, project_id: str = "") -> Optional[str]:
+def scope_project_id(project_id: str = "") -> Optional[str]:
     if project_id:
         return project_id
     # MariaDB read tools default to backend-wide reads; pass project_id explicitly to filter.

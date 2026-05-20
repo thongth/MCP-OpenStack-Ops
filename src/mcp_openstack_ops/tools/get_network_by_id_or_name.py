@@ -9,7 +9,6 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_network_by_id_or_name(
     network_id_or_name: str,
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
 ) -> str:
@@ -17,7 +16,6 @@ async def get_network_by_id_or_name(
     try:
         networks = _get_network_details(
             network_name=network_id_or_name,
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
         )

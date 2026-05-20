@@ -10,7 +10,6 @@ from ..mcp_main import (
 
 @mcp.tool()
 async def get_volume_snapshot_list(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     limit: int = 100,
@@ -33,10 +32,9 @@ async def get_volume_snapshot_list(
     """
     try:
         logger.info(
-            f"Fetching volume snapshots (include_all_projects={include_all_projects}, project_id={project_id}, status={status})"
+            f"Fetching volume snapshots (project_id={project_id}, status={status})"
         )
         snapshots = _get_volume_snapshots(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             limit=limit,

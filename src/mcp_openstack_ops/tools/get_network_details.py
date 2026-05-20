@@ -11,7 +11,6 @@ from ..mcp_main import (
 @mcp.tool()
 async def get_network_details(
     network_name: str = "all",
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     name_contains: str = "",
@@ -38,12 +37,11 @@ async def get_network_details(
     """
     try:
         logger.info(
-            f"Fetching network details: {network_name} (include_all_projects={include_all_projects}, "
+            f"Fetching network details: {network_name} ("
             f"project_id={project_id}, status={status})"
         )
         details = _get_network_details(
             network_name=network_name,
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             name_contains=name_contains,
@@ -62,7 +60,6 @@ async def get_network_details(
                 "has_more": bool(limit and len(details) == limit),
             },
             "filters": {
-                "include_all_projects": include_all_projects,
                 "project_id": project_id,
                 "status": status,
                 "name_contains": name_contains,

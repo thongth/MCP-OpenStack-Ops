@@ -11,8 +11,7 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_volume_snapshot_by_project(
     project_id: str,
-    include_all_projects: bool = True,
-    status: str = "",
+        status: str = "",
     limit: int = 100,
     offset: int = 0,
     fields: str = "",
@@ -39,7 +38,6 @@ async def get_volume_snapshot_by_project(
                 target_project_id = str(exact_name_matches[0].get("id", target_project_id))
 
         snapshots = _get_volume_snapshots(
-            include_all_projects=include_all_projects,
             project_id=target_project_id,
             status=status,
             limit=limit,
@@ -62,7 +60,6 @@ async def get_volume_snapshot_by_project(
                 "filter": {
                     "project_id": target_project_id,
                     "input_project": project_id,
-                    "include_all_projects": include_all_projects,
                     "status": status,
                     "limit": limit,
                     "offset": offset,
@@ -70,7 +67,7 @@ async def get_volume_snapshot_by_project(
                 },
                 "mode": {
                     "all_projects_readonly": all_projects_mode,
-                    "cross_project_effective": all_projects_mode and include_all_projects,
+                    "cross_project_effective": all_projects_mode,
                 },
                 "total_snapshots": len(filtered_snapshots),
                 "snapshots": filtered_snapshots,

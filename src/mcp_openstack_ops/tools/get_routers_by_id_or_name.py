@@ -9,14 +9,12 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_routers_by_id_or_name(
     router_id_or_name: str,
-    include_all_projects: bool = False,
     project_id: str = "",
     exact_match: bool = True,
 ) -> str:
     """Get routers filtered by exact ID or name."""
     try:
         routers = _get_routers(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         query_raw = router_id_or_name.strip()
@@ -34,7 +32,6 @@ async def get_routers_by_id_or_name(
                 "filter": {
                     "router_id_or_name": router_id_or_name,
                     "exact_match": exact_match,
-                    "include_all_projects": include_all_projects,
                     "project_id": project_id,
                 },
                 "total_routers": len(filtered),

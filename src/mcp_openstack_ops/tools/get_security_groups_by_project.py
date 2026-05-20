@@ -9,12 +9,10 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_security_groups_by_project(
     project_id: str,
-    include_all_projects: bool = True,
-) -> str:
+    ) -> str:
     """Get security groups owned by a specific project."""
     try:
         security_groups = _get_security_groups(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         return json.dumps(
@@ -22,7 +20,6 @@ async def get_security_groups_by_project(
                 "timestamp": datetime.now().isoformat(),
                 "filter": {
                     "project_id": project_id,
-                    "include_all_projects": include_all_projects,
                 },
                 "total_security_groups": len(security_groups),
                 "security_groups": security_groups,

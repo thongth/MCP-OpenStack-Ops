@@ -9,20 +9,18 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_routers_by_status(
     status: str,
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get routers filtered by router status (e.g. ACTIVE, DOWN, ERROR)."""
     try:
         routers = _get_routers(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
         )
         return json.dumps(
             {
                 "timestamp": datetime.now().isoformat(),
-                "filter": {"status": status, "include_all_projects": include_all_projects, "project_id": project_id},
+                "filter": {"status": status, "project_id": project_id},
                 "total_routers": len(routers),
                 "routers": routers,
             },

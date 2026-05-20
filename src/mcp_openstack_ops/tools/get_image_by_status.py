@@ -9,13 +9,11 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_image_by_status(
     status: str,
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get images filtered by image status."""
     try:
         result = _get_image_list_filtered(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             visibility="",
@@ -28,7 +26,6 @@ async def get_image_by_status(
             "timestamp": datetime.now().isoformat(),
             "filter": {
                 "status": status,
-                "include_all_projects": include_all_projects,
                 "project_id": project_id,
             },
             **result,

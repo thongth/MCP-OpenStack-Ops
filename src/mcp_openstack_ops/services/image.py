@@ -7,7 +7,7 @@ This module contains functions for managing images, image metadata, and image sh
 import json
 import logging
 from typing import Dict, List, Any, Optional
-from .db import bool_value, column_expr, get_mariadb_connection, scope_project_id, str_time, table_columns
+from .db import bool_value, column_expr, get_mariadb_connection, str_time, table_columns
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -63,14 +63,12 @@ def _serialize_image_row(row: Dict[str, Any], properties: Dict[str, Any], tags: 
 
 
 def _base_filtered_images(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     visibility: str = "",
     owner: str = "",
     name_filter: str = "",
 ) -> List[Dict[str, Any]]:
-    scope_owner = scope_project_id(include_all_projects, project_id)
     owner_filter = owner.strip() or project_id.strip()
     status_filter = status.strip().lower()
     visibility_filter = visibility.strip().lower()
@@ -100,9 +98,6 @@ def _base_filtered_images(
             params: List[Any] = []
             if deleted_expr != "0":
                 sql += f"AND ({deleted_expr} = 0 OR {deleted_expr} = '0') "
-            if not include_all_projects and scope_owner:
-                sql += f"AND ({owner_expr} = %s OR LOWER({visibility_expr}) IN ('public', 'community', 'shared')) "
-                params.append(scope_owner)
             if owner_filter:
                 sql += f"AND {owner_expr} = %s "
                 params.append(owner_filter)
@@ -149,7 +144,6 @@ def _base_filtered_images(
 
 
 def get_image_list_filtered(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     visibility: str = "",
@@ -160,7 +154,6 @@ def get_image_list_filtered(
 ) -> Dict[str, Any]:
     try:
         images = _base_filtered_images(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             visibility=visibility,
@@ -185,13 +178,11 @@ def get_image_list_filtered(
 
 def get_image_by_id_or_name(
     image_id_or_name: str,
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> Dict[str, Any]:
     try:
         query = image_id_or_name.strip()
         images = _base_filtered_images(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         matched = [i for i in images if str(i.get('id', '')) == query or str(i.get('name', '')) == query]

@@ -8,13 +8,11 @@ from ..mcp_main import logger, mcp
 
 @mcp.tool()
 async def get_instance_summary(
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get instance counts grouped by status, project, availability zone, host, and power state."""
     try:
         summary = _get_instance_summary(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         return json.dumps(

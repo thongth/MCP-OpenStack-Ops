@@ -7,13 +7,11 @@ from ..mcp_main import logger, mcp
 
 @mcp.tool()
 async def get_routers_summary(
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get router counts grouped by status, project, admin state, HA, distributed, and gateway."""
     try:
         summary = _get_routers_summary(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         return json.dumps(

@@ -9,21 +9,18 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_image_by_id_or_name(
     image_id_or_name: str,
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get image details by exact image ID or name."""
     try:
         result = _get_image_by_id_or_name(
             image_id_or_name=image_id_or_name,
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         response = {
             "timestamp": datetime.now().isoformat(),
             "query": image_id_or_name,
             "filter": {
-                "include_all_projects": include_all_projects,
                 "project_id": project_id,
             },
             **result,

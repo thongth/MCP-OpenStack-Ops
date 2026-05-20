@@ -9,7 +9,6 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_volume_by_id_or_name(
     volume_id_or_name: str,
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     fields: str = "",
@@ -17,7 +16,6 @@ async def get_volume_by_id_or_name(
     """Get volume details by exact volume ID or name."""
     try:
         volumes = _get_volume_list(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             limit=0,

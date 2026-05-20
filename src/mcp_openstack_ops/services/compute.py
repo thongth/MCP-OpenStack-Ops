@@ -81,7 +81,7 @@ def _bool_value(value: Any) -> bool:
     return str(value or "").strip().lower() in TRUTHY_VALUES
 
 
-def _scope_project_id(include_all_projects: bool = False) -> Optional[str]:
+def _scope_project_id() -> Optional[str]:
     # MariaDB read tools default to backend-wide reads; pass project_id explicitly to filter.
     return None
 
@@ -146,13 +146,13 @@ def _get_compute_group_counts(cur, group_expr: str, where_sql: str, params: List
     return [{label: row.get("value"), "count": int(row.get("count") or 0)} for row in cur.fetchall()]
 
 
-def get_instance_summary(include_all_projects: bool = False, project_id: str = "") -> Dict[str, Any]:
+def get_instance_summary(project_id: str = "") -> Dict[str, Any]:
     """
     Get Nova instance counts without filtering to ACTIVE only.
     """
     conn = _get_nova_mariadb_connection()
     try:
-        scope_project_id = project_id or _scope_project_id(include_all_projects)
+        scope_project_id = project_id or _scope_project_id()
         with conn.cursor() as cur:
             columns = _table_columns(cur, "instances")
             if not columns:
@@ -193,7 +193,6 @@ def get_instance_summary(include_all_projects: bool = False, project_id: str = "
                 "by_power_state": _get_compute_group_counts(cur, power_expr, where_sql, params, "power_state"),
                 "scope": {
                     "project_id": scope_project_id,
-                    "include_all_projects": include_all_projects,
                 },
                 "data_source": "mariadb",
             }
@@ -229,7 +228,7 @@ def get_instance_details(
 
         conn = _get_nova_mariadb_connection()
         try:
-            scope_project_id = _scope_project_id(include_all)
+            scope_project_id = _scope_project_id()
             with conn.cursor() as cur:
                 instance_columns = _table_columns(cur, "instances")
                 if not instance_columns:

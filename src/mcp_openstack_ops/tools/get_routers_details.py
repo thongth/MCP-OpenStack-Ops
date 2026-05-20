@@ -9,13 +9,11 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_routers_details(
     router_name_or_id: str,
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get detailed information for a single router by name or ID."""
     try:
         routers = _get_routers(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         query = router_name_or_id.strip().lower()

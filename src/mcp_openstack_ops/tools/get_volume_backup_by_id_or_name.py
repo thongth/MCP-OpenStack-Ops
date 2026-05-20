@@ -9,7 +9,6 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_volume_backup_by_id_or_name(
     backup_id_or_name: str,
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
     fields: str = "",
@@ -17,7 +16,6 @@ async def get_volume_backup_by_id_or_name(
     """Get volume backup details by exact backup ID or name."""
     try:
         backups = _get_volume_backups(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
             limit=0,

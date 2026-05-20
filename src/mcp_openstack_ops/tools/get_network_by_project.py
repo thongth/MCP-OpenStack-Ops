@@ -9,14 +9,12 @@ from ..mcp_main import logger, mcp
 @mcp.tool()
 async def get_network_by_project(
     project_id: str,
-    include_all_projects: bool = True,
-    status: str = "",
+        status: str = "",
 ) -> str:
     """Get networks for a specific project ID."""
     try:
         networks = _get_network_details(
             network_name="all",
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
         )
@@ -31,7 +29,6 @@ async def get_network_by_project(
                 "timestamp": datetime.now().isoformat(),
                 "filter": {
                     "project_id": project_id,
-                    "include_all_projects": include_all_projects,
                     "status": status,
                 },
                 "total_networks": len(filtered_networks),

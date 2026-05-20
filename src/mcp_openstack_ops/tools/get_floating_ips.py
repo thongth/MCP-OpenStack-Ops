@@ -10,7 +10,6 @@ from ..mcp_main import (
 
 @mcp.tool()
 async def get_floating_ips(
-    include_all_projects: bool = False,
     project_id: str = "",
     status: str = "",
 ) -> str:
@@ -30,10 +29,9 @@ async def get_floating_ips(
     """
     try:
         logger.info(
-            f"Fetching floating IPs (include_all_projects={include_all_projects}, project_id={project_id}, status={status})"
+            f"Fetching floating IPs (project_id={project_id}, status={status})"
         )
         floating_ips = _get_floating_ips(
-            include_all_projects=include_all_projects,
             project_id=project_id,
             status=status,
         )

@@ -7,13 +7,11 @@ from ..mcp_main import logger, mcp
 
 @mcp.tool()
 async def get_security_groups_summary(
-    include_all_projects: bool = False,
     project_id: str = "",
 ) -> str:
     """Get security group and security group rule counts grouped by project and rule fields."""
     try:
         summary = _get_security_groups_summary(
-            include_all_projects=include_all_projects,
             project_id=project_id,
         )
         return json.dumps(
