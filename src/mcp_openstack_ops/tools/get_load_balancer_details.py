@@ -49,7 +49,7 @@ async def get_load_balancer_details(
             "result": result
         }
         
-        return json.dumps(response, indent=2, ensure_ascii=False)
+        return json.dumps(response, indent=2, ensure_ascii=False, default=str)
         
     except Exception as e:
         error_msg = f"Error: Failed to get load balancer details - {str(e)}"

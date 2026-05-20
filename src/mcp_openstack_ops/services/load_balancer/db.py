@@ -37,7 +37,8 @@ def find_load_balancer(identifier: str) -> Optional[Dict[str, Any]]:
             name_expr = column_expr("lb", columns, "name", default="''")
             select_sql, from_sql = _load_balancer_select(cur)
             cur.execute(f"{select_sql} {from_sql}WHERE lb.id = %s OR {name_expr} = %s LIMIT 1", [identifier, identifier])
-            return cur.fetchone()
+            row = cur.fetchone()
+            return _serialize_load_balancer(row) if row else None
     finally:
         conn.close()
 
@@ -86,6 +87,26 @@ def _load_balancer_select(cur) -> tuple[str, str]:
     return select_sql, from_sql
 
 
+def _serialize_load_balancer(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": row.get("id"),
+        "name": row.get("name") or "unnamed",
+        "description": row.get("description") or "",
+        "vip_address": row.get("vip_address"),
+        "vip_port_id": row.get("vip_port_id"),
+        "vip_subnet_id": row.get("vip_subnet_id"),
+        "vip_network_id": row.get("vip_network_id"),
+        "provisioning_status": row.get("provisioning_status") or "unknown",
+        "operating_status": row.get("operating_status") or "unknown",
+        "admin_state_up": bool_value(row.get("admin_state_up")),
+        "project_id": row.get("project_id"),
+        "provider": row.get("provider") or "unknown",
+        "created_at": str_time(row.get("created_at")),
+        "updated_at": str_time(row.get("updated_at")),
+        "data_source": "mariadb",
+    }
+
+
 def list_load_balancers(project_id: str = "") -> List[Dict[str, Any]]:
     conn = get_octavia_connection()
     try:
@@ -104,26 +125,7 @@ def list_load_balancers(project_id: str = "") -> List[Dict[str, Any]]:
             order_expr = column_expr("lb", columns, "created_at", default="lb.id")
             sql += f"ORDER BY {order_expr} DESC"
             cur.execute(sql, params)
-            return [
-                {
-                    "id": row.get("id"),
-                    "name": row.get("name") or "unnamed",
-                    "description": row.get("description") or "",
-                    "vip_address": row.get("vip_address"),
-                    "vip_port_id": row.get("vip_port_id"),
-                    "vip_subnet_id": row.get("vip_subnet_id"),
-                    "vip_network_id": row.get("vip_network_id"),
-                    "provisioning_status": row.get("provisioning_status") or "unknown",
-                    "operating_status": row.get("operating_status") or "unknown",
-                    "admin_state_up": bool_value(row.get("admin_state_up")),
-                    "project_id": row.get("project_id"),
-                    "provider": row.get("provider") or "unknown",
-                    "created_at": str_time(row.get("created_at")),
-                    "updated_at": str_time(row.get("updated_at")),
-                    "data_source": "mariadb",
-                }
-                for row in cur.fetchall()
-            ]
+            return [_serialize_load_balancer(row) for row in cur.fetchall()]
     finally:
         conn.close()
 
