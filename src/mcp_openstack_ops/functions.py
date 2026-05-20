@@ -28,7 +28,10 @@ def get_service_status() -> List[Dict[str, Any]]:
         services = []
 
         def append_service_rows(cur, columns: set[str], service_type: str, default_zone: str) -> None:
-            binary_expr = column_expr("s", columns, "binary", default="'unknown'")
+            def service_col(name: str, default: str = "NULL") -> str:
+                return f"s.`{name}`" if name in columns else default
+
+            binary_expr = service_col("binary", "'unknown'")
             host_expr = column_expr("s", columns, "host", default="'unknown'")
             status_expr = column_expr("s", columns, "status", default="NULL")
             disabled_expr = column_expr("s", columns, "disabled", default="0")
@@ -39,17 +42,17 @@ def get_service_status() -> List[Dict[str, Any]]:
 
             cur.execute(
                 "SELECT "
-                f"{binary_expr} AS binary, {host_expr} AS host, {status_expr} AS raw_status, "
+                f"{binary_expr} AS service_binary, {host_expr} AS host, {status_expr} AS raw_status, "
                 f"{disabled_expr} AS disabled, {forced_down_expr} AS forced_down, "
                 f"{zone_expr} AS zone, {updated_expr} AS updated_at, "
                 f"{disabled_reason_expr} AS disabled_reason "
-                "FROM services s ORDER BY host ASC, binary ASC"
+                "FROM services s ORDER BY host ASC, service_binary ASC"
             )
             for service in cur.fetchall():
                 disabled = bool_value(service.get("disabled"))
                 forced_down = bool_value(service.get("forced_down"))
                 services.append({
-                    'binary': service.get('binary'),
+                    'binary': service.get('service_binary'),
                     'host': service.get('host'),
                     'status': service.get('raw_status') or ('disabled' if disabled else 'enabled'),
                     'state': 'down' if forced_down else 'up',
