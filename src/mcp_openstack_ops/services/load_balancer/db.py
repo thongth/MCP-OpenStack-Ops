@@ -35,13 +35,55 @@ def find_load_balancer(identifier: str) -> Optional[Dict[str, Any]]:
             if not columns:
                 return None
             name_expr = column_expr("lb", columns, "name", default="''")
-            cur.execute(
-                f"SELECT * FROM load_balancer lb WHERE lb.id = %s OR {name_expr} = %s LIMIT 1",
-                [identifier, identifier],
-            )
+            select_sql, from_sql = _load_balancer_select(cur)
+            cur.execute(f"{select_sql} {from_sql}WHERE lb.id = %s OR {name_expr} = %s LIMIT 1", [identifier, identifier])
             return cur.fetchone()
     finally:
         conn.close()
+
+
+def _load_balancer_select(cur) -> tuple[str, str]:
+    columns = table_columns(cur, "load_balancer")
+    vip_columns = table_columns(cur, "vip")
+    use_vip_table = bool(vip_columns and "load_balancer_id" in vip_columns)
+
+    name_expr = column_expr("lb", columns, "name", default="NULL")
+    description_expr = column_expr("lb", columns, "description", default="NULL")
+    project_expr = column_expr("lb", columns, "project_id", default="NULL")
+    provider_expr = column_expr("lb", columns, "provider", default="NULL")
+    provisioning_expr = column_expr("lb", columns, "provisioning_status", default="NULL")
+    operating_expr = column_expr("lb", columns, "operating_status", default="NULL")
+    admin_state_expr = column_expr("lb", columns, "admin_state_up", "enabled", default="1")
+    created_expr = column_expr("lb", columns, "created_at", default="NULL")
+    updated_expr = column_expr("lb", columns, "updated_at", default="NULL")
+
+    vip_address_expr = column_expr("lb", columns, "vip_address", default="NULL")
+    vip_port_expr = column_expr("lb", columns, "vip_port_id", default="NULL")
+    vip_subnet_expr = column_expr("lb", columns, "vip_subnet_id", default="NULL")
+    vip_network_expr = column_expr("lb", columns, "vip_network_id", default="NULL")
+    if use_vip_table:
+        if vip_address_expr == "NULL":
+            vip_address_expr = column_expr("v", vip_columns, "ip_address", "vip_address", "address", default="NULL")
+        if vip_port_expr == "NULL":
+            vip_port_expr = column_expr("v", vip_columns, "port_id", "vip_port_id", default="NULL")
+        if vip_subnet_expr == "NULL":
+            vip_subnet_expr = column_expr("v", vip_columns, "subnet_id", "vip_subnet_id", default="NULL")
+        if vip_network_expr == "NULL":
+            vip_network_expr = column_expr("v", vip_columns, "network_id", "vip_network_id", default="NULL")
+
+    select_sql = (
+        "SELECT lb.id, "
+        f"{name_expr} AS name, {description_expr} AS description, "
+        f"{vip_address_expr} AS vip_address, {vip_port_expr} AS vip_port_id, "
+        f"{vip_subnet_expr} AS vip_subnet_id, {vip_network_expr} AS vip_network_id, "
+        f"{provisioning_expr} AS provisioning_status, {operating_expr} AS operating_status, "
+        f"{admin_state_expr} AS admin_state_up, {project_expr} AS project_id, {provider_expr} AS provider, "
+        f"{created_expr} AS created_at, {updated_expr} AS updated_at"
+    )
+    from_sql = "FROM load_balancer lb "
+    if use_vip_table:
+        from_sql += "LEFT JOIN vip v ON v.load_balancer_id = lb.id "
+    return select_sql, from_sql
 
 
 def list_load_balancers(project_id: str = "") -> List[Dict[str, Any]]:
@@ -53,18 +95,14 @@ def list_load_balancers(project_id: str = "") -> List[Dict[str, Any]]:
             if not columns:
                 raise RuntimeError("MariaDB table 'load_balancer' is not available")
             project_expr = column_expr("lb", columns, "project_id", default="NULL")
-            provider_expr = column_expr("lb", columns, "provider", default="NULL")
-            sql = (
-                "SELECT lb.id, lb.name, lb.description, lb.vip_address, lb.vip_port_id, "
-                "lb.vip_subnet_id, lb.vip_network_id, lb.provisioning_status, lb.operating_status, "
-                f"lb.admin_state_up, {project_expr} AS project_id, {provider_expr} AS provider, "
-                "lb.created_at, lb.updated_at FROM load_balancer lb WHERE 1=1 "
-            )
+            select_sql, from_sql = _load_balancer_select(cur)
+            sql = f"{select_sql} {from_sql}WHERE 1=1 "
             params: List[Any] = []
             if scope_project:
                 sql += f"AND {project_expr} = %s "
                 params.append(scope_project)
-            sql += "ORDER BY lb.created_at DESC"
+            order_expr = column_expr("lb", columns, "created_at", default="lb.id")
+            sql += f"ORDER BY {order_expr} DESC"
             cur.execute(sql, params)
             return [
                 {
@@ -98,17 +136,28 @@ def list_listeners(loadbalancer_id: str = "") -> List[Dict[str, Any]]:
             if not columns:
                 return []
             lb_expr = column_expr("l", columns, "load_balancer_id", "loadbalancer_id", default="NULL")
+            name_expr = column_expr("l", columns, "name", default="NULL")
+            description_expr = column_expr("l", columns, "description", default="NULL")
+            protocol_expr = column_expr("l", columns, "protocol", default="NULL")
+            protocol_port_expr = column_expr("l", columns, "protocol_port", default="NULL")
+            admin_state_expr = column_expr("l", columns, "admin_state_up", "enabled", default="1")
             default_pool_expr = column_expr("l", columns, "default_pool_id", default="NULL")
+            created_expr = column_expr("l", columns, "created_at", default="NULL")
+            updated_expr = column_expr("l", columns, "updated_at", default="NULL")
+            protocol_port_order = column_expr("l", columns, "protocol_port", default="l.id")
+            name_order = column_expr("l", columns, "name", default="l.id")
             sql = (
-                "SELECT l.id, l.name, l.description, l.protocol, l.protocol_port, l.admin_state_up, "
+                f"SELECT l.id, {name_expr} AS name, {description_expr} AS description, "
+                f"{protocol_expr} AS protocol, {protocol_port_expr} AS protocol_port, "
+                f"{admin_state_expr} AS admin_state_up, "
                 f"{lb_expr} AS loadbalancer_id, {default_pool_expr} AS default_pool_id, "
-                "l.created_at, l.updated_at FROM listener l WHERE 1=1 "
+                f"{created_expr} AS created_at, {updated_expr} AS updated_at FROM listener l WHERE 1=1 "
             )
             params: List[Any] = []
             if loadbalancer_id:
                 sql += f"AND {lb_expr} = %s "
                 params.append(loadbalancer_id)
-            sql += "ORDER BY l.protocol_port ASC, l.name ASC"
+            sql += f"ORDER BY {protocol_port_order} ASC, {name_order} ASC"
             cur.execute(sql, params)
             return [
                 {
@@ -138,16 +187,29 @@ def list_pools(listener_id: str = "") -> List[Dict[str, Any]]:
             if not columns:
                 return []
             listener_expr = column_expr("p", columns, "listener_id", default="NULL")
+            name_expr = column_expr("p", columns, "name", default="NULL")
+            description_expr = column_expr("p", columns, "description", default="NULL")
+            protocol_expr = column_expr("p", columns, "protocol", default="NULL")
+            lb_algorithm_expr = column_expr("p", columns, "lb_algorithm", default="NULL")
+            admin_state_expr = column_expr("p", columns, "admin_state_up", "enabled", default="1")
+            provisioning_expr = column_expr("p", columns, "provisioning_status", default="NULL")
+            operating_expr = column_expr("p", columns, "operating_status", default="NULL")
+            created_expr = column_expr("p", columns, "created_at", default="NULL")
+            updated_expr = column_expr("p", columns, "updated_at", default="NULL")
+            created_order = column_expr("p", columns, "created_at", default="p.id")
             sql = (
-                "SELECT p.id, p.name, p.description, p.protocol, p.lb_algorithm, p.admin_state_up, "
-                f"{listener_expr} AS listener_id, p.provisioning_status, p.operating_status, p.created_at, p.updated_at "
+                f"SELECT p.id, {name_expr} AS name, {description_expr} AS description, "
+                f"{protocol_expr} AS protocol, {lb_algorithm_expr} AS lb_algorithm, "
+                f"{admin_state_expr} AS admin_state_up, {listener_expr} AS listener_id, "
+                f"{provisioning_expr} AS provisioning_status, {operating_expr} AS operating_status, "
+                f"{created_expr} AS created_at, {updated_expr} AS updated_at "
                 "FROM pool p WHERE 1=1 "
             )
             params: List[Any] = []
             if listener_id:
                 sql += f"AND {listener_expr} = %s "
                 params.append(listener_id)
-            sql += "ORDER BY p.created_at DESC"
+            sql += f"ORDER BY {created_order} DESC"
             cur.execute(sql, params)
             pools = []
             for row in cur.fetchall():
@@ -179,10 +241,23 @@ def list_members(pool_id: str) -> List[Dict[str, Any]]:
             if not columns:
                 return []
             pool_expr = column_expr("m", columns, "pool_id", default="NULL")
+            name_expr = column_expr("m", columns, "name", default="NULL")
+            address_expr = column_expr("m", columns, "address", default="NULL")
+            protocol_port_expr = column_expr("m", columns, "protocol_port", default="NULL")
+            weight_expr = column_expr("m", columns, "weight", default="1")
+            admin_state_expr = column_expr("m", columns, "admin_state_up", "enabled", default="1")
+            operating_expr = column_expr("m", columns, "operating_status", default="NULL")
+            provisioning_expr = column_expr("m", columns, "provisioning_status", default="NULL")
+            created_expr = column_expr("m", columns, "created_at", default="NULL")
+            updated_expr = column_expr("m", columns, "updated_at", default="NULL")
+            address_order = column_expr("m", columns, "address", default="m.id")
+            port_order = column_expr("m", columns, "protocol_port", default="m.id")
             cur.execute(
-                "SELECT m.id, m.name, m.address, m.protocol_port, m.weight, m.admin_state_up, "
-                "m.operating_status, m.provisioning_status, m.created_at, m.updated_at "
-                f"FROM member m WHERE {pool_expr} = %s ORDER BY m.address ASC, m.protocol_port ASC",
+                f"SELECT m.id, {name_expr} AS name, {address_expr} AS address, "
+                f"{protocol_port_expr} AS protocol_port, {weight_expr} AS weight, "
+                f"{admin_state_expr} AS admin_state_up, {operating_expr} AS operating_status, "
+                f"{provisioning_expr} AS provisioning_status, {created_expr} AS created_at, {updated_expr} AS updated_at "
+                f"FROM member m WHERE {pool_expr} = %s ORDER BY {address_order} ASC, {port_order} ASC",
                 [pool_id],
             )
             return [
