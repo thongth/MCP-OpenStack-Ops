@@ -1,1157 +1,220 @@
 # MCP-OpenStack-Ops
 
-> **MCP OpenStack Operations Server**: A comprehensive MCP (Model Context Protocol) server providing OpenStack project management and monitoring capabilities with built-in safety controls and single-project scope.
+MCP server for read-only OpenStack operations. The current implementation is tuned for ops/reporting workflows and uses MariaDB read queries for Nova, Neutron, and Cinder data where possible.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
-![Docker Pulls](https://img.shields.io/docker/pulls/call518/mcp-server-openstack-ops)
-[![smithery badge](https://smithery.ai/badge/@call518/mcp-openstack-ops)](https://smithery.ai/server/@call518/mcp-openstack-ops)
-[![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-donate-yellow.svg)](https://www.buymeacoffee.com/call518)
+## Current Scope
 
-[![Deploy to PyPI with tag](https://github.com/call518/MCP-OpenStack-Ops/actions/workflows/pypi-publish.yml/badge.svg)](https://github.com/call518/MCP-OpenStack-Ops/actions/workflows/pypi-publish.yml)
-![PyPI](https://img.shields.io/pypi/v/MCP-OpenStack-Ops?label=pypi%20package)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/MCP-OpenStack-Ops)
+- Read-only MCP tools only. Mutating `set_*` tool modules are not registered.
+- Compute, network, and storage tools query MariaDB directly using a shared read-only DB account.
+- Database names are hardcoded in code:
+  - Nova: `nova`
+  - Neutron: `neutron`
+  - Cinder: `cinder`
+- Image, identity, monitoring, and selected Octavia paths still use OpenStack SDK where DB-backed logic is not available or practical.
+- Heat/orchestration tools have been removed.
+- Synthetic `get_service_status` / Glance-only service status output has been removed.
+- `include_all_projects` has been removed from DB query tools. Use explicit filters such as `project_id`, `status`, `id/name`, `limit`, and `offset`.
 
----
+## Main Tool Groups
 
-## Architecture & Internal (DeepWiki)
+### Compute / Nova
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/call518/MCP-OpenStack-Ops)
+- `get_instance`
+- `get_instance_by_id_or_name`
+- `get_instance_by_project`
+- `get_instance_details`
+- `get_instance_related_info`
+- `get_instance_summary`
+- `get_instances_by_status`
+- `search_instances`
+- `get_server_events`
+- `get_server_groups`
+- `get_server_volumes`
+- `get_hypervisor_details`
+- `get_availability_zones`
 
----
+### Network / Neutron
 
-## Features
+- `get_network`
+- `get_network_by_id_or_name`
+- `get_network_by_project`
+- `get_network_details`
+- `get_network_ports`
+- `get_network_summary`
+- `get_network_agents`
+- `get_floating_ips`
+- `get_floating_ips_by_project`
+- `get_floating_ips_summary`
+- `get_floating_ip_pools`
+- `get_security_groups`
+- `get_security_groups_by_project`
+- `get_security_groups_summary`
+- `get_routers_by_id_or_name`
+- `get_routers_by_project`
+- `get_routers_by_state`
+- `get_routers_by_status`
+- `get_routers_details`
+- `get_routers_summary`
 
-- ✅ **Project-Scoped Operations**: Every tool enforces the configured `OS_PROJECT_NAME`, validating resource ownership so actions stay inside a single tenant.
-- ✅ **Purpose-Built Tools**: Broad coverage across compute, networking, storage, images, identity, and Octavia load balancing tasks—all constrained to the current project.
-- ✅ **Bulk & Filtered Actions**: Instance, volume, network, image, snapshot, and keypair managers accept comma-delimited targets or filter criteria to orchestrate bulk changes intentionally.
-- ✅ **Post-Action Feedback & Async Guidance**: Mutating tools reuse a shared result handler that adds emoji status checks, asynchronous timing notes, and follow-up verification commands.
-- ✅ **Monitoring & Usage Insights**: `get_system_information`, `get_resource_monitoring`, `get_usage_statistics`, and quota tools surface utilization and capacity for the active project.
-- ✅ **Unified Instance Queries**: The `get_instance` tool consolidates name, ID, status, and free-form search paths with pagination plus summary/detailed modes.
-- ✅ **Server Insight & Audit Trail**: Dedicated tools expose server events, hypervisor details, availability zones, quotas, and resource ownership to speed diagnostics.
-- ✅ **Load Balancer Management**: Octavia tools cover listeners, pools, members, health monitors, flavors, quotas, and amphora operations with the same safety gates.
-- ✅ **Connection & Deployment Flexibility**: Connection caching, configurable service endpoints, Docker packaging, and both `stdio`/`streamable-http` transports support proxy/bastion and multi-project setups.
+### Storage / Cinder
 
-> ⚠️ **Compatibility Notice**: This MCP server is developed and optimized for **OpenStack Epoxy (2025.1)** as the primary target environment. However, it is compatible with most modern OpenStack releases (Dalmatian, Caracal, Bobcat, etc.) as the majority of APIs remain consistent across versions. Only a few specific API endpoints may require adaptation for full compatibility with older releases.
-> 
-> 🚧 **Coming Soon**: Dynamic multi-version OpenStack API compatibility is actively under development and will be available in upcoming releases, providing seamless support for all major OpenStack deployments automatically.
+- `get_storage_resource`
+- `get_volume_list`
+- `get_volume_by_id_or_name`
+- `get_volume_by_project`
+- `get_volume_by_status`
+- `get_volume_summary`
+- `get_volume_types`
+- `get_volume_snapshot_list`
+- `get_volume_snapshot_by_id_or_name`
+- `get_volume_snapshot_by_project`
+- `get_volume_snapshot_by_status`
+- `get_volume_snapshot_summary`
+- `get_volume_backup_list`
+- `get_volume_backup_by_id_or_name`
+- `get_volume_backup_by_project`
+- `get_volume_backup_by_status`
+- `get_volume_backup_summary`
 
-### 🔧 OpenStackSDK Version Customization for Older Releases
+### Image / Glance
 
-**Officially Supported Releases:**
-- ✅ OpenStack **Epoxy (2025.1)** - Fully tested
-- ✅ OpenStack **Dalmatian (2024.2)** - Fully tested
+- `get_image_list`
+- `get_image_detail_list`
+- `get_image_by_id_or_name`
+- `get_image_by_project`
+- `get_image_by_status`
+- `search_images`
 
-**For older OpenStack releases** (Wallaby, Caracal, Bobcat, etc.), you may need to customize the OpenStackSDK version to match your environment. The SDK version must be changed in **BOTH files**:
+### Identity / Project
 
-**Step 1: Modify `Dockerfile.MCP-Server`**
-```dockerfile
-RUN pip install \
-        'uv>=0.8.5' \
-        'mcpo>=0.0.17' \
-        'fastmcp>=2.12.3' \
-        'aiohttp>=3.12.0' \
-        'openstacksdk==3.1.1' \  # ← Change to your required version (e.g., 3.1.1 for Wallaby)
-        'python-dotenv>=1.0.0'
-```
+- `get_project_list`
+- `get_project_details`
+- `get_user_list`
+- `get_role_assignments`
+- `get_keypair_list`
 
-**Step 2: Modify `pyproject.toml`**
-```toml
-dependencies = [
-    "fastmcp>=2.12.3",
-    "openstacksdk==3.1.1",  # ← Must match Dockerfile version
-    "python-dotenv>=1.1.1",
-    # ... other dependencies
-]
-```
+### Monitoring / Quota
 
-**Step 3: Rebuild Docker Image**
-```bash
-docker-compose build --no-cache mcp-server
-docker-compose up -d
-```
+- `get_system_information`
+- `get_resource_monitoring`
+- `get_usage_statistics`
+- `get_quota`
 
-**OpenStackSDK Version Reference:**
-| OpenStack Release | Recommended SDK Version | Notes |
-|-------------------|------------------------|-------|
-| Epoxy (2025.1) | `>=3.3.0` | Current default |
-| Dalmatian (2024.2) | `>=3.2.0` | Fully compatible |
-| Caracal (2024.1) | `>=3.1.0` | May require testing |
-| Bobcat (2023.2) | `>=3.0.0` | May require testing |
-| Wallaby (2021.1) | `==3.1.1` | Downgrade required |
+### Load Balancer / Octavia
 
-> ⚠️ **Important**: Both `Dockerfile.MCP-Server` and `pyproject.toml` must have the **same version** to avoid dependency conflicts during container runtime.
+- `get_load_balancer_list`
+- `get_load_balancer_details`
+- `get_load_balancer_listeners`
+- `get_load_balancer_pools`
+- `get_load_balancer_pool_members`
+- `get_load_balancer_health_monitors`
+- `get_load_balancer_l7_policies`
+- `get_load_balancer_l7_rules`
+- `get_load_balancer_providers`
+- `get_load_balancer_flavors`
+- `get_load_balancer_availability_zones`
+- `get_load_balancer_quotas`
+- `get_load_balancer_amphorae`
 
----
+## Recommended Query Pattern
 
-### Screenshots
+Use summary tools first, then drill down with filters:
 
-**OpenStack Dashboard (Epoxy 2025.1)**
+- Instances: `get_instance_summary` -> `get_instances_by_status` / `get_instance_by_project` / `get_instance_by_id_or_name`
+- Networks: `get_network_summary` -> `get_network_by_project` / `get_network_by_id_or_name`
+- Routers: `get_routers_summary` -> `get_routers_by_status` / `get_routers_by_project`
+- Security groups: `get_security_groups_summary` -> `get_security_groups_by_project`
+- Floating IPs: `get_floating_ips_summary` -> `get_floating_ips_by_project`
+- Volumes: `get_volume_summary` -> `get_volume_by_status` / `get_volume_by_project`
+- Snapshots: `get_volume_snapshot_summary` -> `get_volume_snapshot_by_status` / `get_volume_snapshot_by_project`
+- Backups: `get_volume_backup_summary` -> `get_volume_backup_by_status` / `get_volume_backup_by_project`
 
-![OpenStack Dashboard (Epoxy 2025.1)](img/screenshot-openstack-dashboard.png)
+For large sites, avoid full list tools unless an export/full audit is really needed. Prefer `limit`, `offset`, `fields`, `project_id`, and `status` filters.
 
-**MCP Query Example - Cluster Status**
+## Environment
 
-![Example Cluster Status](img/screenshot-claude-desktop.png)
-
----
-
-## 🆕 Latest Enhancements (v1.x)
-
-### **Bulk Operations & Filter-based Targeting**
-Revolutionary approach to resource management enabling one-step operations:
-
-```bash
-# Traditional approach (multiple steps):
-1. search_instances("test") → get list
-
-# NEW enhanced approach (single step):
-```
-
-**Supported Tools with Enhanced Capabilities:**
-
-**Input Format Flexibility:**
-```python
-# Single resource
-resource_names="vm1"
-
-# Multiple resources (comma-separated)
-resource_names="vm1,vm2,vm3"
-
-# JSON array format
-resource_names='["vm1", "vm2", "vm3"]'
-
-# Filter-based (automatic target identification)
-name_contains="test", status="ACTIVE"
-```
-
-### **Post-Action Status Verification**
-Every operation now provides immediate feedback with visual indicators:
-
-```bash
-✅ Bulk Instance Management - Action: stop
-📊 Total instances: 3
-✅ Successes: 2
-❌ Failures: 1
-
-Post-Action Status:
-🟢 test-vm-1: SHUTOFF  
-🟢 test-vm-2: SHUTOFF
-🔴 test-vm-3: ERROR
-```
-
-### **Unified Resource Queries**
-New consolidated `get_instance` tool replaces multiple separate tools:
-- ❌ Old: `get_instance_details`, `get_instance_info`, `get_instance_status`, `get_instance_network_info`
-- ✅ New: `get_instance(instance_names="vm1,vm2")` - Single tool, comprehensive information
-
----
-
-## 📊 OpenStack CLI vs MCP Tools Mapping
-
-**Detailed Mapping by Category**
-
-### 1. 🖥️ **Compute (Nova)**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| `openstack server list` | `get_instance` | ✅ | **NEW UNIFIED** - Pagination, filtering support |
-| `openstack server show` | `get_instance` | ✅ | **ENHANCED** - Replaces get_instance_by_name, get_instance_by_id |
-| `openstack server event list` | `get_server_events` | ✅ | Server event tracking |
-| `openstack server group list` | `get_server_groups` | ✅ | Server group listing |
-| `openstack flavor list` | `get_flavor_list` (via cluster_status) | ✅ | Flavor listing |
-| `openstack keypair list` | `get_keypair_list` | ✅ | Keypair listing |
-| `openstack hypervisor list` | `get_hypervisor_details` | ✅ | Hypervisor querying |
-| `openstack availability zone list` | `get_availability_zones` | ✅ | Availability zone listing |
-
-### 2. 🌐 **Network (Neutron)**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| `openstack network list` | `get_network_details` | ✅ | Detailed network information |
-| `openstack network show` | `get_network_details` (name param) | ✅ | Specific network query |
-| `openstack subnet list` | `get_network_details` (includes subnets) | ✅ | Subnet information included |
-| `openstack router list` | `get_routers` | ✅ | Router listing |
-| `openstack router create/delete` | (Not yet implemented) | 🚧 | Router management |
-| `openstack floating ip list` | `get_floating_ips` | ✅ | Floating IP listing |
-| `openstack floating ip pool list` | `get_floating_ip_pools` | ✅ | Floating IP pool listing |
-| `openstack security group list` | `get_security_groups` | ✅ | Security group listing |
-| `openstack security group create/delete` | (Not yet implemented) | 🚧 | Security group management |
-| `openstack port list` | `get_network_details` (includes ports) | ✅ | Port information included |
-| `openstack network qos policy list` | (Not yet implemented) | 🚧 | QoS policy listing |
-| `openstack network agent list` | `get_network_agents` | ✅ | Network agents |
-
-### 3. 💾 **Storage (Cinder)**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| `openstack volume list` | `get_volume_list` | ✅ | Volume listing |
-| `openstack volume show` | `get_volume_list` (filtering) | ✅ | Specific volume query |
-| `openstack volume type list` | `get_volume_types` | ✅ | Volume type listing |
-| `openstack volume type create/delete` | (Not yet implemented) | 🚧 | Volume type management |
-| `openstack volume snapshot list` | `get_volume_snapshot_list` | ✅ | Snapshot listing |
-| `openstack backup list` | (Not yet implemented) | 🚧 | Backup listing |
-| `openstack volume transfer request list` | (Not yet implemented) | 🚧 | Volume transfer |
-| `openstack server volume list` | `get_server_volumes` | ✅ | Server volume listing |
-| `openstack volume group list` | (Not yet implemented) | 🚧 | Volume group listing |
-| `openstack volume qos list` | (Not yet implemented) | 🚧 | QoS listing |
-
-### 4. 🖼️ **Image (Glance)**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| `openstack image list` | `get_image_detail_list` | ✅ | Image listing |
-| `openstack image show` | `get_image_detail_list` (filtering) | ✅ | Specific image query |
-| `openstack image add project` | (Not yet implemented) | 🚧 | Project sharing |
-| `openstack image member list` | (Not yet implemented) | 🚧 | Member listing |
-
-### 5. 👥 **Identity (Keystone)**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| `openstack user list` | `get_user_list` | ✅ | User listing |
-| `openstack user show` | `get_user_list` (filtering) | ✅ | Specific user query |
-| `openstack user create/delete` | (Not yet implemented) | 🚧 | User management |
-| `openstack project list` | `get_project_details` | ✅ | Project listing |
-| `openstack project show` | `get_project_details` (name param) | ✅ | Specific project query |
-| `openstack role list` | `get_role_assignments` | ✅ | Role listing |
-| `openstack role assignment list` | `get_role_assignments` | ✅ | Role assignment listing |
-| `openstack domain list` | (Not yet implemented) | 🚧 | Domain listing |
-| `openstack group list` | (Not yet implemented) | 🚧 | Group listing |
-| `openstack service list` | (Not implemented) | 🚧 | Service listing |
-| `openstack endpoint list` | (Not implemented) | 🚧 | Endpoint information |
-
-### 6. ⚖️ **Load Balancer (Octavia)**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| `openstack loadbalancer list` | `get_load_balancer_status` | ✅ | Load balancer listing with pagination |
-| `openstack loadbalancer show` | `get_load_balancer_status` | ✅ | Load balancer detailed information |
-| `openstack loadbalancer stats show` | `get_load_balancer_status` | ✅ | Load balancer statistics |
-| `openstack loadbalancer status show` | `get_load_balancer_status` | ✅ | Load balancer status tree |
-| **Listener Management** | | | |
-| `openstack loadbalancer listener list` | `get_load_balancer_listeners` | ✅ | Listener listing for load balancer |
-| `openstack loadbalancer listener show` | `get_load_balancer_listeners` | ✅ | Listener detailed information |
-| `openstack loadbalancer listener stats show` | `get_load_balancer_listeners` | ✅ | Listener statistics |
-| **Pool Management** | | | |
-| `openstack loadbalancer pool list` | `get_load_balancer_pools` | ✅ | Pool listing (all or by listener) |
-| `openstack loadbalancer pool show` | `get_load_balancer_pools` | ✅ | Pool detailed information |
-| `openstack loadbalancer pool stats show` | `get_load_balancer_pools` | ✅ | Pool statistics |
-| **Member Management** | | | |
-| `openstack loadbalancer member list` | `get_load_balancer_members` | ✅ | Pool member listing |
-| `openstack loadbalancer member show` | `get_load_balancer_members` | ✅ | Pool member detailed information |
-| **Health Monitor Management** | | | |
-| `openstack loadbalancer healthmonitor list` | `get_load_balancer_health_monitors` | ✅ | Health monitor listing |
-| `openstack loadbalancer healthmonitor show` | `get_load_balancer_health_monitors` | ✅ | Health monitor detailed information |
-| **L7 Policy Management** | | | |
-| `openstack loadbalancer l7policy list` | `get_load_balancer_l7_policies` | ✅ | L7 policy listing |
-| `openstack loadbalancer l7policy show` | `get_load_balancer_l7_policies` | ✅ | L7 policy details |
-| **L7 Rule Management** 🆕 | | | |
-| `openstack loadbalancer l7rule list` | `get_load_balancer_l7_rules` | ✅ | L7 rule listing |
-| `openstack loadbalancer l7rule show` | `get_load_balancer_l7_rules` | ✅ | L7 rule details |
-| **Amphora Management** 🆕 | | | |
-| `openstack loadbalancer amphora list` | `get_load_balancer_amphorae` | ✅ | Amphora listing |
-| `openstack loadbalancer amphora delete` | N/A | ❌ | Not supported by OpenStack SDK |
-| `openstack loadbalancer amphora stats show` | N/A | ❌ | Not supported by OpenStack SDK |
-| **Provider Management** | | | |
-| `openstack loadbalancer provider list` | `get_load_balancer_providers` | ✅ | Provider listing |
-| `openstack loadbalancer provider capability list` | `get_load_balancer_providers` | ✅ | Provider capability listing |
-| **Availability Zone Management** 🆕 | | | |
-| `openstack loadbalancer availabilityzone list` | `get_load_balancer_availability_zones` | ✅ | Availability zone listing |
-| `openstack loadbalancer availabilityzone show` | `get_load_balancer_availability_zones` | ✅ | Availability zone details |
-| **Flavor Management** 🆕 | | | |
-| `openstack loadbalancer flavor list` | `get_load_balancer_flavors` | ✅ | Flavor listing |
-| `openstack loadbalancer flavor show` | `get_load_balancer_flavors` | ✅ | Flavor details |
-| **Flavor Profile Management** | | | |
-| `openstack loadbalancer flavorprofile list` | `get_load_balancer_flavor_profiles` | ✅ | Flavor profile listing |
-| `openstack loadbalancer flavorprofile show` | `get_load_balancer_flavor_profiles` | ✅ | Flavor profile details |
-| **Quota Management** 🆕 | | | |
-| `openstack loadbalancer quota list` | `get_load_balancer_quotas` | ✅ | Quota listing |
-| `openstack loadbalancer quota show` | `get_load_balancer_quotas` | ✅ | Quota details |
-
-### 8. 📊 **Monitoring & Logging**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| Resource monitoring | `get_resource_monitoring` | ✅ | Resource monitoring |
-| System monitoring (compute services, block storage services, network agents) | `get_system_information` | ✅ | Infrastructure component health overview |
-| Usage statistics | `get_usage_statistics` | ✅ | Usage statistics |
-
-### 9. 📏 **Usage & Quota**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| `openstack quota show` | `get_quota` | ✅ | Quota query |
-| `openstack usage show` | `get_usage_statistics` | ✅ | Usage query |
-| `openstack limits show` | `get_quota` (includes limits) | ✅ | Limits query |
-| Resource utilization | `get_resource_monitoring` | ✅ | Resource utilization |
-
----
-
-## Quick Start
-
-> 💡 **Need an OpenStack Cluster for Testing?**  
-> Check out this comprehensive guide: [Tutorial: Install OpenStack Multinode Cluster /w Kolla-Ansible (Epoxy/Dalmatian)](https://medium.com/@call518/tutorial-install-openstack-multinode-cluster-w-kolla-ansible-flamingo-epoxy-dalmatian-19c000cc1645)  
-> Perfect for setting up a test environment to explore MCP-OpenStack-Ops capabilities.
-
-![Flow Diagram of Quickstart/Tutorial](img/MCP-Workflow-of-Quickstart-Tutorial.png)
-
-### 1. Environment Setup
+Minimal `.env` values:
 
 ```bash
-# Clone and navigate to project
-cd MCP-OpenStack-Ops
+MCP_LOG_LEVEL=INFO
+PYTHONPATH=/app/src
 
-# Install dependencies
-uv sync
+FASTMCP_TYPE=streamable-http
+FASTMCP_HOST=0.0.0.0
+FASTMCP_PORT=8000
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your OpenStack credentials
-```
+REMOTE_AUTH_ENABLE=false
+REMOTE_SECRET_KEY=your-secure-secret-key
 
-**Environment Configuration**
-
-Configure your `.env` file with OpenStack credentials:
-
-```bash
-# OpenStack Authentication (required)
-OS_AUTH_HOST=your-openstack-host
+OS_PROJECT_DOMAIN_NAME=Default
+OS_USER_DOMAIN_NAME=Default
+OS_PROJECT_NAME=admin
+OS_TENANT_NAME=admin
+OS_USERNAME=view
+OS_PASSWORD=your-openstack-password
+OS_AUTH_HOST=172.26.32.100
+OS_AUTH_PROTOCOL=https
 OS_AUTH_PORT=5000
-OS_AUTH_PROTOCOL=http  # Use 'https' for production with SSL/TLS
-# OS_CACERT=/etc/ssl/certs/openstack-ca.pem  # Required for HTTPS (optional for HTTP)
+OS_INTERFACE=internal
+OS_ENDPOINT_TYPE=internalURL
 OS_IDENTITY_API_VERSION=3
-OS_USERNAME=your-username
-OS_PASSWORD=your-password
-OS_PROJECT_NAME=your-project
-OS_PROJECT_DOMAIN_NAME=default
-OS_USER_DOMAIN_NAME=default
 OS_REGION_NAME=RegionOne
+OS_AUTH_PLUGIN=password
 
-# OpenStack Service Ports (customizable)
 OS_COMPUTE_PORT=8774
 OS_NETWORK_PORT=9696
 OS_VOLUME_PORT=8776
 OS_IMAGE_PORT=9292
 OS_PLACEMENT_PORT=8780
-OS_HEAT_STACK_PORT=8004
-OS_HEAT_STACK_CFN_PORT=8000
 
-# MCP Server Configuration (optional)
-MCP_LOG_LEVEL=INFO
-ALLOW_MODIFY_OPERATIONS=false
-FASTMCP_TYPE=stdio
-FASTMCP_HOST=127.0.0.1
-FASTMCP_PORT=8080
+MARIADB_HOST=172.26.32.100
+MARIADB_PORT=3306
+MARIADB_USER=readonly
+MARIADB_PASSWORD=your-readonly-password
+MARIADB_CHARSET=utf8mb4
+MARIADB_CONNECT_TIMEOUT=10
+MARIADB_PROJECT_ID=
 ```
 
-**HTTPS Configuration for Production Environments**
+Do not configure per-service DB names in `.env`; the service database names are fixed in code.
 
-For secure OpenStack deployments with SSL/TLS:
+## MariaDB Read-Only User
+
+Example grants for a read-only operational user:
+
+```sql
+CREATE USER IF NOT EXISTS 'readonly'@'%' IDENTIFIED BY 'strong_password';
+GRANT SELECT, PROCESS, SHOW DATABASES, BINLOG MONITOR, SHOW VIEW ON *.* TO 'readonly'@'%';
+GRANT SELECT ON performance_schema.* TO 'readonly'@'%';
+FLUSH PRIVILEGES;
+SHOW GRANTS FOR 'readonly'@'%';
+```
+
+Use a narrower host instead of `%` when possible.
+
+## Run
 
 ```bash
-# Enable HTTPS protocol
-OS_AUTH_PROTOCOL=https
-OS_AUTH_HOST=your-secure-openstack-host
-OS_AUTH_PORT=13000  # Your HTTPS Keystone port
-
-# SSL Certificate Configuration
-# Option 1: Use custom CA certificate (recommended for production)
-OS_CACERT=/etc/ssl/certs/openstack-ca.pem
-
-# Option 2: Skip CA certificate (SSL verification disabled - insecure)
-# Just omit OS_CACERT - the server will warn you about insecure connection
-
-# Docker: Mount CA certificate into container
-# Add to docker-compose.yml volumes:
-#   - /path/to/your/ca-cert.pem:/etc/ssl/certs/openstack-ca.pem:ro
+docker compose up -d
+docker compose logs -f mcp-server
 ```
 
-**Protocol Configuration Notes:**
-- `OS_AUTH_PROTOCOL=http`: Use for local development or HTTP-only OpenStack deployments
-- `OS_AUTH_PROTOCOL=https`: Use for production environments with SSL/TLS enabled
-- When `https` is set without `OS_CACERT`, SSL verification is disabled (insecure but functional)
-- For secure production deployments, always provide `OS_CACERT` with your CA certificate path
+The compose file uses registry images:
 
-### 2. Run Server
+- `vcr.infiniband.vn/openstack.custom/mcpo-server-openstack-ops:latest`
+- `vcr.infiniband.vn/openstack.custom/mcpo-proxy-openstack-ops:latest`
+
+## Development Checks
 
 ```bash
-# Start all services
-docker-compose up -d
-
-# Check logs
-docker-compose logs mcp-server
-docker-compose logs mcpo-proxy
+python3 -m compileall -q src/mcp_openstack_ops
+pyflakes src/mcp_openstack_ops
+git diff --check
 ```
 
-**Container Architecture**:
-- **mcp-server**: OpenStack MCP server with tools
-- **mcpo-proxy**: OpenAPI (REST-API)
-- **open-webui**: Web interface for testing and interaction
-
-> 📌 **Note**: Web-UI configuration instructions are based on OpenWebUI **v0.6.22**. Menu locations and settings may differ in newer versions.
-
-**Service URLs - Docker Internal**:
-- MCP Server: `localhost:8080` (HTTP transport)
-- MCPO Proxy: `localhost:8000` (OpenStack API proxy)
-- Open WebUI: `localhost:3000` (Web interface)
-
-**Service URLs - Docker External**:
-- MCP Server: `host.docker.internal:18005` (HTTP transport)
-- MCPO Proxy: `host.docker.internal:8005` (OpenStack API proxy)
-- Open WebUI: `host.docker.internal:3005` (Web interface)
-
-#### For Claude Desktop Integration
-Add to your Claude Desktop configuration:
-```json
-{
-  "mcpServers": {
-    "mcp-openstack-ops": {
-      "command": "uvx",
-      "args": ["--python", "3.12", "mcp-openstack-ops"],
-      "env": {
-        "OS_AUTH_HOST": "your-openstack-host",
-        "OS_AUTH_PORT": "5000",
-        "OS_PROJECT_NAME": "your-project",
-        "OS_USERNAME": "your-username",
-        "OS_PASSWORD": "your-password",
-        "OS_USER_DOMAIN_NAME": "Default",
-        "OS_PROJECT_DOMAIN_NAME": "Default",
-        "OS_REGION_NAME": "RegionOne",
-        "OS_IDENTITY_API_VERSION": "3",
-        "OS_INTERFACE": "internal",
-        "OS_COMPUTE_PORT": "8774",
-        "OS_NETWORK_PORT": "9696",
-        "OS_VOLUME_PORT": "8776",
-        "OS_IMAGE_PORT": "9292",
-        "OS_PLACEMENT_PORT": "8780",
-        "OS_HEAT_STACK_PORT": "8004",
-        "OS_HEAT_STACK_CFN_PORT": "18888",
-        "ALLOW_MODIFY_OPERATIONS": "false",
-        "MCP_LOG_LEVEL": "INFO"
-      }
-    }
-  }
-}
-```
-
----
-
-## Server Configuration
-
-### Command Line Options
-
-```bash
-uv run python -m mcp_openstack_ops --help
-
-Options:
-  --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
-                        Logging level
-  --type {stdio,streamable-http}
-                        Transport type (default: stdio)
-  --host HOST          Host address for HTTP transport (default: 127.0.0.1)
-  --port PORT          Port number for HTTP transport (default: 8080)
-  --auth-enable        Enable Bearer token authentication for streamable-http mode
-  --secret-key SECRET  Secret key for Bearer token authentication
-```
-
-### Environment Variables
-
-| Variable | Description | Default | Usage |
-|----------|-------------|---------|--------|
-| **OpenStack Authentication** |
-| `OS_AUTH_HOST` | OpenStack Identity service host | Required | Authentication host address |
-| `OS_AUTH_PORT` | OpenStack Identity service port | Required | Authentication port |
-| `OS_AUTH_PROTOCOL` | Connection protocol (http or https) | `http` | Use `https` for production with SSL/TLS |
-| `OS_CACERT` | SSL CA certificate path for HTTPS | Optional | Required for secure HTTPS connections (e.g., `/etc/ssl/certs/ca.pem`). If not set with HTTPS, SSL verification is disabled (insecure) |
-| `OS_USERNAME` | OpenStack username | Required | User credentials |
-| `OS_PASSWORD` | OpenStack password | Required | User credentials |
-| `OS_PROJECT_NAME` | OpenStack project name | Required | Project scope |
-| `OS_IDENTITY_API_VERSION` | Identity API version | `3` | API version |
-| `OS_PROJECT_DOMAIN_NAME` | Project domain name | `default` | Domain scope |
-| `OS_USER_DOMAIN_NAME` | User domain name | `default` | Domain scope |
-| `OS_REGION_NAME` | OpenStack region | `RegionOne` | Regional scope |
-| **OpenStack Service Ports** |
-| `OS_COMPUTE_PORT` | Compute service port | `8774` | Nova endpoint |
-| `OS_NETWORK_PORT` | Network service port | `9696` | Neutron endpoint |
-| `OS_VOLUME_PORT` | Volume service port | `8776` | Cinder endpoint |
-| `OS_IMAGE_PORT` | Image service port | `9292` | Glance endpoint |
-| `OS_PLACEMENT_PORT` | Placement service port | `8780` | Placement endpoint |
-| **MCP Server Configuration** |
-| `MCP_LOG_LEVEL` | Logging level | `INFO` | Development debugging |
-| `ALLOW_MODIFY_OPERATIONS` | Enable modify operations | `false` | Safety control for state modifications |
-| `ALLOW_ALL_PROJECTS_READONLY` | Enable read-only access across all projects | `false` | Bypass per-project ownership filtering for read-only access only |
-| `FASTMCP_TYPE` | Transport type | `stdio` | Rarely needed to change |
-| `FASTMCP_HOST` | HTTP host address | `127.0.0.1` | For HTTP mode only |
-| `FASTMCP_PORT` | HTTP port number | `8080` | For HTTP mode only |
-| **Authentication (Optional)** |
-| `REMOTE_AUTH_ENABLE` | Enable Bearer token authentication for streamable-http mode | `false` | Production security |
-| `REMOTE_SECRET_KEY` | Secret key for Bearer token authentication | Required when auth enabled | Production security |
-
----
-
-## 🔒 Project Isolation & Security
-
-### Single Project Scope Operation
-
-**MCP-OpenStack-Ops operates within a strictly defined project scope** determined by the `OS_PROJECT_NAME` environment variable. This provides complete tenant isolation and data privacy in multi-tenant OpenStack environments.
-
-**Key Security Features:**
-
-- **100% Complete Resource Isolation**: All operations are restricted to resources within the specified project with enhanced security validation
-- **Zero Cross-tenant Data Leakage**: Advanced project ownership validation prevents access to resources from other projects
-- **Multi-layer Security Filtering**: Each service implements intelligent resource filtering by current project ID with additional validation
-- **Read-only All-Projects Mode**: `ALLOW_ALL_PROJECTS_READONLY=true` enables cross-project read-only listings while still disabling all modify tools for safety
-- **Secure Resource Lookup**: All resource searches use project-scoped lookup with ownership verification
-- **Shared Resource Access**: Intelligently includes shared/public resources (networks, images) while maintaining strict security boundaries
-- **Cross-Project Access Prevention**: Enhanced protection against accidental operations on similarly-named resources in other projects
-
-### Scope Behavior Update (2026-05-13)
-
-- Cross-project reads are enforced by policy:
-  - `ALLOW_ALL_PROJECTS_READONLY=false`: forced single-project scope (current project only).
-  - `ALLOW_ALL_PROJECTS_READONLY=true`: allows all-project reads or project-specific reads via `project_id`.
-- `include_all=true` in list tools controls pagination only, not cross-project access.
-
-**Filtered Resources by Project:**
-
-| Service | Project-Scoped Resources | Notes |
-|---------|-------------------------|-------|
-| **Identity** | Users (via role assignments), Role assignments | Only users with roles in current project |
-| **Compute** | Instances, Flavors (embedded data), Keypairs | All instances within project scope |
-| **Image** | Private images (owned), Public/Community/Shared images | Smart filtering prevents zero-image issues |
-| **Network** | Networks, Subnets, Security Groups, Floating IPs, Routers | Includes shared/external networks for access |
-| **Storage** | Volumes, Snapshots, Backups | All storage resources within project |
-| **Load Balancer** | Load Balancers, Listeners, Pools | All load balancing within project |
-| **Monitoring** | Resource usage, Project quotas | Project-specific monitoring data |
-
-### Security Validation & Testing
-
-**Project Isolation Security Test**
-
-To verify that project isolation is working correctly, run the included security test:
-
-```bash
-# Run project isolation security test
-python test_project_isolation.py
-```
-
-**Expected Test Results:**
-```
-🔒 OpenStack Project Isolation Security Test
-==================================================
-📋 Testing project isolation for: your-project
-
-1️⃣ Testing Connection and Project ID...
-✅ Connection successful
-✅ Current project ID: abc123-def456-ghi789
-✅ Project name 'your-project' matches project ID
-
-2️⃣ Testing Resource Ownership Validation...
-✅ Found 5 compute instances
-   Instance web-server-01: ✅ Owned
-   Instance db-server-01: ✅ Owned
-✅ Found 3/8 owned networks
-✅ Found 10/10 owned volumes
-
-3️⃣ Testing Service-Level Project Filtering...
-✅ Compute service returned 5 instances
-✅ Network service returned 3 networks  
-✅ Storage service returned 10 volumes
-
-4️⃣ Testing Secure Resource Lookup...
-ℹ️  Network 'admin' not found or not accessible in current project
-ℹ️  Instance 'demo' not found or not accessible in current project
-
-🎯 Project Isolation Test Results
-========================================
-✅ All security tests passed!
-✅ Project 'your-project' isolation verified
-✅ Cross-project access prevention confirmed
-
-🔒 Your OpenStack MCP Server is properly secured!
-```
-
-**Security Features Validated:**
-- ✅ Project ID verification and matching
-- ✅ Resource ownership validation for all services
-- ✅ Service-level project filtering
-- ✅ Secure resource lookup with cross-project protection
-- ✅ Prevention of accidental operations on other projects' resources
-
-For managing multiple OpenStack projects, deploy multiple MCP server instances with different `OS_PROJECT_NAME` values:
-
-**Example: Managing 3 Projects**
-
-```bash
-# Project 1: Production Environment
-OS_PROJECT_NAME=production
-# ... other config
-python -m mcp_openstack_ops --type stdio
-
-# Project 2: Development Environment  
-OS_PROJECT_NAME=development
-# ... other config  
-python -m mcp_openstack_ops --type streamable-http --port 8001
-
-# Project 3: Testing Environment
-OS_PROJECT_NAME=testing  
-# ... other config
-python -m mcp_openstack_ops --type streamable-http --port 8002
-```
-
-**Claude Desktop Multi-Project Configuration Example:**
-
-```json
-{
-  "mcpServers": {
-    "openstack-production": {
-      "command": "python",
-      "args": ["-m", "mcp_openstack_ops", "--type", "stdio"],
-      "env": {
-        "OS_PROJECT_NAME": "production",
-        "OS_USERNAME": "admin",
-        "OS_PASSWORD": "your-password",
-        "OS_AUTH_HOST": "192.168.35.2"
-      }
-    },
-    "openstack-development": {
-      "command": "python", 
-      "args": ["-m", "mcp_openstack_ops", "--type", "stdio"],
-      "env": {
-        "OS_PROJECT_NAME": "development",
-        "OS_USERNAME": "admin",
-        "OS_PASSWORD": "your-password", 
-        "OS_AUTH_HOST": "192.168.35.2"
-      }
-    },
-    "openstack-testing": {
-      "command": "python",
-      "args": ["-m", "mcp_openstack_ops", "--type", "stdio"], 
-      "env": {
-        "OS_PROJECT_NAME": "testing",
-        "OS_USERNAME": "admin",
-        "OS_PASSWORD": "your-password",
-        "OS_AUTH_HOST": "192.168.35.2"
-      }
-    }
-  }
-}
-```
-
-This allows Claude to access each project independently with complete isolation between environments.
-
-**📁 Ready-to-use Configuration File:**
-
-A complete multi-project configuration example is available at `mcp-config.json.multi-project`:
-- **Production**: Read-only operations for safety (`ALLOW_MODIFY_OPERATIONS=false`)
-- **Development**: Full operations enabled (`ALLOW_MODIFY_OPERATIONS=true`) 
-- **Testing**: Debug logging enabled (`MCP_LOG_LEVEL=DEBUG`)
-
-```bash
-# Copy and customize the multi-project configuration
-cp mcp-config.json.multi-project ~/.config/claude-desktop/mcp_servers.json
-# Edit with your OpenStack credentials
-```
-
----
-
-## Safety Controls
-
-### Modification Operations Protection
-
-By default, all operations that can modify or delete OpenStack resources are **disabled** for safety:
-
-```bash
-# Default setting - Only read-only operations allowed
-ALLOW_MODIFY_OPERATIONS=false
-```
-
-**Protected Operations (when `ALLOW_MODIFY_OPERATIONS=false`):**
-- Instance management (start, stop, restart, pause, unpause)
-- Volume operations (create, delete, attach, detach)
-- Keypair management (create, delete, import)
-- Floating IP operations (create, delete, associate, disassociate)
-- Snapshot management (create, delete)
-- Image management (create, delete, update)
-
-**Always Available (Read-Only Operations):**
-- Cluster status and monitoring
-- Resource listings (instances, volumes, networks, etc.)
-- Service status checks
-- Usage and quota information
-- Search and filtering operations
-
-**⚠️ To Enable Modify Operations:**
-```bash
-# Enable all operations (USE WITH CAUTION)
-ALLOW_MODIFY_OPERATIONS=true
-```
-
-**Tool Registration Behavior:**
-- When `ALLOW_MODIFY_OPERATIONS=false`: Only read-only tools are registered with the MCP server
-- When `ALLOW_MODIFY_OPERATIONS=true`: All tools (read-only + modify operations) are registered
-- Tool availability is determined at server startup - restart required after changing this setting
-
-**Best Practices:**
-- Keep `ALLOW_MODIFY_OPERATIONS=false` in production environments
-- Enable modify operations only in development/testing environments
-- Use separate configurations for different environments
-- Review operations before enabling modify capabilities
-- Restart the MCP server after changing the `ALLOW_MODIFY_OPERATIONS` setting
-
----
-
-## 💬 Example Queries & Usage Patterns
-
-For comprehensive examples of how to interact with this MCP server, including natural language queries and their corresponding tool mappings, see:
-
-**📖 [Example Queries & Usage Patterns](src/mcp_openstack_ops/prompt_template.md#7-example-queries--usage-patterns)**
-
-This section includes:
-- 🎯 Cluster overview and status queries
-- �️ Instance management operations
-- 🌐 Network configuration tasks
-- � Storage management workflows
-- ⚖️ Load balancer operations
-- � Advanced search patterns
-- 📊 Monitoring and troubleshooting
-- 🧠 Complex multi-tool query combinations
-
----
-
-## Performance Optimization
-
-### Large-Scale Environment Support
-
-The MCP server is optimized for large OpenStack environments with thousands of instances:
-
-**Pagination Features:**
-- Default limits prevent memory overflow (50 instances per request)
-- Configurable safety limits (maximum 200 instances per request)
-- Offset-based pagination for browsing large datasets
-- Performance metrics tracking (processing time, instances per second)
-
-**Search Optimization:**
-- 2-phase search process (basic info filtering → detailed info retrieval)
-- Intelligent caching with connection reuse
-- Selective API calls to minimize overhead
-- Case-sensitive search options for precise filtering
-
-**Connection Management:**
-- Global connection caching with validity testing
-- Automatic retry mechanisms for transient failures
-- Connection pooling for high-throughput scenarios
-
-**Usage Examples:**
-```bash
-# Safe large environment browsing
-get_instance_details(limit=50, offset=0)     # First 50 instances
-get_instance_details(limit=50, offset=50)    # Next 50 instances
-
-# Emergency override for small environments
-get_instance_details(include_all=True)       # All instances (use with caution)
-
-# Optimized search for large datasets
-search_instances("web", "name", limit=20)    # Search with reasonable limit
-```
-
----
-
-## Development
-
-### Adding New Tools
-
-Edit `src/mcp_openstack_ops/mcp_main.py` to add new MCP tools:
-
-```python
-@mcp.tool()
-async def my_openstack_tool(param: str) -> str:
-    """
-    Brief description of the tool's purpose.
-    
-    Functions:
-    - List specific functions this tool performs
-    - Describe the operations it enables
-    - Mention when to use this tool
-    
-    Use when user requests [specific scenarios].
-    
-    Args:
-        param: Description of the parameter
-        
-    Returns:
-        Description of return value format.
-    """
-    try:
-        logger.info(f"Tool called with param: {param}")
-        # Implementation using functions.py helpers
-        result = my_helper_function(param)
-        
-        response = {
-            "timestamp": datetime.now().isoformat(),
-            "result": result
-        }
-        
-        return json.dumps(response, indent=2, ensure_ascii=False)
-        
-    except Exception as e:
-        error_msg = f"Error: Failed to execute tool - {str(e)}"
-        logger.error(error_msg)
-        return error_msg
-```
-
-### Helper Functions
-
-Add utility functions to `src/mcp_openstack_ops/functions.py`:
-
-```python
-def my_helper_function(param: str) -> dict:
-    """Helper function for OpenStack operations"""
-    try:
-        conn = get_openstack_connection()
-        
-        # OpenStack SDK operations
-        result = conn.some_service.some_operation(param)
-        
-        logger.info(f"Operation completed successfully")
-        return {"success": True, "data": result}
-        
-    except Exception as e:
-        logger.error(f"Helper function error: {e}")
-        raise
-```
-
----
-
-## Testing & Validation
-
-### Local Testing
-```bash
-# Test with MCP Inspector (recommended)
-./scripts/run-mcp-inspector-local.sh
-
-# Test with debug logging
-MCP_LOG_LEVEL=DEBUG uv run python -m mcp_openstack_ops
-
-# Validate OpenStack connection
-uv run python -c "from src.mcp_openstack_ops.functions import get_openstack_connection; print(get_openstack_connection())"
-```
-
----
-
-## 🔐 Security & Authentication
-
-### Bearer Token Authentication
-
-For `streamable-http` mode, this MCP server supports Bearer token authentication to secure remote access. This is especially important when running the server in production environments.
-
-#### Configuration
-
-**Enable Authentication:**
-
-```bash
-# In .env file
-REMOTE_AUTH_ENABLE=true
-REMOTE_SECRET_KEY=my-test-secret-key-12345
-```
-
-**Or via CLI:**
-
-```bash
-uv run python -m mcp_openstack_ops --type streamable-http --auth-enable --secret-key your-secure-secret-key-here
-```
-
-#### Security Levels
-
-1. **stdio mode** (Default): Local-only access, no authentication needed
-2. **streamable-http + REMOTE_AUTH_ENABLE=false/undefined**: Remote access without authentication ⚠️ **NOT RECOMMENDED for production**
-3. **streamable-http + REMOTE_AUTH_ENABLE=true**: Remote access with Bearer token authentication ✅ **RECOMMENDED for production**
-
-> **🔒 Default Policy**: `REMOTE_AUTH_ENABLE` defaults to `false` if undefined, empty, or null. This ensures the server starts even without explicit authentication configuration.
-
-#### Client Configuration
-
-When authentication is enabled, MCP clients must include the Bearer token in the Authorization header:
-
-```json
-{
-  "mcpServers": {
-    "mcp-openstack-ops": {
-      "type": "streamable-http",
-      "url": "http://your-server:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer your-secure-secret-key-here"
-      }
-    }
-  }
-}
-```
-
-#### Security Best Practices
-
-- **Always enable authentication** when using streamable-http mode in production
-- **Use strong, randomly generated secret keys** (32+ characters recommended)
-- **Use HTTPS** when possible (configure reverse proxy with SSL/TLS)
-- **Restrict network access** using firewalls or network policies
-- **Rotate secret keys regularly** for enhanced security
-- **Monitor access logs** for unauthorized access attempts
-
-#### Error Handling
-
-When authentication fails, the server returns:
-- **401 Unauthorized** for missing or invalid tokens
-- **Detailed error messages** in JSON format for debugging
-
----
-
-## 🎯 Recent Improvements & Enhancements
-
-### **🔒 Complete Project Isolation Security Implementation** ✨
-
-**100% Project Isolation Guarantee:**
-- ✅ **Multi-layer Security Validation**: Added comprehensive project ownership validation for all resource operations
-- ✅ **Enhanced Delete Operation Security**: All delete operations now use secure project-scoped lookup with ownership verification
-- ✅ **Create Operation Security**: Resource references during creation (networks, images, etc.) verified for project ownership
-- ✅ **Query Security Enhancement**: All list/get operations include explicit project validation with resource ownership checks
-- ✅ **Cross-Project Access Prevention**: Advanced protection against accidental operations on similarly-named resources in other projects
-- ✅ **Security Test Suite**: Added `test_project_isolation.py` for comprehensive security validation
-
-**Technical Implementation:**
-- ✅ **New Security Utilities**: Added `get_current_project_id()`, `validate_resource_ownership()`, `find_resource_by_name_or_id()` functions
-- ✅ **Service-Level Security**: Enhanced all service modules (compute, network, storage, etc.) with project ownership validation
-- ✅ **Secure Resource Lookup**: Replaced unsafe name-based loops with secure project-scoped resource lookup
-- ✅ **Error Message Enhancement**: Improved error messages to clearly indicate project access restrictions
-
-### **Complete Project Scoping Implementation** 
-
-**Enhanced Security & Tenant Isolation:**
-- ✅ **All Services Project-Scoped**: Identity, Compute, Network, Storage, Image, Orchestration, Load Balancer, and Monitoring services now filter resources by current project ID
-- ✅ **Zero Cross-Tenant Data Leakage**: Automatic filtering at OpenStack SDK level using `current_project_id`
-- ✅ **Smart Resource Access**: Intelligent handling of shared/public resources (networks, images) while maintaining security boundaries
-
-### **Fixed Image Service Issues** 🖼️
-
-**Resolved Zero-Image Count Problems:**
-- ✅ **Enhanced Image Filtering**: Now includes public, community, shared, and project-owned images
-- ✅ **Intelligent Visibility Handling**: Proper handling of different image visibility types
-- ✅ **Prevented Empty Results**: Fixed filtering logic that was too restrictive
-
-### **Improved vCPU/RAM Calculation** ⚡
-
-**Fixed Instance Resource Display:**
-- ✅ **Embedded Flavor Data Usage**: Uses server.flavor attributes directly, avoiding 404 API errors
-- ✅ **Accurate Resource Reporting**: Proper vCPU and RAM values in cluster status reports
-- ✅ **Eliminated API Failures**: No more flavor lookup failures causing zero resource values
-
-### **Enhanced Documentation** 📚
-
-**Comprehensive Project Scoping Documentation:**
-- ✅ **Multi-Project Management Guide**: Complete setup instructions for managing multiple OpenStack projects
-- ✅ **Security & Isolation Details**: Detailed explanation of tenant isolation features
-- ✅ **Ready-to-Use Configuration**: Pre-configured `mcp-config.json.multi-project` for quick setup
-- ✅ **Updated Environment Variables**: Enhanced `.env.example` with project scoping guidance
-
----
-
-## 🚀 Adding Custom Tools
-
-This MCP server is designed for easy extensibility. Follow these steps to add your own custom tools:
-
-### Step-by-Step Guide
-
-#### 1. **Add Helper Functions (Optional)**
-
-Add reusable data functions to `src/mcp_openstack_ops/functions.py`:
-
-```python
-async def get_your_custom_data(target_resource: str = None) -> List[Dict[str, Any]]:
-    """Your custom data retrieval function."""
-    # Example implementation - adapt to your OpenStack service
-    conn = get_openstack_connection()
-    results = []
-    
-    try:
-        # Example: Custom query using OpenStack SDK
-        resources = conn.your_service.list_resources(
-            filters={'name': target_resource} if target_resource else {}
-        )
-        
-        for resource in resources:
-            results.append({
-                'name': resource.name,
-                'id': resource.id,
-                'status': resource.status,
-                'created_at': resource.created_at,
-                # Add your custom fields
-            })
-            
-    except Exception as e:
-        logger.error(f"Failed to get custom data: {e}")
-        return []
-        
-    return results
-```
-
-#### 2. **Create Your MCP Tool File**
-
-Create a new file `src/mcp_openstack_ops/tools/get_your_custom_analysis.py`:
-
-```python
-"""Tool implementation for get_your_custom_analysis."""
-
-import json
-from datetime import datetime
-from typing import Optional
-from ..functions import get_your_custom_data  # Import your helper function
-from ..mcp_main import (
-    logger,
-    mcp,
-)
-
-@mcp.tool()
-async def get_your_custom_analysis(limit: int = 50, target_name: Optional[str] = None) -> str:
-    """
-    [Tool Purpose]: Brief description of what your tool does
-    
-    [Exact Functionality]:
-    - Feature 1: Data aggregation and analysis
-    - Feature 2: Resource monitoring and insights
-    - Feature 3: Performance metrics and reporting
-    
-    [Required Use Cases]:
-    - When user asks "your specific analysis request"
-    - Your business-specific monitoring needs
-    
-    Args:
-        limit: Maximum results (1-100)
-        target_name: Target resource/service name
-    
-    Returns:
-        Formatted analysis results
-    """
-    try:
-        limit = max(1, min(limit, 100))  # Always validate input
-        
-        logger.info(f"Getting custom analysis, limit: {limit}, target: {target_name}")
-        
-        results = await get_your_custom_data(target_resource=target_name)
-        
-        if not results:
-            return f"No custom analysis data found" + (f" for '{target_name}'" if target_name else "")
-        
-        # Apply limit
-        results = results[:limit]
-        
-        # Format results as table
-        table_data = []
-        for item in results:
-            table_data.append({
-                'Name': item.get('name', 'N/A'),
-                'ID': item.get('id', 'N/A'),
-                'Status': item.get('status', 'N/A'),
-                'Created': item.get('created_at', 'N/A'),
-            })
-        
-        # Return formatted JSON
-        return json.dumps({
-            'title': f'Custom Analysis (Top {len(results)})',
-            'data': table_data,
-            'total_count': len(results),
-            'timestamp': datetime.now().isoformat()
-        }, indent=2)
-        
-    except Exception as e:
-        logger.error(f"Failed to get custom analysis: {e}")
-        return f"Error: {str(e)}"
-```
-
-#### 3. **For Modify Operations (Optional)**
-
-If your tool performs modify operations, use the `@conditional_tool` decorator instead:
-
-```python
-
-from ..mcp_main import (
-    conditional_tool,  # Use this instead of @mcp.tool()
-    handle_operation_result,
-    logger,
-)
-
-@conditional_tool  # Only registers when ALLOW_MODIFY_OPERATIONS=true
-    """
-    Manage your custom OpenStack resources.
-    
-    Use when user requests custom resource management.
-    """
-    try:
-        
-        return handle_operation_result(
-            result=result,
-            operation_name="Custom Resource Management",
-            details={
-                'Resource': resource_name,
-                'Action': action
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Custom resource operation failed: {e}")
-        return f"Error: {str(e)}"
-```
-
-#### 4. **Update Prompt Template (Recommended)**
-
-Add your tool description to `src/mcp_openstack_ops/prompt_template.md` for better natural language recognition:
-
-```markdown
-### **Your Custom Analysis Tool**
-
-### X. **get_your_custom_analysis**
-**Purpose**: Brief description of what your tool does
-**Usage**: "Show me your custom analysis" or "Get custom analysis for resource_name"
-**Features**: Data aggregation, resource monitoring, performance metrics
-**Optional**: `target_name` parameter for specific resource analysis
-```
-
-#### 5. **Test Your Tool**
-
-```bash
-# Local testing
-./scripts/run-mcp-inspector-local.sh
-
-# Or with Docker
-docker-compose up -d
-docker-compose logs -f mcp-server
-
-# Test with natural language:
-# "Show me your custom analysis"
-# "Get custom analysis for target_name"
-```
-
-### Tool Registration System
-
-The MCP server uses automatic tool discovery. When you create a new file in `src/mcp_openstack_ops/tools/`, it's automatically registered through the `register_all_tools()` function in `tools/__init__.py`. No manual import registration needed!
-
-### Safety System
-
-- **Read-only tools**: Use `@mcp.tool()` - always available
-- **Modify tools**: Use `@conditional_tool` - only available when `ALLOW_MODIFY_OPERATIONS=true`
-- **Connection**: Always use `get_openstack_connection()` for OpenStack API access
-- **Project isolation**: All operations are automatically scoped to `OS_PROJECT_NAME`
-
-That's it! Your custom tool is ready to use with natural language queries.
-
----
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## Important Notes
+
+- `testnet/` is local/untracked test data if present; do not commit it unless explicitly required.
+- `get_network_agents` now reads Neutron DB data.
+- Volume, snapshot, and backup tools are named consistently under `volume`, `volume_snapshot`, and `volume_backup`.
+- Deprecated storage aliases such as `get_volume`, `get_volume_backup`, `get_volume_backups`, `get_volume_snapshots`, and old `get_snapshot*` tools are skipped.

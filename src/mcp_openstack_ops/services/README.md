@@ -1,78 +1,96 @@
 # Services Overview
 
-Tai lieu nay tom tat nhanh cac module trong `src/mcp_openstack_ops/services/` va chuc nang chinh cua tung module.
+Service modules contain the implementation behind MCP tool wrappers.
 
-## Kien truc tong quan
+## Database Query Model
 
-- `mcp_main.py` dang ky tool MCP.
-- Tool wrappers trong `src/mcp_openstack_ops/tools/` goi vao service functions tai day.
-- Services xu ly logic nghiep vu OpenStack theo tung domain.
-- `connection.py` phu trach ket noi, project isolation, va resource ownership validation.
+- `compute.py` queries the `nova` database.
+- `network.py` queries the `neutron` database.
+- `storage.py` queries the `cinder` database.
+- MariaDB connection settings are shared through `MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_CHARSET`, and `MARIADB_CONNECT_TIMEOUT`.
+- Service database names are hardcoded; do not set `MARIADB_DATABASE` or service-specific DB names for normal operation.
 
-## Danh sach service modules
+## Modules
 
 ### `compute.py`
 
-Quan ly Nova compute resources:
-- Lay thong tin instances: `get_instance_details`, `get_instance_by_name`, `get_instance_by_id`, `search_instances`, `get_instances_by_status`
-- Instance summary: `get_instance_summary`
-- Flavor: `get_flavor_list`
-- Event va grouping: `get_server_events`, `get_server_groups`
+Nova read helpers:
+
+- Instances: `get_instance_details`, `get_instance_by_name`, `get_instance_by_id`, `search_instances`, `get_instances_by_status`
+- Summary: `get_instance_summary`
+- Flavor metadata: `get_flavor_list`
+- Events and grouping: `get_server_events`, `get_server_groups`
+- Attachments: `get_server_volumes`
 
 ### `network.py`
 
-Quan ly Neutron networking:
-- Truy van mang: `get_network_details`, `get_network_summary`
-- Network agents: `get_network_agents`
-- Security va IP: `get_security_groups`, `get_security_groups_summary`, `get_floating_ips`, `get_floating_ips_summary`, `get_floating_ip_pools`
-- Router va ports: `get_routers`, `get_routers_summary`
+Neutron read helpers:
+
+- Networks: `get_network_details`, `get_network_summary`
+- Ports: `set_network_ports` compatibility function used for read-only port listing
+- Agents: `get_network_agents`
+- Security groups: `get_security_groups`, `get_security_groups_summary`
+- Floating IPs: `get_floating_ips`, `get_floating_ips_summary`, `get_floating_ip_pools`
+- Routers: `get_routers`, `get_routers_summary`
 
 ### `storage.py`
 
-Quan ly Cinder storage:
+Cinder read helpers:
+
 - Unified query: `get_storage_resource`
-- Volumes: `get_volume_list`, `get_volume_summary`, `get_server_volumes`
-- Volume metadata: `get_volume_types`
-- Snapshots: `get_volume_snapshot_list`, `get_volume_snapshot_summary`
-- Backups: `get_volume_backup_list`, `get_volume_backup_summary`
+- Volumes: `get_volume_list`, `get_volume_summary`
+- Volume types: `get_volume_types`
+- Snapshots: service `get_volume_snapshots`, exposed through canonical tools such as `get_volume_snapshot_list` and `get_volume_snapshot_summary`
+- Backups: service `get_volume_backups`, exposed through canonical tools such as `get_volume_backup_list` and `get_volume_backup_summary`
+- Server attachments: `get_server_volumes`
 
 ### `image.py`
 
-Quan ly Glance images:
-- Listing: `get_image_list`, `get_image_detail_list`
+Glance read helpers:
+
+- `get_image_list`
+- `get_image_list_filtered`
+- `get_image_by_id_or_name`
+- `search_images`
+- `get_image_detail_list`
 
 ### `identity.py`
 
-Quan ly Keystone identity/project scope:
-- Project va user thong tin: `get_project_info`, `get_project_details`, `get_user_list`
-- Role assignments: `get_role_assignments`
-- Keypairs: `get_keypair_list`
+Keystone/project helpers:
+
+- `get_project_info`
+- `get_project_list`
+- `get_project_details`
+- `get_user_list`
+- `get_role_assignments`
+- `get_keypair_list`
 
 ### `monitoring.py`
 
-Tong hop monitoring va quota/usage:
-- System monitoring: `get_system_information` (compute services, block storage services, network agents)
-- Health/tai nguyen tong quan: `get_resource_monitoring`
-- Usage va quota: `get_usage_statistics`, `get_quota`, `get_compute_quota_usage`
-- Ha tang compute: `get_hypervisor_details`, `get_availability_zones`
+Monitoring and quota helpers:
 
-### `core.py`
+- `get_system_information`
+- `get_resource_monitoring`
+- `get_usage_statistics`
+- `get_quota`
+- `get_compute_quota_usage`
+- `get_hypervisor_details`
+- `get_availability_zones`
 
-Service-level status:
+### `load_balancer/`
 
-## Nhom load balancer (`load_balancer/`)
+Octavia helpers:
 
-Tap hop cac service cho Octavia:
+- `core.py`: load balancer list/detail
+- `listeners.py`: listeners
+- `pools.py`: pools and members
+- `health_monitors.py`: health monitors
+- `l7_policies.py`: L7 policies and rules
+- `management.py`: availability zones, flavors, providers, quotas
+- `amphorae.py`: amphora list/detail
 
-- `core.py`: `get_load_balancer_list`, `get_load_balancer_details`
-- `listeners.py`: `get_load_balancer_listeners`
-- `pools.py`: `get_load_balancer_pools`, `get_load_balancer_pool_members`
-- `health_monitors.py`: `get_load_balancer_health_monitors`
-- `l7_policies.py`: `get_load_balancer_l7_policies`, `get_load_balancer_l7_rules`
-- `management.py`: availability zone, flavor, provider, quota APIs
-- `amphorae.py`: amphora listing va actions
+## Removed
 
-## Ghi chu van hanh
-
-- Cac ham bat dau bang `get_` la read-oriented.
-- Project isolation/ownership filter duoc thuc thi o tang connection + service logic.
+- `core.py` service-status module was removed.
+- Heat/orchestration service support was removed.
+- Mutating service exports were removed from package-level `services.__init__`.

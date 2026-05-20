@@ -1,53 +1,56 @@
 # Tools Overview
 
-Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/`.
+Each file in this directory registers one MCP tool. Tool discovery is automatic through `tools/__init__.py`.
 
-## Vai tro cua tools layer
+## Registration Rules
 
-- Moi file trong thu muc nay dinh nghia MCP tool interface (input/output cho LLM usage).
-- Tool se goi xuong service layer trong `src/mcp_openstack_ops/services/` de xu ly nghiep vu.
-- Quy uoc:
-- `get_*` va `search_*`: read-only retrieval.
+- Read-only `get_*` and `search_*` tools are registered.
+- `set_*` modules are skipped.
+- Deprecated alias modules are skipped to avoid duplicate tools.
+- Removed tools are not available: Heat tools and `get_service_status`.
 
-## Nhom Read Tools
-
-### Compute
+## Compute
 
 - `get_instance.py`
-- `get_instance_summary.py`
 - `get_instance_by_id_or_name.py`
 - `get_instance_by_project.py`
-- `get_instance_related_info.py`
 - `get_instance_details.py`
+- `get_instance_related_info.py`
+- `get_instance_summary.py`
 - `get_instances_by_status.py`
+- `search_instances.py`
 - `get_server_events.py`
 - `get_server_groups.py`
-- `search_instances.py`
+- `get_server_volumes.py`
+- `get_hypervisor_details.py`
+- `get_availability_zones.py`
 
-### Network
+## Network
 
 - `get_network.py`
-- `get_network_summary.py`
 - `get_network_by_id_or_name.py`
 - `get_network_by_project.py`
 - `get_network_details.py`
 - `get_network_ports.py`
+- `get_network_summary.py`
 - `get_network_agents.py`
-- `get_floating_ips.py`
-- `get_floating_ips_summary.py`
-- `get_floating_ips_by_project.py`
 - `get_floating_ip_pools.py`
+- `get_floating_ips.py`
+- `get_floating_ips_by_project.py`
+- `get_floating_ips_summary.py`
 - `get_security_groups.py`
-- `get_security_groups_summary.py`
 - `get_security_groups_by_project.py`
-- `get_routers_summary.py`
-- `get_routers_by_status.py`
-- `get_routers_by_state.py`
-- `get_routers_by_project.py`
+- `get_security_groups_summary.py`
 - `get_routers_by_id_or_name.py`
+- `get_routers_by_project.py`
+- `get_routers_by_state.py`
+- `get_routers_by_status.py`
 - `get_routers_details.py`
+- `get_routers_summary.py`
 
-### Storage
+## Storage / Cinder
+
+### Volume
 
 - `get_storage_resource.py`
 - `get_volume_list.py`
@@ -56,45 +59,49 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 - `get_volume_by_status.py`
 - `get_volume_summary.py`
 - `get_volume_types.py`
+- `get_server_volumes.py`
+
+### Volume Snapshot
+
 - `get_volume_snapshot_list.py`
 - `get_volume_snapshot_by_id_or_name.py`
 - `get_volume_snapshot_by_project.py`
 - `get_volume_snapshot_by_status.py`
 - `get_volume_snapshot_summary.py`
+
+### Volume Backup
+
 - `get_volume_backup_list.py`
 - `get_volume_backup_by_id_or_name.py`
 - `get_volume_backup_by_project.py`
 - `get_volume_backup_by_status.py`
 - `get_volume_backup_summary.py`
-- `get_server_volumes.py`
 
-### Image
+## Image
 
 - `get_image_list.py`
+- `get_image_detail_list.py`
 - `get_image_by_id_or_name.py`
 - `get_image_by_project.py`
 - `get_image_by_status.py`
 - `search_images.py`
-- `get_image_detail_list.py`
 
-### Identity / Project
+## Identity / Project
 
+- `get_project_details.py`
+- `get_project_list.py`
 - `get_user_list.py`
 - `get_role_assignments.py`
 - `get_keypair_list.py`
-- `get_project_list.py`
-- `get_project_details.py`
 
-### Monitoring / Core
+## Monitoring / Quota
 
 - `get_system_information.py`
 - `get_resource_monitoring.py`
 - `get_usage_statistics.py`
 - `get_quota.py`
-- `get_hypervisor_details.py`
-- `get_availability_zones.py`
 
-### Load Balancer (Octavia)
+## Load Balancer / Octavia
 
 - `get_load_balancer_list.py`
 - `get_load_balancer_details.py`
@@ -110,7 +117,8 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 - `get_load_balancer_quotas.py`
 - `get_load_balancer_amphorae.py`
 
-## Ghi chu
+## Notes
 
-- Day la catalog chuc nang o muc module/file.
-- De xem chi tiet schema tham so tung tool, mo truc tiep file tuong ung trong thu muc nay.
+- Use summary tools before list/detail tools on large sites.
+- Use filters such as `project_id`, `status`, `id/name`, `limit`, `offset`, and `fields` where supported.
+- Do not reintroduce duplicate storage aliases unless tool registration is also updated.

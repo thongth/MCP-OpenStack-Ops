@@ -1,27 +1,29 @@
 # Scripts Overview
 
-Tai lieu nay tom tat cac script ho tro local dev va inspection.
+Helper scripts for local development and inspection.
 
-## Danh sach scripts
+## Scripts
 
 - `mcp-server-docker-cmd.sh`
-- Load `.env`, in bien moi truong (mask secret), va chay:
-- `python -m mcp_openstack_ops --type ${FASTMCP_TYPE} --host ${FASTMCP_HOST} --port ${FASTMCP_PORT}`
-
+  - Loads `.env`, masks secrets in startup output, and runs `python -m mcp_openstack_ops`.
 - `run-mcp-inspector-local.sh`
-- Chay MCP Inspector voi source local (`PYTHONPATH=./src`) de debug nhanh truoc khi publish package.
-
+  - Runs MCP Inspector against local source with `PYTHONPATH=./src`.
 - `run-mcp-inspector-pypi.sh`
-- Chay MCP Inspector voi package da publish tren PyPI qua `uvx mcp-openstack-ops`.
+  - Runs MCP Inspector through `uvx mcp-openstack-ops`.
 
-## Cach dung nhanh
+## Usage
 
-- Tu project root:
-- `bash scripts/run-mcp-inspector-local.sh`
-- `bash scripts/run-mcp-inspector-pypi.sh`
-- `bash scripts/mcp-server-docker-cmd.sh`
+Run from the repository root:
 
-## Luu y
+```bash
+bash scripts/run-mcp-inspector-local.sh
+bash scripts/run-mcp-inspector-pypi.sh
+bash scripts/mcp-server-docker-cmd.sh
+```
 
-- Can co `.env` hop le cho OpenStack credentials khi chay local.
-- Script inspector yeu cau `npx` va `@modelcontextprotocol/inspector`.
+## Requirements
+
+- A valid `.env`.
+- OpenStack credentials for SDK-backed helpers.
+- MariaDB readonly credentials for Nova/Neutron/Cinder DB-backed helpers.
+- `npx` and `@modelcontextprotocol/inspector` for inspector scripts.
