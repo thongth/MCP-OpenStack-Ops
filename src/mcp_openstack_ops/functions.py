@@ -21,29 +21,52 @@ def get_service_status() -> List[Dict[str, Any]]:
     """
     try:
         from .services.compute import _get_nova_mariadb_connection, _table_columns as nova_columns
+        from .services.db import bool_value, column_expr
         from .services.network import get_network_agents
         from .services.storage import _get_cinder_mariadb_connection, _table_columns as cinder_columns
 
         services = []
+
+        def append_service_rows(cur, columns: set[str], service_type: str, default_zone: str) -> None:
+            binary_expr = column_expr("s", columns, "binary", default="'unknown'")
+            host_expr = column_expr("s", columns, "host", default="'unknown'")
+            status_expr = column_expr("s", columns, "status", default="NULL")
+            disabled_expr = column_expr("s", columns, "disabled", default="0")
+            forced_down_expr = column_expr("s", columns, "forced_down", default="0")
+            zone_expr = column_expr("s", columns, "availability_zone", "zone", default=f"'{default_zone}'")
+            updated_expr = column_expr("s", columns, "updated_at", "updated", default="NULL")
+            disabled_reason_expr = column_expr("s", columns, "disabled_reason", default="NULL")
+
+            cur.execute(
+                "SELECT "
+                f"{binary_expr} AS binary, {host_expr} AS host, {status_expr} AS raw_status, "
+                f"{disabled_expr} AS disabled, {forced_down_expr} AS forced_down, "
+                f"{zone_expr} AS zone, {updated_expr} AS updated_at, "
+                f"{disabled_reason_expr} AS disabled_reason "
+                "FROM services s ORDER BY host ASC, binary ASC"
+            )
+            for service in cur.fetchall():
+                disabled = bool_value(service.get("disabled"))
+                forced_down = bool_value(service.get("forced_down"))
+                services.append({
+                    'binary': service.get('binary'),
+                    'host': service.get('host'),
+                    'status': service.get('raw_status') or ('disabled' if disabled else 'enabled'),
+                    'state': 'down' if forced_down else 'up',
+                    'zone': service.get('zone') or default_zone,
+                    'updated_at': str(service.get('updated_at') or 'unknown'),
+                    'disabled_reason': service.get('disabled_reason'),
+                    'service_type': service_type,
+                    'data_source': 'mariadb',
+                })
+
         try:
             conn = _get_nova_mariadb_connection()
             try:
                 with conn.cursor() as cur:
                     columns = nova_columns(cur, "services")
                     if columns:
-                        cur.execute("SELECT binary, host, status, disabled, disabled_reason, updated_at FROM services ORDER BY host, binary")
-                        for service in cur.fetchall():
-                            services.append({
-                                'binary': service.get('binary'),
-                                'host': service.get('host'),
-                                'status': service.get('status') or ('disabled' if service.get('disabled') else 'enabled'),
-                                'state': 'up',
-                                'zone': 'nova',
-                                'updated_at': str(service.get('updated_at') or 'unknown'),
-                                'disabled_reason': service.get('disabled_reason'),
-                                'service_type': 'compute',
-                                'data_source': 'mariadb',
-                            })
+                        append_service_rows(cur, columns, 'compute', 'nova')
             finally:
                 conn.close()
         except Exception as e:
@@ -70,19 +93,7 @@ def get_service_status() -> List[Dict[str, Any]]:
                 with conn.cursor() as cur:
                     columns = cinder_columns(cur, "services")
                     if columns:
-                        cur.execute("SELECT binary, host, status, disabled, disabled_reason, updated_at, availability_zone FROM services ORDER BY host, binary")
-                        for service in cur.fetchall():
-                            services.append({
-                                'binary': service.get('binary'),
-                                'host': service.get('host'),
-                                'status': service.get('status') or ('disabled' if service.get('disabled') else 'enabled'),
-                                'state': 'up',
-                                'zone': service.get('availability_zone') or 'unknown',
-                                'updated_at': str(service.get('updated_at') or 'unknown'),
-                                'disabled_reason': service.get('disabled_reason'),
-                                'service_type': 'volume',
-                                'data_source': 'mariadb',
-                            })
+                        append_service_rows(cur, columns, 'volume', 'unknown')
             finally:
                 conn.close()
         except Exception as e:
