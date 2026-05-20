@@ -7,7 +7,7 @@ creation, deletion, and basic load balancer operations.
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 from ...connection import get_openstack_connection
 from .db import find_load_balancer, list_listeners, list_load_balancers, list_members, list_pools
 

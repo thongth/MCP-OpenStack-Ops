@@ -925,7 +925,7 @@ def set_floating_ip(action: str, **kwargs) -> Dict[str, Any]:
             
             return {
                 'success': True,
-                'message': f'Floating IP allocated successfully',
+                'message': 'Floating IP allocated successfully',
                 'floating_ip': {
                     'id': fip.id,
                     'floating_ip_address': getattr(fip, 'floating_ip_address', 'unknown'),
@@ -1402,7 +1402,7 @@ def set_floating_ip_port_forwarding(action: str, **kwargs) -> Dict[str, Any]:
                 pf = conn.network.create_port_forwarding(floatingip=fip.id, **create_params)
                 return {
                     'success': True,
-                    'message': f'Port forwarding rule created successfully',
+                    'message': 'Port forwarding rule created successfully',
                     'port_forwarding': {
                         'id': pf.id,
                         'protocol': getattr(pf, 'protocol', protocol),
@@ -1432,7 +1432,7 @@ def set_floating_ip_port_forwarding(action: str, **kwargs) -> Dict[str, Any]:
                 conn.network.delete_port_forwarding(port_forwarding_id, floatingip=floating_ip_id)
                 return {
                     'success': True,
-                    'message': f'Port forwarding rule deleted successfully'
+                    'message': 'Port forwarding rule deleted successfully'
                 }
             except Exception as e:
                 return {
@@ -1506,7 +1506,7 @@ def set_floating_ip_port_forwarding(action: str, **kwargs) -> Dict[str, Any]:
                 )
                 return {
                     'success': True,
-                    'message': f'Port forwarding rule updated successfully',
+                    'message': 'Port forwarding rule updated successfully',
                     'port_forwarding': {
                         'id': pf.id,
                         'protocol': getattr(pf, 'protocol', 'unknown'),

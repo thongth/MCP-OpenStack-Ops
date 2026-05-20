@@ -130,7 +130,7 @@ def set_load_balancer_l7_policy(action: str, **kwargs) -> Dict[str, Any]:
             
             return {
                 'success': True,
-                'message': f'L7 policy created successfully',
+                'message': 'L7 policy created successfully',
                 'l7_policy': {
                     'id': policy.id,
                     'name': policy.name,
@@ -293,7 +293,7 @@ def set_load_balancer_l7_rule(action: str, **kwargs) -> Dict[str, Any]:
             
             return {
                 'success': True,
-                'message': f'L7 rule created successfully',
+                'message': 'L7 rule created successfully',
                 'l7_rule': {
                     'id': rule.id,
                     'type': rule.type,

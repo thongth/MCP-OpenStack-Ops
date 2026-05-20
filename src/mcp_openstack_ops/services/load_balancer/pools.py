@@ -385,7 +385,7 @@ def set_load_balancer_pool_member(action: str, pool_name_or_id: str, member_id: 
             
             return {
                 'success': True,
-                'message': f'Pool member created successfully',
+                'message': 'Pool member created successfully',
                 'member': {
                     'id': member.id,
                     'name': getattr(member, 'name', ''),
@@ -410,7 +410,7 @@ def set_load_balancer_pool_member(action: str, pool_name_or_id: str, member_id: 
             member = None
             try:
                 member = conn.load_balancer.get_member(member_id, pool)
-            except Exception as e:
+            except Exception:
                 return {
                     'success': False,
                     'message': f'Member not found: {member_id}'
@@ -433,7 +433,7 @@ def set_load_balancer_pool_member(action: str, pool_name_or_id: str, member_id: 
             # Find member
             try:
                 member = conn.load_balancer.get_member(member_id, pool)
-            except Exception as e:
+            except Exception:
                 return {
                     'success': False,
                     'message': f'Member not found: {member_id}'
@@ -469,7 +469,7 @@ def set_load_balancer_pool_member(action: str, pool_name_or_id: str, member_id: 
             # Find member
             try:
                 member = conn.load_balancer.get_member(member_id, pool)
-            except Exception as e:
+            except Exception:
                 return {
                     'success': False,
                     'message': f'Member not found: {member_id}'
@@ -492,7 +492,7 @@ def set_load_balancer_pool_member(action: str, pool_name_or_id: str, member_id: 
             
             return {
                 'success': True,
-                'message': f'Pool member updated successfully',
+                'message': 'Pool member updated successfully',
                 'member': {
                     'id': updated_member.id,
                     'name': getattr(updated_member, 'name', ''),

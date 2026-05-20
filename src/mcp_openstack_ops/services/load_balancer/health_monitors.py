@@ -162,7 +162,7 @@ def set_load_balancer_health_monitor(action: str, monitor_name_or_id: str = "", 
             
             return {
                 'success': True,
-                'message': f'Health monitor created successfully',
+                'message': 'Health monitor created successfully',
                 'health_monitor': {
                     'id': monitor.id,
                     'name': getattr(monitor, 'name', ''),
@@ -200,7 +200,7 @@ def set_load_balancer_health_monitor(action: str, monitor_name_or_id: str = "", 
             
             return {
                 'success': True,
-                'message': f'Health monitor deleted successfully'
+                'message': 'Health monitor deleted successfully'
             }
             
         elif action == "show":
@@ -292,7 +292,7 @@ def set_load_balancer_health_monitor(action: str, monitor_name_or_id: str = "", 
             
             return {
                 'success': True,
-                'message': f'Health monitor updated successfully',
+                'message': 'Health monitor updated successfully',
                 'health_monitor': {
                     'id': updated_monitor.id,
                     'name': getattr(updated_monitor, 'name', ''),

@@ -275,7 +275,6 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 |---------------------|---------|------|------|
 | Resource monitoring | `get_resource_monitoring` | ✅ | Resource monitoring |
 | System monitoring (compute services, block storage services, network agents) | `get_system_information` | ✅ | Infrastructure component health overview |
-| Cluster overview | `get_cluster_status` | ✅ | Cluster overview |
 | Usage statistics | `get_usage_statistics` | ✅ | Usage statistics |
 
 ### 9. 📏 **Usage & Quota**

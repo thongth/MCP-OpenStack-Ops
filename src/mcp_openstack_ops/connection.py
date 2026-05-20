@@ -12,7 +12,7 @@ Added Project Isolation Security Features:
 
 import logging
 import os
-from typing import Optional, Any, Dict
+from typing import Optional, Any
 from dotenv import load_dotenv
 from openstack import connection
 
@@ -160,8 +160,7 @@ def get_current_project_id() -> str:
             return None
 
         conn = get_openstack_connection()
-        # Get project ID from the token
-        token = conn.identity.get_token()
+        conn.identity.get_token()
         project_id = conn.auth.get('project_id') or conn.auth.get('tenant_id')
         
         if not project_id:

@@ -225,7 +225,7 @@ def _set_load_balancer_amphora(action: str, **kwargs):
         
         if action == "configure":
             # Configure amphora
-            result = conn.load_balancer.configure_amphora(amphora_id)
+            conn.load_balancer.configure_amphora(amphora_id)
             return {
                 "success": True,
                 "action": "configure",
@@ -235,7 +235,7 @@ def _set_load_balancer_amphora(action: str, **kwargs):
         
         elif action == "failover":
             # Failover amphora
-            result = conn.load_balancer.failover_amphora(amphora_id)
+            conn.load_balancer.failover_amphora(amphora_id)
             return {
                 "success": True,
                 "action": "failover",

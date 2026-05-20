@@ -1,8 +1,5 @@
-import os
 import logging
-from typing import Dict, List, Any, Optional
-from openstack import connection
-from dotenv import load_dotenv
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 # Import connection management from separate module
@@ -508,8 +505,6 @@ def set_alarms(
         Alarm management information
     """
     try:
-        conn = get_openstack_connection()
-        
         # Note: This would require Aodh (alarming service) to be installed
         # For now, we'll simulate alarm management
         
@@ -775,23 +770,9 @@ from .services.compute import (
     get_instance_details,
     get_instance_summary,
     get_instance_by_name,
-    get_instance_by_id,
-    search_instances,
     get_instances_by_status,
-    set_instance,
-    get_flavor_list,
     get_server_events,
     get_server_groups,
-    set_server_group,
-    set_flavor,
-    set_server_network,
-    set_server_floating_ip,
-    set_server_fixed_ip,
-    set_server_security_group,
-    set_server_migration,
-    set_server_properties,
-    create_server_backup,
-    create_server_dump
 )
 
 # Import network functions from services
@@ -804,142 +785,132 @@ from .services.network import (
     get_floating_ips,
     get_floating_ips_summary,
     get_floating_ip_pools,
-    set_floating_ip,
-    set_floating_ip_port_forwarding,
     get_routers,
     get_routers_summary,
-    set_networks,
     set_network_ports,
-    set_subnets
 )
 
 # Import storage functions from services
 from .services.storage import (
     get_volume_list,
     get_volume_summary,
-    set_volume,
     get_volume_types,
     get_volume_snapshots,
     get_volume_snapshot_summary,
     get_volume_backups,
     get_volume_backup_summary,
-    set_snapshot,
-    set_volume_backups,
-    set_volume_groups,
-    set_volume_qos,
     get_server_volumes,
-    set_server_volume
 )
 
 # Import identity functions from services
 from .services.identity import (
-    get_project_info,
     get_project_list,
     get_user_list,
     get_role_assignments,
     get_keypair_list,
-    set_keypair,
     get_project_details,
-    set_project,
-    set_domains
 )
 
 # Import image functions from services
 from .services.image import (
-    get_image_list,
     get_image_list_filtered,
     get_image_by_id_or_name,
     search_images,
     get_image_detail_list,
-    set_image,
-    set_image_members,
-    set_image_metadata,
-    set_image_visibility
 )
 
 # Import monitoring functions from services  
 from .services.monitoring import (
     get_system_information,
     get_resource_monitoring,
-    get_compute_quota_usage,
     get_usage_statistics,
     get_quota,
     get_hypervisor_details,
     get_availability_zones,
-    set_quota
 )
 
 from .services.load_balancer import (
     # Core operations
     get_load_balancer_list,
     get_load_balancer_details, 
-    set_load_balancer,
     
     # Listener operations
     get_load_balancer_listeners,
-    set_load_balancer_listener,
     
     # Pool operations
     get_load_balancer_pools,
-    set_load_balancer_pool,
     get_load_balancer_pool_members,
-    set_load_balancer_pool_member,
     
     # Health monitor operations
     get_load_balancer_health_monitors,
-    set_load_balancer_health_monitor,
     
     # L7 policy operations
     get_load_balancer_l7_policies,
-    set_load_balancer_l7_policy,
     get_load_balancer_l7_rules,
-    set_load_balancer_l7_rule,
     
     # Management operations
     get_load_balancer_availability_zones,
-    set_load_balancer_availability_zone,
     get_load_balancer_flavors,
-    set_load_balancer_flavor,
     get_load_balancer_providers,
     get_load_balancer_quotas,
-    set_load_balancer_quota,
     
     # Amphora operations
     get_load_balancer_amphorae,
-    set_load_balancer_amphora,
-    _set_load_balancer_amphora
 )
 
 
-# =============================================================================
-# ADDITIONAL UTILITY FUNCTIONS (TEMPORARY IMPLEMENTATIONS)
-# =============================================================================
-
-def set_network_qos_policies(action: str, policy_name: str = None, **kwargs) -> Dict[str, Any]:
-    """
-    Temporary implementation for network QoS policies management
-    TODO: Implement full functionality in network.py
-    """
-    return {
-        "error": "Network QoS policies management not yet implemented in modular structure",
-        "success": False,
-        "action": action,
-        "policy_name": policy_name
-    }
-
-def set_network_agents(action: str, agent_id: str = None, **kwargs) -> Dict[str, Any]:
-    """
-    Temporary implementation for network agents management
-    TODO: Implement full functionality in network.py
-    """
-    return {
-        "error": "Network agents management not yet implemented in modular structure", 
-        "success": False,
-        "action": action,
-        "agent_id": agent_id
-    }
-
-
-# =============================================================================
-# END OF FILE - ALL FUNCTIONS SUCCESSFULLY MODULARIZED
-# =============================================================================
+__all__ = [
+    "get_availability_zones",
+    "get_floating_ip_pools",
+    "get_floating_ips",
+    "get_floating_ips_summary",
+    "get_hypervisor_details",
+    "get_image_by_id_or_name",
+    "get_image_detail_list",
+    "get_image_list_filtered",
+    "get_instance_by_name",
+    "get_instance_details",
+    "get_instance_summary",
+    "get_instances_by_status",
+    "get_keypair_list",
+    "get_load_balancer_amphorae",
+    "get_load_balancer_availability_zones",
+    "get_load_balancer_details",
+    "get_load_balancer_flavors",
+    "get_load_balancer_health_monitors",
+    "get_load_balancer_l7_policies",
+    "get_load_balancer_l7_rules",
+    "get_load_balancer_list",
+    "get_load_balancer_listeners",
+    "get_load_balancer_pool_members",
+    "get_load_balancer_pools",
+    "get_load_balancer_providers",
+    "get_load_balancer_quotas",
+    "get_network_agents",
+    "get_network_details",
+    "get_network_summary",
+    "get_project_details",
+    "get_project_list",
+    "get_quota",
+    "get_resource_monitoring",
+    "get_role_assignments",
+    "get_routers",
+    "get_routers_summary",
+    "get_security_groups",
+    "get_security_groups_summary",
+    "get_server_events",
+    "get_server_groups",
+    "get_server_volumes",
+    "get_system_information",
+    "get_usage_statistics",
+    "get_user_list",
+    "get_volume_backup_summary",
+    "get_volume_backups",
+    "get_volume_list",
+    "get_volume_snapshot_summary",
+    "get_volume_snapshots",
+    "get_volume_summary",
+    "get_volume_types",
+    "search_images",
+    "set_network_ports",
+]

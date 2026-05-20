@@ -117,7 +117,6 @@ def handle_operation_result(result: Dict[str, Any], operation_name: str, details
     # Return string results as-is
     return str(result) if result else "❌ **Operation Failed**: Empty response"
 
-from .connection import get_openstack_connection
 from .functions import (
     get_instance_by_name as _get_instance_by_name,
     get_network_details as _get_network_details,
@@ -127,7 +126,6 @@ from .functions import (
 )
 
 import json
-from datetime import datetime
 
 # Set up logging (initial level from env; may be overridden by --log-level)
 logging.basicConfig(
@@ -237,7 +235,6 @@ ALLOW_MODIFY_OPERATIONS=true
 **⚠️  WARNING**: Only enable this in development or testing environments where data loss is acceptable.
 
 **Read-only operations available:**
-- get_cluster_status
 - get_instance_details, search_instances
 - get_network_details, get_project_info
 - get_flavor_list, get_image_list, get_user_list

@@ -567,7 +567,7 @@ def set_image_metadata(action: str, image_name: str, **kwargs) -> Dict[str, Any]
                 
             try:
                 # Update image properties
-                updated_image = conn.image.update_image(image.id, **properties)
+                conn.image.update_image(image.id, **properties)
                 return {
                     'success': True,
                     'message': f'Image "{image_name}" metadata updated',

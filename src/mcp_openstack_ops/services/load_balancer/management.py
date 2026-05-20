@@ -8,7 +8,7 @@ including availability zones, flavors, quotas, providers, and advanced operation
 import logging
 from typing import Dict, Any
 from ...connection import get_openstack_connection
-from ..db import bool_value, str_time, table_columns
+from ..db import bool_value, table_columns
 from .db import get_octavia_connection
 
 logger = logging.getLogger(__name__)

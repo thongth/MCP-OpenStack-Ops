@@ -7,7 +7,7 @@ This module contains functions for managing projects, users, roles, domains, and
 import logging
 from typing import Dict, List, Any, Optional
 from ..connection import get_openstack_connection
-from .db import bool_value, column_expr, get_mariadb_connection, json_value, str_time, table_columns, table_exists
+from .db import bool_value, column_expr, get_mariadb_connection, json_value, str_time, table_columns
 
 # Configure logging
 logger = logging.getLogger(__name__)
