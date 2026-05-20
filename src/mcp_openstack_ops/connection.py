@@ -111,8 +111,8 @@ def get_openstack_connection():
         
         # Test the connection
         try:
-            token = _connection_cache.identity.get_token()
-            logger.info(f"OpenStack connection successful. Token acquired: {token[:20]}...")
+            _connection_cache.identity.get_token()
+            logger.info("OpenStack connection successful. Token acquired.")
         except Exception as test_e:
             logger.error(f"Connection test failed: {test_e}")
             raise
