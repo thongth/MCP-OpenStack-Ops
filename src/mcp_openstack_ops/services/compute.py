@@ -19,6 +19,7 @@ except Exception:  # pragma: no cover - optional dependency at runtime
 logger = logging.getLogger(__name__)
 
 NOVA_DATABASE = "nova"
+CINDER_DATABASE = "cinder"
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
 
 
@@ -32,6 +33,21 @@ def _get_nova_mariadb_connection():
         user=os.getenv("MARIADB_USER", ""),
         password=os.getenv("MARIADB_PASSWORD", ""),
         database=NOVA_DATABASE,
+        charset=os.getenv("MARIADB_CHARSET", "utf8mb4"),
+        connect_timeout=int(os.getenv("MARIADB_CONNECT_TIMEOUT", "10")),
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+def _get_cinder_mariadb_connection():
+    if pymysql is None:
+        raise RuntimeError("PyMySQL is not installed")
+
+    return pymysql.connect(
+        host=os.getenv("MARIADB_HOST", "127.0.0.1"),
+        port=int(os.getenv("MARIADB_PORT", "3306")),
+        user=os.getenv("MARIADB_USER", ""),
+        password=os.getenv("MARIADB_PASSWORD", ""),
+        database=CINDER_DATABASE,
         charset=os.getenv("MARIADB_CHARSET", "utf8mb4"),
         connect_timeout=int(os.getenv("MARIADB_CONNECT_TIMEOUT", "10")),
         cursorclass=pymysql.cursors.DictCursor,
@@ -177,6 +193,61 @@ def _coerce_int(value: Any, default: int = 0) -> int:
         return int(value)
     except Exception:
         return default
+
+def _get_volume_image_metadata(volume_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    if not volume_ids:
+        return {}
+
+    metadata_by_volume: Dict[str, Dict[str, Any]] = {}
+    conn = _get_cinder_mariadb_connection()
+    try:
+        with conn.cursor() as cur:
+            placeholders = ",".join(["%s"] * len(volume_ids))
+            if _table_exists(cur, "volume_glance_metadata"):
+                columns = _table_columns(cur, "volume_glance_metadata")
+                if {"volume_id", "key", "value"}.issubset(columns):
+                    deleted_expr = _column_expr("", columns, "deleted", default="0")
+                    cur.execute(
+                        f"SELECT volume_id, `key`, value FROM volume_glance_metadata "
+                        f"WHERE volume_id IN ({placeholders}) "
+                        f"AND ({deleted_expr} = 0 OR {deleted_expr} = '0')",
+                        volume_ids,
+                    )
+                    for item in cur.fetchall():
+                        metadata_by_volume.setdefault(item["volume_id"], {})[item["key"]] = item.get("value")
+
+            if _table_exists(cur, "volume_metadata"):
+                columns = _table_columns(cur, "volume_metadata")
+                if {"volume_id", "key", "value"}.issubset(columns):
+                    deleted_expr = _column_expr("", columns, "deleted", default="0")
+                    cur.execute(
+                        f"SELECT volume_id, `key`, value FROM volume_metadata "
+                        f"WHERE volume_id IN ({placeholders}) "
+                        f"AND ({deleted_expr} = 0 OR {deleted_expr} = '0')",
+                        volume_ids,
+                    )
+                    for item in cur.fetchall():
+                        metadata_by_volume.setdefault(item["volume_id"], {}).setdefault(item["key"], item.get("value"))
+    except Exception as e:
+        logger.warning(f"Failed to get Cinder volume image metadata: {e}")
+    finally:
+        conn.close()
+    return metadata_by_volume
+
+def _image_from_volume_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    image_id = (
+        metadata.get("image_id")
+        or metadata.get("image_base_image_ref")
+        or metadata.get("image_meta_base_image_ref")
+        or metadata.get("glance_image_id")
+    )
+    image_name = (
+        metadata.get("image_name")
+        or metadata.get("image_meta_name")
+        or metadata.get("name")
+        or metadata.get("image_os_distro")
+    )
+    return {"id": image_id, "name": image_name}
 
 def _get_compute_group_counts(cur, group_expr: str, where_sql: str, params: List[Any], label: str) -> List[Dict[str, Any]]:
     if group_expr == "NULL":
@@ -360,6 +431,7 @@ def get_instance_details(
 
                 instance_ids = [row["id"] for row in rows if row.get("id")]
                 volumes_by_instance: Dict[str, List[str]] = {}
+                boot_volume_by_instance: Dict[str, str] = {}
                 flavor_by_instance: Dict[str, Dict[str, Any]] = {}
                 metadata_by_instance: Dict[str, Dict[str, Any]] = {}
                 if instance_ids and _table_exists(cur, "block_device_mapping"):
@@ -367,14 +439,17 @@ def get_instance_details(
                     if {"instance_uuid", "volume_id"}.issubset(bdm_columns):
                         placeholders = ",".join(["%s"] * len(instance_ids))
                         bdm_deleted_expr = _column_expr("", bdm_columns, "deleted", default="0")
+                        boot_index_expr = _column_expr("", bdm_columns, "boot_index", default="NULL")
                         cur.execute(
-                            f"SELECT instance_uuid, volume_id FROM block_device_mapping "
+                            f"SELECT instance_uuid, volume_id, {boot_index_expr} AS boot_index FROM block_device_mapping "
                             f"WHERE instance_uuid IN ({placeholders}) AND volume_id IS NOT NULL "
                             f"AND ({bdm_deleted_expr} = 0 OR {bdm_deleted_expr} = '0')",
                             instance_ids,
                         )
                         for bdm in cur.fetchall():
                             volumes_by_instance.setdefault(bdm["instance_uuid"], []).append(bdm["volume_id"])
+                            if str(bdm.get("boot_index")) == "0":
+                                boot_volume_by_instance[bdm["instance_uuid"]] = bdm["volume_id"]
 
                 if instance_ids and _table_exists(cur, "instance_extra"):
                     extra_columns = _table_columns(cur, "instance_extra")
@@ -404,6 +479,9 @@ def get_instance_details(
                         for item in cur.fetchall():
                             metadata_by_instance.setdefault(item["instance_uuid"], {})[item["key"]] = item.get("value")
 
+                attached_volume_ids = sorted({volume_id for volume_ids in volumes_by_instance.values() for volume_id in volume_ids})
+                volume_image_metadata = _get_volume_image_metadata(attached_volume_ids)
+
                 instances = []
                 for row in rows:
                     instance_id = row.get("id")
@@ -422,6 +500,13 @@ def get_instance_details(
                         "image_meta_name",
                         "image_os_distro",
                     )
+                    boot_volume_id = boot_volume_by_instance.get(instance_id)
+                    if not boot_volume_id:
+                        attached_volume_ids_for_instance = volumes_by_instance.get(instance_id, [])
+                        boot_volume_id = attached_volume_ids_for_instance[0] if attached_volume_ids_for_instance else None
+                    volume_image = _image_from_volume_metadata(volume_image_metadata.get(boot_volume_id, {})) if boot_volume_id else {}
+                    image_id = image_id or volume_image.get("id")
+                    image_name = image_name or volume_image.get("name")
                     instances.append({
                         "id": instance_id,
                         "name": row.get("name") or "unnamed",
@@ -452,7 +537,12 @@ def get_instance_details(
                             "ephemeral": _coerce_int(row.get("ephemeral_gb") or extra_flavor.get("ephemeral") or _metadata_value(metadata_by_instance, instance_id, "instance_type_ephemeral_gb")),
                             "swap": _coerce_int(row.get("swap") or extra_flavor.get("swap") or _metadata_value(metadata_by_instance, instance_id, "instance_type_swap")),
                         },
-                        "image": {"id": image_id or "unknown", "name": image_name or "unknown"},
+                        "image": {
+                            "id": image_id or "unknown",
+                            "name": image_name or "unknown",
+                            "source": "boot_volume_metadata" if volume_image.get("id") or volume_image.get("name") else "nova",
+                            "boot_volume_id": boot_volume_id,
+                        },
                         "key_name": row.get("key_name"),
                         "networks": _parse_networks(row.get("network_info")),
                         "security_groups": [],
