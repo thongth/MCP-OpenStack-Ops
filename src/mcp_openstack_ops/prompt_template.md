@@ -357,29 +357,25 @@ get_instance(all_instances=True, detailed=False) # List all (summary)
 ### 🏗️ **Comprehensive Cluster Reports Pattern**
 For requests like "Create cluster status report", "Show cluster operational report", "Show cluster status", use this **tool combination approach**:
 
-**1. Service Status Overview:**
-- `get_service_status()` - Check all OpenStack service availability
-
-**2. Infrastructure & Resource Analysis:**
+**1. Infrastructure & Resource Analysis:**
 - `get_resource_monitoring()` - Physical resource utilization (CPU, RAM, storage)
 - `get_hypervisor_details()` - Physical infrastructure and hypervisor status
 
-**3. Compute Resources:**
+**2. Compute Resources:**
 - `get_instance(all_instances=True)` - All instances with flavor, network, status details
 - `get_project_details()` - Project resource breakdown and quotas
 
-**4. Network Infrastructure:**
+**3. Network Infrastructure:**
 - `get_network_details()` - Networks, subnets, floating IPs, routers
 - `get_load_balancer_details()` - Load balancer status and configuration
 
-**5. Storage Systems:**
+**4. Storage Systems:**
 - `get_volume_list()` - Volume status, usage, and attachments
 - `get_image_detail_list()` - Available images and usage patterns
 
-This approach provides **comprehensive 360-degree cluster visibility** with infrastructure, compute, network, storage, and service-level insights.
+This approach provides **comprehensive 360-degree cluster visibility** with infrastructure, compute, network, and storage insights.
 
-### 📊 **Monitoring & Status Tools (6 tools)**
-- `get_service_status`: Service health and API endpoint status
+### 📊 **Monitoring & Status Tools**
 - `get_instance_details`: Specific instance information with pagination support
 - `search_instances`: Flexible instance search with partial matching and case-sensitive options
 - `get_instance_by_id_or_name`: Quick single instance lookup
@@ -474,19 +470,19 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 **For comprehensive cluster reports, use these tool combinations:**
 
 - **"Create cluster status report"** / **"Cluster status report"** / **"클러스터 운영 현황"** → 
-  - `get_service_status()` + `get_resource_monitoring()` + `get_hypervisor_details()` + `get_instance(all_instances=True)` + `get_project_details()` + `get_network_details()` + `get_volume_list()` + `get_load_balancer_details()`
+  - `get_resource_monitoring()` + `get_hypervisor_details()` + `get_instance(all_instances=True)` + `get_project_details()` + `get_network_details()` + `get_volume_list()` + `get_load_balancer_details()`
 
 - **"Show detailed cluster analysis"** / **"resource utilization"** → 
   - `get_resource_monitoring()` + `get_hypervisor_details()` + `get_instance(all_instances=True)` + `get_volume_list()`
 
 - **"Cluster overview"** / **"cluster status"** → 
-  - `get_service_status()` + `get_resource_monitoring()` + `get_instance(all_instances=True)` + `get_project_details()` + `get_network_details()`
+  - `get_resource_monitoring()` + `get_instance(all_instances=True)` + `get_project_details()` + `get_network_details()`
 
 - **"Server groups"** / **"affinity policies"** → 
   - `get_instance(all_instances=True)` (includes server group info) + `search_instances()` for specific policies
 
 - **"Availability zones"** / **"zone status"** → 
-  - `get_hypervisor_details()` (includes AZ information) + `get_service_status()`
+  - `get_hypervisor_details()` (includes AZ information)
 
 - **"Usage statistics"** / **"billing trends"** → 
   - `get_project_details()` (all projects with resource breakdown) + `get_resource_monitoring()`
@@ -533,8 +529,8 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 
 ### 📊 **Common Operations**
 ```
-"Create cluster status report" → Use tool combination: get_service_status() + get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details()
-"클러스터 운영 현황 보고해줘" → Use tool combination: get_service_status() + get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details()
+"Create cluster status report" → Use tool combination: get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details()
+"클러스터 운영 현황 보고해줘" → Use tool combination: get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details()
 
 # Enhanced examples with new API structure
 
@@ -575,7 +571,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "Give me a cluster overview with resource utilization"
 ```
 
-**Tools Used:** `get_service_status()`, `get_resource_monitoring()`, `get_hypervisor_details()`
+**Tools Used:** `get_resource_monitoring()`, `get_hypervisor_details()`
 
 ### 🖥️ **Instance Management**
 
@@ -666,13 +662,12 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 ### 🛠️ **Troubleshooting**
 
 ```
-"Check OpenStack service status"
 "Show instance events for server-01"
 "Display hypervisor details"
 "Show network agent status"
 ```
 
-**Tools Used:** `get_service_status()`, `get_server_events()`, `get_hypervisor_details()`
+**Tools Used:** `get_server_events()`, `get_hypervisor_details()`
 
 ### 🔒 **Security Operations**
 
@@ -713,7 +708,6 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 
 ```
 "Show complete infrastructure overview" →
-1. get_service_status() (service health)
 2. get_resource_monitoring() (resource utilization)
 3. get_instance(all_instances=True) (compute resources)
 4. get_network_details() (network topology)
@@ -726,7 +720,6 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 1. get_instance(all_instances=True) (instance status & specs)
 2. get_resource_monitoring() (resource utilization)
 3. get_hypervisor_details() (host capacity)
-4. get_service_status() (service health)
 ```
 
 ```

@@ -59,7 +59,6 @@ Tong hop monitoring va quota/usage:
 ### `core.py`
 
 Service-level status:
-- Lay trang thai dich vu OpenStack: `get_service_status`
 
 ## Nhom load balancer (`load_balancer/`)
 

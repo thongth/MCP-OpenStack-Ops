@@ -5,11 +5,6 @@ This package contains modularized OpenStack service functions organized by servi
 Each module focuses on a specific OpenStack service area for better maintainability.
 """
 
-# Core connection and cluster management
-from .core import (
-    get_service_status
-)
-
 # Compute service functions
 from .compute import (
     get_instance_details,
@@ -106,7 +101,6 @@ __all__ = [
     # Core
     'get_openstack_connection',
     'reset_connection_cache',
-    'get_service_status',
     
     # Compute
     'get_instance_details',

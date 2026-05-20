@@ -26,7 +26,7 @@
 - ✅ **Purpose-Built Tools**: Broad coverage across compute, networking, storage, images, identity, and Octavia load balancing tasks—all constrained to the current project.
 - ✅ **Bulk & Filtered Actions**: Instance, volume, network, image, snapshot, and keypair managers accept comma-delimited targets or filter criteria to orchestrate bulk changes intentionally.
 - ✅ **Post-Action Feedback & Async Guidance**: Mutating tools reuse a shared result handler that adds emoji status checks, asynchronous timing notes, and follow-up verification commands.
-- ✅ **Monitoring & Usage Insights**: `get_service_status`, `get_system_information`, `get_resource_monitoring`, `get_usage_statistics`, and quota tools surface service availability, utilization, and capacity for the active project.
+- ✅ **Monitoring & Usage Insights**: `get_system_information`, `get_resource_monitoring`, `get_usage_statistics`, and quota tools surface utilization and capacity for the active project.
 - ✅ **Unified Instance Queries**: The `get_instance` tool consolidates name, ID, status, and free-form search paths with pagination plus summary/detailed modes.
 - ✅ **Server Insight & Audit Trail**: Dedicated tools expose server events, hypervisor details, availability zones, quotas, and resource ownership to speed diagnostics.
 - ✅ **Load Balancer Management**: Octavia tools cover listeners, pools, members, health monitors, flavors, quotas, and amphora operations with the same safety gates.
@@ -179,7 +179,7 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | `openstack security group create/delete` | (Not yet implemented) | 🚧 | Security group management |
 | `openstack port list` | `get_network_details` (includes ports) | ✅ | Port information included |
 | `openstack network qos policy list` | (Not yet implemented) | 🚧 | QoS policy listing |
-| `openstack network agent list` | `get_service_status` (includes agents) | ✅ | Network agents |
+| `openstack network agent list` | `get_network_agents` | ✅ | Network agents |
 
 ### 3. 💾 **Storage (Cinder)**
 
@@ -218,8 +218,8 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | `openstack role assignment list` | `get_role_assignments` | ✅ | Role assignment listing |
 | `openstack domain list` | (Not yet implemented) | 🚧 | Domain listing |
 | `openstack group list` | (Not yet implemented) | 🚧 | Group listing |
-| `openstack service list` | `get_service_status` | ✅ | Service listing |
-| `openstack endpoint list` | `get_service_status` (includes endpoints) | ✅ | Endpoint information |
+| `openstack service list` | (Not implemented) | 🚧 | Service listing |
+| `openstack endpoint list` | (Not implemented) | 🚧 | Endpoint information |
 
 ### 6. ⚖️ **Load Balancer (Octavia)**
 
@@ -275,7 +275,6 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 |---------------------|---------|------|------|
 | Resource monitoring | `get_resource_monitoring` | ✅ | Resource monitoring |
 | System monitoring (compute services, block storage services, network agents) | `get_system_information` | ✅ | Infrastructure component health overview |
-| Service status | `get_service_status` | ✅ | Service status query |
 | Cluster overview | `get_cluster_status` | ✅ | Cluster overview |
 | Usage statistics | `get_usage_statistics` | ✅ | Usage statistics |
 

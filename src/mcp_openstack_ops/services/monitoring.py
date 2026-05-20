@@ -8,12 +8,9 @@ logger = logging.getLogger(__name__)
 
 def get_system_information() -> Dict[str, Any]:
     try:
-        from ..functions import get_service_status
-
         return {
             "success": True,
             "system": {
-                "services": get_service_status(),
                 "data_source": "mariadb",
             },
         }

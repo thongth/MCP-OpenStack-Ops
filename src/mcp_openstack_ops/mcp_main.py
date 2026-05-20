@@ -237,7 +237,7 @@ ALLOW_MODIFY_OPERATIONS=true
 **⚠️  WARNING**: Only enable this in development or testing environments where data loss is acceptable.
 
 **Read-only operations available:**
-- get_cluster_status, get_service_status
+- get_cluster_status
 - get_instance_details, search_instances
 - get_network_details, get_project_info
 - get_flavor_list, get_image_list, get_user_list
