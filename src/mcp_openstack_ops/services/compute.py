@@ -134,6 +134,50 @@ def _power_state_label(value: Any) -> str:
     return labels.get(int_value, f"UNKNOWN({int_value})")
 
 
+def _find_nested_value(data: Any, keys: set[str]) -> Any:
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key in keys and value not in (None, ""):
+                return value
+        for value in data.values():
+            found = _find_nested_value(value, keys)
+            if found not in (None, ""):
+                return found
+    elif isinstance(data, list):
+        for value in data:
+            found = _find_nested_value(value, keys)
+            if found not in (None, ""):
+                return found
+    return None
+
+def _extract_flavor_from_extra(raw_flavor: Any) -> Dict[str, Any]:
+    data = _json_value(raw_flavor, default={})
+    if not isinstance(data, dict):
+        return {}
+    return {
+        "id": _find_nested_value(data, {"flavorid"}) or _find_nested_value(data, {"flavor_id"}) or _find_nested_value(data, {"id"}),
+        "name": _find_nested_value(data, {"name", "original_name"}),
+        "vcpus": _find_nested_value(data, {"vcpus"}),
+        "ram": _find_nested_value(data, {"memory_mb", "ram"}),
+        "disk": _find_nested_value(data, {"root_gb", "disk"}),
+        "ephemeral": _find_nested_value(data, {"ephemeral_gb", "ephemeral"}),
+        "swap": _find_nested_value(data, {"swap"}),
+    }
+
+def _metadata_value(metadata: Dict[str, Dict[str, Any]], instance_id: str, *keys: str) -> Any:
+    instance_metadata = metadata.get(instance_id, {})
+    for key in keys:
+        value = instance_metadata.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+def _coerce_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
 def _get_compute_group_counts(cur, group_expr: str, where_sql: str, params: List[Any], label: str) -> List[Dict[str, Any]]:
     if group_expr == "NULL":
         return []
@@ -261,18 +305,19 @@ def get_instance_details(
                         select_network_info = "iic.network_info AS network_info"
 
                 select_flavor = (
-                    "NULL AS flavor_id, NULL AS flavor_name, 0 AS vcpus, 0 AS memory_mb, "
+                    "NULL AS flavor_id, NULL AS flavor_public_id, NULL AS flavor_name, 0 AS vcpus, 0 AS memory_mb, "
                     "0 AS root_gb, 0 AS ephemeral_gb, 0 AS swap"
                 )
                 if _table_exists(cur, "instance_types"):
                     flavor_columns = _table_columns(cur, "instance_types")
                     flavor_deleted_expr = _column_expr("it", flavor_columns, "deleted", default="0")
+                    flavor_public_id_expr = _column_expr("it", flavor_columns, "flavorid", default="it.id")
                     joins += (
                         " LEFT JOIN instance_types it ON it.id = "
                         f"{type_id_expr} AND ({flavor_deleted_expr} = 0 OR {flavor_deleted_expr} = '0')"
                     )
                     select_flavor = (
-                        "it.id AS flavor_id, it.name AS flavor_name, it.vcpus, "
+                        f"it.id AS flavor_id, {flavor_public_id_expr} AS flavor_public_id, it.name AS flavor_name, it.vcpus, "
                         "it.memory_mb, it.root_gb, it.ephemeral_gb, it.swap"
                     )
 
@@ -315,6 +360,8 @@ def get_instance_details(
 
                 instance_ids = [row["id"] for row in rows if row.get("id")]
                 volumes_by_instance: Dict[str, List[str]] = {}
+                flavor_by_instance: Dict[str, Dict[str, Any]] = {}
+                metadata_by_instance: Dict[str, Dict[str, Any]] = {}
                 if instance_ids and _table_exists(cur, "block_device_mapping"):
                     bdm_columns = _table_columns(cur, "block_device_mapping")
                     if {"instance_uuid", "volume_id"}.issubset(bdm_columns):
@@ -329,12 +376,54 @@ def get_instance_details(
                         for bdm in cur.fetchall():
                             volumes_by_instance.setdefault(bdm["instance_uuid"], []).append(bdm["volume_id"])
 
+                if instance_ids and _table_exists(cur, "instance_extra"):
+                    extra_columns = _table_columns(cur, "instance_extra")
+                    if {"instance_uuid", "flavor"}.issubset(extra_columns):
+                        placeholders = ",".join(["%s"] * len(instance_ids))
+                        extra_deleted_expr = _column_expr("", extra_columns, "deleted", default="0")
+                        cur.execute(
+                            f"SELECT instance_uuid, flavor FROM instance_extra "
+                            f"WHERE instance_uuid IN ({placeholders}) "
+                            f"AND ({extra_deleted_expr} = 0 OR {extra_deleted_expr} = '0')",
+                            instance_ids,
+                        )
+                        for extra in cur.fetchall():
+                            flavor_by_instance[extra["instance_uuid"]] = _extract_flavor_from_extra(extra.get("flavor"))
+
+                if instance_ids and _table_exists(cur, "instance_system_metadata"):
+                    metadata_columns = _table_columns(cur, "instance_system_metadata")
+                    if {"instance_uuid", "key", "value"}.issubset(metadata_columns):
+                        placeholders = ",".join(["%s"] * len(instance_ids))
+                        metadata_deleted_expr = _column_expr("", metadata_columns, "deleted", default="0")
+                        cur.execute(
+                            f"SELECT instance_uuid, `key`, value FROM instance_system_metadata "
+                            f"WHERE instance_uuid IN ({placeholders}) "
+                            f"AND ({metadata_deleted_expr} = 0 OR {metadata_deleted_expr} = '0')",
+                            instance_ids,
+                        )
+                        for item in cur.fetchall():
+                            metadata_by_instance.setdefault(item["instance_uuid"], {})[item["key"]] = item.get("value")
+
                 instances = []
                 for row in rows:
+                    instance_id = row.get("id")
                     power_state = row.get("power_state") or 0
-                    image_id = row.get("image_id")
+                    extra_flavor = flavor_by_instance.get(instance_id, {})
+                    image_id = row.get("image_id") or _metadata_value(
+                        metadata_by_instance,
+                        instance_id,
+                        "image_base_image_ref",
+                        "image_id",
+                    )
+                    image_name = _metadata_value(
+                        metadata_by_instance,
+                        instance_id,
+                        "image_name",
+                        "image_meta_name",
+                        "image_os_distro",
+                    )
                     instances.append({
-                        "id": row.get("id"),
+                        "id": instance_id,
                         "name": row.get("name") or "unnamed",
                         "status": str(row.get("status") or "unknown").upper(),
                         "power_state": power_state,
@@ -348,15 +437,22 @@ def get_instance_details(
                         "hypervisor_hostname": row.get("hypervisor_hostname") or "unknown",
                         "availability_zone": row.get("availability_zone") or "unknown",
                         "flavor": {
-                            "id": row.get("flavor_id") or "unknown",
-                            "name": row.get("flavor_name") or "unknown",
-                            "vcpus": row.get("vcpus") or 0,
-                            "ram": row.get("memory_mb") or 0,
-                            "disk": row.get("root_gb") or 0,
-                            "ephemeral": row.get("ephemeral_gb") or 0,
-                            "swap": row.get("swap") or 0,
+                            "id": extra_flavor.get("id")
+                            or row.get("flavor_public_id")
+                            or row.get("flavor_id")
+                            or _metadata_value(metadata_by_instance, instance_id, "instance_type_flavorid", "instance_type_id")
+                            or "unknown",
+                            "name": row.get("flavor_name")
+                            or extra_flavor.get("name")
+                            or _metadata_value(metadata_by_instance, instance_id, "instance_type_name")
+                            or "unknown",
+                            "vcpus": _coerce_int(row.get("vcpus") or extra_flavor.get("vcpus") or _metadata_value(metadata_by_instance, instance_id, "instance_type_vcpus")),
+                            "ram": _coerce_int(row.get("memory_mb") or extra_flavor.get("ram") or _metadata_value(metadata_by_instance, instance_id, "instance_type_memory_mb")),
+                            "disk": _coerce_int(row.get("root_gb") or extra_flavor.get("disk") or _metadata_value(metadata_by_instance, instance_id, "instance_type_root_gb")),
+                            "ephemeral": _coerce_int(row.get("ephemeral_gb") or extra_flavor.get("ephemeral") or _metadata_value(metadata_by_instance, instance_id, "instance_type_ephemeral_gb")),
+                            "swap": _coerce_int(row.get("swap") or extra_flavor.get("swap") or _metadata_value(metadata_by_instance, instance_id, "instance_type_swap")),
                         },
-                        "image": {"id": image_id or "unknown", "name": "unknown"},
+                        "image": {"id": image_id or "unknown", "name": image_name or "unknown"},
                         "key_name": row.get("key_name"),
                         "networks": _parse_networks(row.get("network_info")),
                         "security_groups": [],
@@ -368,7 +464,7 @@ def get_instance_details(
                         "progress": row.get("progress") or 0,
                         "config_drive": _bool_value(row.get("config_drive")),
                         "locked": _bool_value(row.get("locked")),
-                        "attached_volumes": volumes_by_instance.get(row.get("id"), []),
+                        "attached_volumes": volumes_by_instance.get(instance_id, []),
                         "data_source": "mariadb",
                     })
 
