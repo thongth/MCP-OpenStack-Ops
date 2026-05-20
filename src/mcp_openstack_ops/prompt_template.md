@@ -27,6 +27,7 @@ Use summary first, detail second.
 ### Compute
 
 - Overall VM status: `get_instance_summary`
+- Unified compute lookup: `get_compute_resource`
 - VM by ID/name: `get_instance_by_id_or_name` or `get_instance`
 - VM by project: `get_instance_by_project`
 - VM by status: `get_instances_by_status`
@@ -38,6 +39,7 @@ Use summary first, detail second.
 ### Network
 
 - Network summary: `get_network_summary`
+- Unified network lookup: `get_network_resource`
 - Network lookup: `get_network`, `get_network_by_id_or_name`, `get_network_by_project`
 - Ports: `get_network_ports`
 - Agents: `get_network_agents`
@@ -64,6 +66,7 @@ Use summary first, detail second.
 ### Load Balancer
 
 - Load balancer list/detail: `get_load_balancer_list`, `get_load_balancer_details`
+- Unified load balancer lookup: `get_loadbalancer_resource`
 - Related Octavia resources: listeners, pools, pool members, health monitors, L7 policies/rules, providers, flavors, availability zones, quotas, amphorae.
 
 ## Large Output Rules

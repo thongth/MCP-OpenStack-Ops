@@ -12,6 +12,7 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 ## Compute
 
 - `get_instance.py`
+- `get_compute_resource.py`
 - `get_instance_by_id_or_name.py`
 - `get_instance_by_project.py`
 - `get_instance_details.py`
@@ -28,6 +29,7 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 ## Network
 
 - `get_network.py`
+- `get_network_resource.py`
 - `get_network_by_id_or_name.py`
 - `get_network_by_project.py`
 - `get_network_details.py`
@@ -104,6 +106,7 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 ## Load Balancer / Octavia
 
 - `get_load_balancer_list.py`
+- `get_loadbalancer_resource.py`
 - `get_load_balancer_details.py`
 - `get_load_balancer_listeners.py`
 - `get_load_balancer_pools.py`

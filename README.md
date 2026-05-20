@@ -20,6 +20,7 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 ### Compute / Nova
 
 - `get_instance`
+- `get_compute_resource`
 - `get_instance_by_id_or_name`
 - `get_instance_by_project`
 - `get_instance_details`
@@ -36,6 +37,7 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 ### Network / Neutron
 
 - `get_network`
+- `get_network_resource`
 - `get_network_by_id_or_name`
 - `get_network_by_project`
 - `get_network_details`
@@ -103,6 +105,7 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 ### Load Balancer / Octavia
 
 - `get_load_balancer_list`
+- `get_loadbalancer_resource`
 - `get_load_balancer_details`
 - `get_load_balancer_listeners`
 - `get_load_balancer_pools`
@@ -121,13 +124,16 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 Use summary tools first, then drill down with filters:
 
 - Instances: `get_instance_summary` -> `get_instances_by_status` / `get_instance_by_project` / `get_instance_by_id_or_name`
+- Compute unified drill-down: `get_compute_resource`
 - Networks: `get_network_summary` -> `get_network_by_project` / `get_network_by_id_or_name`
+- Network unified drill-down: `get_network_resource`
 - Routers: `get_routers_summary` -> `get_routers_by_status` / `get_routers_by_project`
 - Security groups: `get_security_groups_summary` -> `get_security_groups_by_project`
 - Floating IPs: `get_floating_ips_summary` -> `get_floating_ips_by_project`
 - Volumes: `get_volume_summary` -> `get_volume_by_status` / `get_volume_by_project`
 - Snapshots: `get_volume_snapshot_summary` -> `get_volume_snapshot_by_status` / `get_volume_snapshot_by_project`
 - Backups: `get_volume_backup_summary` -> `get_volume_backup_by_status` / `get_volume_backup_by_project`
+- Load balancer unified drill-down: `get_loadbalancer_resource`
 
 For large sites, avoid full list tools unless an export/full audit is really needed. Prefer `limit`, `offset`, `fields`, `project_id`, and `status` filters.
 

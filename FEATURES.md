@@ -33,4 +33,5 @@ This repository exposes read-only MCP tools for OpenStack operations. It is opti
 
 - Use summaries first: `get_instance_summary`, `get_network_summary`, `get_volume_summary`, `get_volume_snapshot_summary`, `get_volume_backup_summary`.
 - Use filtered detail tools for investigation: by `project_id`, `status`, `id/name`, `limit`, `offset`, and `fields`.
+- Use unified resource tools when the user asks broadly by domain: `get_compute_resource`, `get_network_resource`, `get_storage_resource`, `get_loadbalancer_resource`.
 - Avoid full backup/snapshot lists on large sites unless exporting or auditing.
