@@ -23,7 +23,7 @@
 ## Features
 
 - ✅ **Project-Scoped Operations**: Every tool enforces the configured `OS_PROJECT_NAME`, validating resource ownership so actions stay inside a single tenant.
-- ✅ **90+ Purpose-Built Tools**: Broad coverage across compute, networking, storage, images, identity, Heat, and Octavia load balancing tasks—all constrained to the current project.
+- ✅ **Purpose-Built Tools**: Broad coverage across compute, networking, storage, images, identity, and Octavia load balancing tasks—all constrained to the current project.
 - ✅ **Bulk & Filtered Actions**: Instance, volume, network, image, snapshot, and keypair managers accept comma-delimited targets or filter criteria to orchestrate bulk changes intentionally.
 - ✅ **Post-Action Feedback & Async Guidance**: Mutating tools reuse a shared result handler that adds emoji status checks, asynchronous timing notes, and follow-up verification commands.
 - ✅ **Monitoring & Usage Insights**: `get_service_status`, `get_system_information`, `get_resource_monitoring`, `get_usage_statistics`, and quota tools surface service availability, utilization, and capacity for the active project.
@@ -221,18 +221,7 @@ New consolidated `get_instance` tool replaces multiple separate tools:
 | `openstack service list` | `get_service_status` | ✅ | Service listing |
 | `openstack endpoint list` | `get_service_status` (includes endpoints) | ✅ | Endpoint information |
 
-### 6. 🔥 **Orchestration (Heat)**
-
-| OpenStack CLI Command | MCP Tool | Status | Notes |
-|---------------------|---------|------|------|
-| `openstack stack list` | `get_heat_stacks` | ✅ | Stack listing |
-| `openstack stack show` | `get_heat_stacks` (filtering) | ✅ | Specific stack query |
-| `openstack stack resource list` | (Not yet implemented) | 🚧 | Stack resource listing |
-| `openstack stack event list` | (Not yet implemented) | 🚧 | Stack event listing |
-| `openstack stack template show` | (Not yet implemented) | 🚧 | Template query |
-| `openstack stack output list` | (Not yet implemented) | 🚧 | Stack output listing |
-
-### 7. ⚖️ **Load Balancer (Octavia)**
+### 6. ⚖️ **Load Balancer (Octavia)**
 
 | OpenStack CLI Command | MCP Tool | Status | Notes |
 |---------------------|---------|------|------|
@@ -490,8 +479,6 @@ Options:
 | `OS_VOLUME_PORT` | Volume service port | `8776` | Cinder endpoint |
 | `OS_IMAGE_PORT` | Image service port | `9292` | Glance endpoint |
 | `OS_PLACEMENT_PORT` | Placement service port | `8780` | Placement endpoint |
-| `OS_HEAT_STACK_PORT` | Heat orchestration service port | `8004` | Heat API endpoint |
-| `OS_HEAT_STACK_CFN_PORT` | Heat CloudFormation service port | `18888` | Heat CFN API endpoint (default: 8000, changed to avoid Docker port conflicts) |
 | **MCP Server Configuration** |
 | `MCP_LOG_LEVEL` | Logging level | `INFO` | Development debugging |
 | `ALLOW_MODIFY_OPERATIONS` | Enable modify operations | `false` | Safety control for state modifications |
@@ -537,7 +524,6 @@ Options:
 | **Image** | Private images (owned), Public/Community/Shared images | Smart filtering prevents zero-image issues |
 | **Network** | Networks, Subnets, Security Groups, Floating IPs, Routers | Includes shared/external networks for access |
 | **Storage** | Volumes, Snapshots, Backups | All storage resources within project |
-| **Orchestration** | Heat Stacks, Stack Resources | All orchestration within project |
 | **Load Balancer** | Load Balancers, Listeners, Pools | All load balancing within project |
 | **Monitoring** | Resource usage, Project quotas | Project-specific monitoring data |
 
@@ -690,7 +676,6 @@ ALLOW_MODIFY_OPERATIONS=false
 - Floating IP operations (create, delete, associate, disassociate)
 - Snapshot management (create, delete)
 - Image management (create, delete, update)
-- Heat stack operations (create, delete, update)
 
 **Always Available (Read-Only Operations):**
 - Cluster status and monitoring
@@ -730,7 +715,6 @@ This section includes:
 - �️ Instance management operations
 - 🌐 Network configuration tasks
 - � Storage management workflows
-- 🔥 Heat orchestration examples
 - ⚖️ Load balancer operations
 - � Advanced search patterns
 - 📊 Monitoring and troubleshooting

@@ -6,7 +6,7 @@ MCP-OpenStack-Ops is a Model Context Protocol server designed for safe, project-
 ## Core Features
 
 - **Project-Scoped Operations**: All tools are scoped to the configured `OS_PROJECT_NAME`, preventing cross-tenant access.
-- **Wide OpenStack Coverage**: Supports compute, networking, storage, image, identity, orchestration, monitoring, and load balancer operations.
+- **Wide OpenStack Coverage**: Supports compute, networking, storage, image, identity, monitoring, and load balancer operations.
 - **Filtered Queries**: Accepts filters and pagination for focused resource discovery.
 - **Monitoring & Usage Insights**: Includes tools for service status, system monitoring (compute services, block storage services, network agents), resource consumption, usage statistics, and quota monitoring.
 - **Unified Instance Queries**: Consolidated instance lookup with pagination, summary/detail modes, and flexible targeting.

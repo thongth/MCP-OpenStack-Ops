@@ -24,7 +24,6 @@
     - Instances: Only project instances are visible and manageable
     - Storage: Project volumes, snapshots, backups only
     - Load Balancers: Project load balancers and listeners only
-    - Heat Stacks: Project orchestration stacks only
     - Identity: Users with roles in current project + project-scoped role assignments
   - **Multi-project Management**: Requires multiple MCP server instances with different `OS_PROJECT_NAME` configurations
   - **Read-only all-projects mode**: Set `ALLOW_ALL_PROJECTS_READONLY=true` to enable cross-project read-only listings. This mode is only safe when `ALLOW_MODIFY_OPERATIONS=false`.
@@ -92,7 +91,6 @@ This ensures we don't provide false success confirmations when operations may ha
 - **Volume Operations**: `✅ Volume [action] initiated. Verify: "List all volumes"`
 - **Network Operations**: `✅ Network [action] initiated. Verify: "Show all networks"`
 - **Image Operations**: `✅ Image [action] initiated. Verify: "List available images"`
-- **Stack Operations**: `✅ Stack [action] initiated. Verify: "List all Heat stacks"`
 - **Other Operations**: `✅ [Resource] [action] initiated. Verify with appropriate status command.`
 
 **Universal Empty Response Pattern**:
@@ -378,9 +376,6 @@ For requests like "Create cluster status report", "Show cluster operational repo
 - `get_volume_list()` - Volume status, usage, and attachments
 - `get_image_detail_list()` - Available images and usage patterns
 
-**6. Orchestration & Advanced Services:**
-- `get_heat_stacks()` - Orchestration templates and stack status
-
 This approach provides **comprehensive 360-degree cluster visibility** with infrastructure, compute, network, storage, and service-level insights.
 
 ### 📊 **Monitoring & Status Tools (6 tools)**
@@ -461,9 +456,6 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
   - **Post-action Status**: Automatic verification with emoji indicators 🟢🔴🟡
   - **Actions**: create/delete/update/list (**Conditional Tool**)
 
-### 🔥 **Heat Stack Management (2 tools)**
-- `get_heat_stacks`: Stack status and info
-
 ### 📊 **Monitoring & Logging (4 tools)**
 
 **Total: 93 comprehensive OpenStack management tools**
@@ -482,7 +474,7 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 **For comprehensive cluster reports, use these tool combinations:**
 
 - **"Create cluster status report"** / **"Cluster status report"** / **"클러스터 운영 현황"** → 
-  - `get_service_status()` + `get_resource_monitoring()` + `get_hypervisor_details()` + `get_instance(all_instances=True)` + `get_project_details()` + `get_network_details()` + `get_volume_list()` + `get_load_balancer_details()` + `get_heat_stacks()`
+  - `get_service_status()` + `get_resource_monitoring()` + `get_hypervisor_details()` + `get_instance(all_instances=True)` + `get_project_details()` + `get_network_details()` + `get_volume_list()` + `get_load_balancer_details()`
 
 - **"Show detailed cluster analysis"** / **"resource utilization"** → 
   - `get_resource_monitoring()` + `get_hypervisor_details()` + `get_instance(all_instances=True)` + `get_volume_list()`
@@ -504,8 +496,6 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 
 ### 🔧 **Management Operations**
 - "List floating IP pools" → `get_floating_ip_pools()`
-- "Show Heat stacks" → `get_heat_stacks`
-
 ### 📈 **Monitoring & Resources**
 - "Hypervisor statistics" / "resource monitoring" → `monitor_resources`
 
@@ -543,8 +533,8 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 
 ### 📊 **Common Operations**
 ```
-"Create cluster status report" → Use tool combination: get_service_status() + get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details() + get_heat_stacks()
-"클러스터 운영 현황 보고해줘" → Use tool combination: get_service_status() + get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details() + get_heat_stacks()
+"Create cluster status report" → Use tool combination: get_service_status() + get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details()
+"클러스터 운영 현황 보고해줘" → Use tool combination: get_service_status() + get_resource_monitoring() + get_hypervisor_details() + get_instance(all_instances=True) + get_project_details() + get_network_details() + get_volume_list() + get_load_balancer_details()
 
 # Enhanced examples with new API structure
 
@@ -638,16 +628,6 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 "List users in current project"
 "Show role assignments"
 "Create keypair named my-key"
-```
-
-
-### 🔥 **Orchestration (Heat)**
-
-```
-"List all Heat stacks"
-"Show stack status for production-stack"
-"Create stack from template with parameters"
-"Delete stack old-deployment"
 ```
 
 
@@ -772,4 +752,4 @@ This approach provides **comprehensive 360-degree cluster visibility** with infr
 
 ---
 
-**Enhanced with 89 comprehensive OpenStack management tools including advanced server management, network operations, storage management, identity & access control, image management, orchestration, and monitoring capabilities. Optimized for production environments with built-in safety controls and performance optimization.**
+**Enhanced with comprehensive OpenStack management tools including advanced server management, network operations, storage management, identity & access control, image management, and monitoring capabilities. Optimized for production environments with built-in safety controls and performance optimization.**

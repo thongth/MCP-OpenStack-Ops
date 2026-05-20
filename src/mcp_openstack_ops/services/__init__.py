@@ -63,12 +63,6 @@ from .identity import (
     set_keypair
 )
 
-# Orchestration service functions
-from .orchestration import (
-    get_heat_stacks,
-    set_heat_stack
-)
-
 # Image service functions
 from .image import (
     get_image_list,
@@ -192,10 +186,6 @@ __all__ = [
     'get_role_assignments',
     'get_keypair_list',
     'set_keypair',
-    
-    # Orchestration
-    'get_heat_stacks',
-    'set_heat_stack',
     
     # Image
     'get_image_list',

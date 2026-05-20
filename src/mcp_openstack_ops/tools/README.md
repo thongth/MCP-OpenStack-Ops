@@ -95,10 +95,6 @@ Tai lieu nay tom tat nhanh cac tool wrappers trong `src/mcp_openstack_ops/tools/
 - `get_hypervisor_details.py`
 - `get_availability_zones.py`
 
-### Orchestration
-
-- `get_heat_stacks.py`
-
 ### Load Balancer (Octavia)
 
 - `get_load_balancer_list.py`

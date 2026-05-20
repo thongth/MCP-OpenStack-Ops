@@ -50,7 +50,7 @@ def get_cluster_status() -> Dict[str, Any]:
         }
         
         # Check service availability
-        services = ['compute', 'network', 'volume', 'image', 'identity', 'orchestration']
+        services = ['compute', 'network', 'volume', 'image', 'identity']
         
         for service in services:
             try:
@@ -90,66 +90,6 @@ def get_cluster_status() -> Dict[str, Any]:
                     except Exception:
                         service_status['endpoint'] = f"http://{os.environ.get('OS_AUTH_HOST', 'localhost')}:{os.environ.get('OS_AUTH_PORT', '5000')}"
                     
-                elif service == 'orchestration':
-                    # Test orchestration service (Heat) with manual API call
-                    try:
-                        import requests
-                        import os
-                        
-                        # Get project ID and token
-                        project_id = conn.current_project_id
-                        token = conn.identity.get_token()
-                        
-                        # Construct Heat API URL
-                        auth_host = os.environ.get('OS_AUTH_HOST', 'localhost')
-                        heat_port = os.environ.get('OS_HEAT_STACK_PORT', '8004')
-                        heat_url = f"http://{auth_host}:{heat_port}/v1/{project_id}/stacks"
-                        
-                        headers = {'X-Auth-Token': token}
-                        
-                        # Test Heat API with timeout
-                        response = requests.get(heat_url, headers=headers, timeout=5)
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            stacks_count = len(data.get('stacks', []))
-                            
-                            # Also get Heat engine services information
-                            try:
-                                services_url = f"http://{auth_host}:{heat_port}/v1/{project_id}/services"
-                                services_response = requests.get(services_url, headers=headers, timeout=3)
-                                
-                                heat_engines_info = "engines status unknown"
-                                if services_response.status_code == 200:
-                                    services_data = services_response.json()
-                                    heat_services = services_data.get('services', [])
-                                    up_engines = [s for s in heat_services if s.get('status') == 'up']
-                                    heat_engines_info = f"{len(up_engines)}/{len(heat_services)} engines up"
-                            except Exception:
-                                heat_engines_info = "engines status unavailable"
-                            
-                            service_status['endpoint'] = f"http://{auth_host}:{heat_port}/v1"
-                            service_status['details'] = {
-                                'stacks_count': stacks_count,
-                                'api_version': 'v1',
-                                'status': 'accessible',
-                                'engines_info': heat_engines_info
-                            }
-                            logger.info(f"Heat service check successful: {stacks_count} stacks found, {heat_engines_info}")
-                        else:
-                            raise Exception(f"Heat API returned {response.status_code}: {response.text[:100]}")
-                            
-                    except requests.exceptions.Timeout:
-                        logger.warning("Heat service check timeout")
-                        service_status['available'] = False
-                        service_status['endpoint'] = 'timeout'
-                        service_status['error'] = 'API call timeout (5s)'
-                    except Exception as e:
-                        logger.warning(f"Heat service check failed: {e}")
-                        service_status['available'] = False
-                        service_status['endpoint'] = 'unavailable'
-                        service_status['error'] = f'Heat API error: {str(e)}'
-                
                 status_data['services'][service] = service_status
                 
             except Exception as e:
@@ -955,7 +895,7 @@ def get_service_status(service_name: str = "") -> Dict[str, Any]:
     Get detailed status for specific OpenStack services.
     
     Args:
-        service_name: Name of service to check (compute, network, volume, image, identity, orchestration)
+        service_name: Name of service to check (compute, network, volume, image, identity)
                      If empty, returns status for all services
     
     Returns:
@@ -966,7 +906,7 @@ def get_service_status(service_name: str = "") -> Dict[str, Any]:
         
         if not service_name:
             # Return status for all services instead of using get_cluster_status
-            services = ['compute', 'network', 'volume', 'image', 'identity', 'orchestration']
+            services = ['compute', 'network', 'volume', 'image', 'identity']
             all_services = {}
             
             for service in services:
@@ -1006,39 +946,6 @@ def get_service_status(service_name: str = "") -> Dict[str, Any]:
                         except Exception:
                             service_status['endpoint'] = f"http://{os.environ.get('OS_AUTH_HOST', 'localhost')}:{os.environ.get('OS_AUTH_PORT', '5000')}"
                         
-                    elif service == 'orchestration':
-                        # Test orchestration service (Heat) with manual API call
-                        try:
-                            import requests
-                            
-                            # Get project ID and token
-                            project_id = conn.current_project_id
-                            token = conn.identity.get_token()
-                            
-                            # Construct Heat API URL
-                            auth_host = os.environ.get('OS_AUTH_HOST', 'localhost')
-                            heat_port = os.environ.get('OS_HEAT_STACK_PORT', '8004')
-                            heat_url = f"http://{auth_host}:{heat_port}/v1/{project_id}/stacks"
-                            
-                            headers = {
-                                'X-Auth-Token': token,
-                                'Content-Type': 'application/json'
-                            }
-                            
-                            # Make a test call to Heat API (get stacks)
-                            response = requests.get(heat_url, headers=headers, timeout=10)
-                            
-                            if response.status_code in [200, 404]:  # 404 is OK - means no stacks
-                                service_status['endpoint'] = f"http://{auth_host}:{heat_port}"
-                                service_status['version'] = 'v1'
-                            else:
-                                raise Exception(f"Heat API returned status {response.status_code}")
-                                
-                        except Exception as heat_e:
-                            logger.warning(f"Heat service test failed: {heat_e}")
-                            service_status['available'] = False
-                            service_status['error'] = str(heat_e)
-                    
                     all_services[service] = service_status
                     
                 except Exception as e:
@@ -1051,7 +958,7 @@ def get_service_status(service_name: str = "") -> Dict[str, Any]:
             return all_services
         
         service_name = service_name.lower()
-        supported_services = ['compute', 'network', 'volume', 'image', 'identity', 'orchestration']
+        supported_services = ['compute', 'network', 'volume', 'image', 'identity']
         
         if service_name not in supported_services:
             return {
@@ -1143,78 +1050,6 @@ def get_service_status(service_name: str = "") -> Dict[str, Any]:
                     'roles': len(roles),
                     'enabled_projects': len([p for p in projects if p.is_enabled])
                 }
-                
-            elif service_name == 'orchestration':
-                # Detailed orchestration service check with direct API call
-                try:
-                    import requests
-                    import os
-                    
-                    # Get project ID and token
-                    project_id = conn.current_project_id
-                    token = conn.identity.get_token()
-                    
-                    # Construct Heat API URL
-                    auth_host = os.environ.get('OS_AUTH_HOST', 'localhost')
-                    heat_port = os.environ.get('OS_HEAT_STACK_PORT', '8004')
-                    heat_url = f"http://{auth_host}:{heat_port}/v1/{project_id}/stacks"
-                    
-                    headers = {'X-Auth-Token': token}
-                    
-                    # Test Heat API with timeout
-                    response = requests.get(heat_url, headers=headers, timeout=10)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        stacks = data.get('stacks', [])
-                        
-                        # Also check Heat engine services status
-                        heat_services = []
-                        try:
-                            services_url = f"http://{auth_host}:{heat_port}/v1/{project_id}/services"
-                            services_response = requests.get(services_url, headers=headers, timeout=5)
-                            
-                            if services_response.status_code == 200:
-                                services_data = services_response.json()
-                                heat_services = services_data.get('services', [])
-                        except Exception as services_error:
-                            logger.warning(f"Could not fetch Heat services details: {services_error}")
-                        
-                        # Analyze Heat engine status
-                        up_services = [s for s in heat_services if s.get('status') == 'up']
-                        down_services = [s for s in heat_services if s.get('status') == 'down']
-                        
-                        service_status['endpoint'] = f"http://{auth_host}:{heat_port}/v1"
-                        service_status['available'] = True
-                        service_status['details'] = {
-                            'stacks': len(stacks),
-                            'create_complete': len([s for s in stacks if s.get('stack_status') == 'CREATE_COMPLETE']),
-                            'create_failed': len([s for s in stacks if s.get('stack_status') == 'CREATE_FAILED']),
-                            'update_complete': len([s for s in stacks if s.get('stack_status') == 'UPDATE_COMPLETE']),
-                            'other_status': len([s for s in stacks if s.get('stack_status') not in ['CREATE_COMPLETE', 'CREATE_FAILED', 'UPDATE_COMPLETE']]),
-                            'api_version': 'v1',
-                            'api_accessible': True,
-                            'heat_engines': {
-                                'total': len(heat_services),
-                                'up': len(up_services),
-                                'down': len(down_services),
-                                'all_engines_running': len(heat_services) > 0 and len(down_services) == 0,
-                                'engines_summary': f"{len(up_services)}/{len(heat_services)} engines up" if heat_services else "engines status unknown"
-                            }
-                        }
-                        logger.info(f"Heat detailed check successful: {len(stacks)} stacks found, {len(up_services)}/{len(heat_services)} engines up")
-                    else:
-                        raise Exception(f"Heat API returned {response.status_code}: {response.text[:100]}")
-                        
-                except requests.exceptions.Timeout:
-                    logger.warning("Heat detailed check timeout")
-                    service_status['available'] = False
-                    service_status['endpoint'] = 'timeout'
-                    service_status['error'] = 'Detailed API call timeout (10s)'
-                    service_status['details'] = {
-                        'stacks': 0,
-                        'note': 'API call timed out'
-                    }
                 
         except Exception as e:
             service_status['available'] = False

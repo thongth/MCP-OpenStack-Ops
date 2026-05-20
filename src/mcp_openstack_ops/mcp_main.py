@@ -69,11 +69,6 @@ def handle_operation_result(result: Dict[str, Any], operation_name: str, details
                 "timing": "5-15 seconds",
                 "verify_cmd": "Show all networks"
             },
-            "Heat Stack Management": {
-                "async_actions": ["create", "update", "delete"],
-                "timing": "2-10 minutes",
-                "verify_cmd": "List all Heat stacks"
-            },
             "Image Management": {
                 "async_actions": ["create", "delete", "update"],
                 "timing": "1-5 minutes",
@@ -248,7 +243,7 @@ ALLOW_MODIFY_OPERATIONS=true
 - get_flavor_list, get_image_list, get_user_list
 - get_keypair_list, get_security_groups
 - get_floating_ips, get_routers, get_volume_types
-- get_volume_snapshots, get_heat_stacks
+- get_volume_snapshots
 - get_resource_monitoring, get_usage_statistics, get_quota
 - get_volume, get_image_detail_list, get_project_details
 """

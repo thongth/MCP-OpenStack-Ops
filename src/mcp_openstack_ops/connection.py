@@ -85,8 +85,6 @@ def get_openstack_connection():
     volume_port = os.environ.get("OS_VOLUME_PORT", "8776")
     image_port = os.environ.get("OS_IMAGE_PORT", "9292")
     placement_port = os.environ.get("OS_PLACEMENT_PORT", "8780")
-    heat_stack_port = os.environ.get("OS_HEAT_STACK_PORT", "8004")
-    heat_stack_cfn_port = os.environ.get("OS_HEAT_STACK_CFN_PORT", "18888")
     
     try:
         logger.info(f"Creating OpenStack connection with protocol: {os_auth_protocol}, host: {os_auth_host}")
@@ -108,7 +106,6 @@ def get_openstack_connection():
             volume_endpoint=f"{os_auth_protocol}://{os_auth_host}:{volume_port}/v3",
             image_endpoint=f"{os_auth_protocol}://{os_auth_host}:{image_port}",
             placement_endpoint=f"{os_auth_protocol}://{os_auth_host}:{placement_port}",
-            orchestration_endpoint=f"{os_auth_protocol}://{os_auth_host}:{heat_stack_port}/v1",
             timeout=10
         )
         

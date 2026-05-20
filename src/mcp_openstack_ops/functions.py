@@ -98,33 +98,6 @@ def get_service_status() -> List[Dict[str, Any]]:
                 'service_type': 'image'
             })
             
-        # Get orchestration service status (Heat) - Skip due to timeout issues
-        try:
-            # Skip Heat service check due to network timeout issues
-            logger.warning("Skipping Heat service check due to known timeout issues")
-            services.append({
-                'binary': 'heat-engine',
-                'host': 'controller',
-                'status': 'enabled',
-                'state': 'unknown',
-                'zone': 'internal',
-                'updated_at': 'skipped',
-                'disabled_reason': 'Skipped due to timeout issues',
-                'service_type': 'orchestration'
-            })
-        except Exception as e:
-            logger.warning(f"Orchestration service (Heat) check skipped: {e}")
-            services.append({
-                'binary': 'heat-engine',
-                'host': 'controller',
-                'status': 'enabled',
-                'state': 'down',
-                'zone': 'internal',
-                'updated_at': 'unknown',
-                'disabled_reason': f'Service check failed: {str(e)}',
-                'service_type': 'orchestration'
-            })
-            
         return services if services else [
             {'binary': 'nova-compute', 'host': 'controller', 'status': 'enabled', 'state': 'up', 'zone': 'nova', 'service_type': 'compute'},
             {'binary': 'neutron-server', 'host': 'controller', 'status': 'enabled', 'state': 'up', 'zone': 'internal', 'service_type': 'network'}
@@ -991,12 +964,6 @@ from .services.monitoring import (
     get_hypervisor_details,
     get_availability_zones,
     set_quota
-)
-
-# Import orchestration functions from services
-from .services.orchestration import (
-    get_heat_stacks,
-    set_heat_stack
 )
 
 from .services.load_balancer import (

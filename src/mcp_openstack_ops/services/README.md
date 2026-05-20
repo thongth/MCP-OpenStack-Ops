@@ -56,11 +56,6 @@ Tong hop monitoring va quota/usage:
 - Usage va quota: `get_usage_statistics`, `get_quota`, `get_compute_quota_usage`
 - Ha tang compute: `get_hypervisor_details`, `get_availability_zones`
 
-### `orchestration.py`
-
-Quan ly Heat orchestration:
-- Listing stacks: `get_heat_stacks`
-
 ### `core.py`
 
 Service-level status:
