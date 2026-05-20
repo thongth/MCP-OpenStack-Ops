@@ -102,17 +102,6 @@ def get_service_status() -> List[Dict[str, Any]]:
         except Exception as e:
             logger.warning(f"Failed to get volume services from DB: {e}")
 
-        services.append({
-            'binary': 'glance-api',
-            'host': os.getenv('MARIADB_HOST', 'controller'),
-            'status': 'enabled',
-            'state': 'unknown',
-            'zone': 'internal',
-            'updated_at': datetime.now().isoformat(),
-            'disabled_reason': None,
-            'service_type': 'image',
-            'data_source': 'mariadb',
-        })
         return services
     except Exception as e:
         logger.error(f"Failed to get service status: {e}")
