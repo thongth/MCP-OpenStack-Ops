@@ -35,7 +35,7 @@ async def get_hypervisor_details(
             "result": hypervisor_result
         }
         
-        return json.dumps(response, indent=2, ensure_ascii=False)
+        return json.dumps(response, indent=2, ensure_ascii=False, default=str)
         
     except Exception as e:
         error_msg = f"Error: Failed to get hypervisor details - {str(e)}"

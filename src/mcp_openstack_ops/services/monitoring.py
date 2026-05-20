@@ -1,9 +1,48 @@
 """MariaDB-backed monitoring service functions."""
 
 import logging
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    return value
+
+def _percent(used: Any, total: Any) -> float | None:
+    try:
+        used_number = float(used)
+        total_number = float(total)
+    except (TypeError, ValueError):
+        return None
+    if total_number <= 0:
+        return None
+    return round((used_number / total_number) * 100, 2)
+
+def _serialize_hypervisor(row: Dict[str, Any]) -> Dict[str, Any]:
+    hypervisor = _json_safe(dict(row))
+    cpu_percent = _percent(hypervisor.get("vcpus_used"), hypervisor.get("vcpus"))
+    ram_percent = _percent(hypervisor.get("memory_mb_used"), hypervisor.get("memory_mb"))
+    disk_percent = _percent(hypervisor.get("local_gb_used"), hypervisor.get("local_gb"))
+
+    if cpu_percent is not None:
+        hypervisor["vcpus_used_percent"] = cpu_percent
+    if ram_percent is not None:
+        hypervisor["memory_mb_used_percent"] = ram_percent
+    if disk_percent is not None:
+        hypervisor["local_gb_used_percent"] = disk_percent
+
+    hypervisor["data_source"] = "mariadb"
+    return hypervisor
 
 
 def get_system_information() -> Dict[str, Any]:
@@ -106,7 +145,7 @@ def get_hypervisor_details(hypervisor_name: str = "all") -> Dict[str, Any]:
                     params.extend([hypervisor_name, hypervisor_name])
                 sql += " ORDER BY hypervisor_hostname ASC"
                 cur.execute(sql, params)
-                hypervisors = [dict(row, data_source="mariadb") for row in cur.fetchall()]
+                hypervisors = [_serialize_hypervisor(row) for row in cur.fetchall()]
                 return {"success": True, "hypervisors": hypervisors, "count": len(hypervisors)}
         finally:
             conn.close()
