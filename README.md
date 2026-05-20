@@ -134,6 +134,7 @@ Use summary tools first, then drill down with filters:
 - Snapshots: `get_volume_snapshot_summary` -> `get_volume_snapshot_by_status` / `get_volume_snapshot_by_project`
 - Backups: `get_volume_backup_summary` -> `get_volume_backup_by_status` / `get_volume_backup_by_project`
 - Load balancer unified drill-down: `get_loadbalancer_resource`
+- Listeners can be listed directly with `get_load_balancer_listeners()` or `get_loadbalancer_resource(resource_type="listener")`; `parent_id` is optional.
 
 For large sites, avoid full list tools unless an export/full audit is really needed. Prefer `limit`, `offset`, `fields`, `project_id`, and `status` filters.
 

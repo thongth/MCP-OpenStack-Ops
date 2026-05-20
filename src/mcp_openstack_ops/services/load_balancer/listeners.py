@@ -13,7 +13,7 @@ from .db import find_load_balancer, list_listeners
 logger = logging.getLogger(__name__)
 
 
-def get_load_balancer_listeners(lb_name_or_id: str) -> Dict[str, Any]:
+def get_load_balancer_listeners(lb_name_or_id: str = "") -> Dict[str, Any]:
     """
     Get listeners for a specific load balancer.
     
@@ -24,6 +24,15 @@ def get_load_balancer_listeners(lb_name_or_id: str) -> Dict[str, Any]:
         Dictionary containing listeners information
     """
     try:
+        if not lb_name_or_id:
+            listener_details = list_listeners()
+            return {
+                'success': True,
+                'scope': 'all_load_balancers',
+                'listeners': listener_details,
+                'listener_count': len(listener_details)
+            }
+
         lb = find_load_balancer(lb_name_or_id)
         if not lb:
             return {

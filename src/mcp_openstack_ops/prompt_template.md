@@ -67,6 +67,7 @@ Use summary first, detail second.
 
 - Load balancer list/detail: `get_load_balancer_list`, `get_load_balancer_details`
 - Unified load balancer lookup: `get_loadbalancer_resource`
+- Listener full list: use `get_load_balancer_listeners()` or `get_loadbalancer_resource(resource_type="listener")` without `parent_id`.
 - Related Octavia resources: listeners, pools, pool members, health monitors, L7 policies/rules, providers, flavors, availability zones, quotas, amphorae.
 
 ## Large Output Rules

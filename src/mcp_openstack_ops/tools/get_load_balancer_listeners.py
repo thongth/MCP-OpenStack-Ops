@@ -9,9 +9,9 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_load_balancer_listeners(lb_name_or_id: str) -> str:
+async def get_load_balancer_listeners(lb_name_or_id: str = "") -> str:
     """
-    Get listeners for a specific OpenStack load balancer.
+    Get listeners for a specific OpenStack load balancer, or all listeners when no load balancer is provided.
     
     Functions:
     - Lists all listeners attached to a load balancer
@@ -26,7 +26,7 @@ async def get_load_balancer_listeners(lb_name_or_id: str) -> str:
     - "Show listener configuration for [lb_name]"
     
     Args:
-        lb_name_or_id: Load balancer name or ID
+        lb_name_or_id: Optional load balancer name or ID. Leave empty to list all listeners.
         
     Returns:
         JSON string containing listener details for the load balancer

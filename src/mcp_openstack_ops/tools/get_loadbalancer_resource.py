@@ -79,7 +79,7 @@ async def get_loadbalancer_resource(
     Args:
         resource_type: load_balancer, listener, pool, member, health_monitor, l7_policy, l7_rule, or amphora.
         query: Optional exact id/name filter. Used as target for load_balancer detail when resource_type is load_balancer and parent_id is empty.
-        parent_id: Parent load balancer/listener/pool/policy ID or name for related resources.
+        parent_id: Optional parent load balancer/listener/pool/policy ID or name. Listener queries can omit it to list all listeners.
         project_id: Optional project ID filter for load balancers and post-filtered child resources.
         status: Optional provisioning/operating status filter.
         limit: Max rows returned, 0 for full result.
@@ -104,8 +104,6 @@ async def get_loadbalancer_resource(
             result_key = "load_balancers"
 
         elif normalized_type in {"listener", "listeners"}:
-            if not parent_id:
-                return "Error: parent_id must be a load balancer name or ID for listener resources"
             result = _get_load_balancer_listeners(lb_name_or_id=parent_id)
             items = _filter_page(_extract_items(result, "listeners"), query, project_id, status, limit, offset)
             result_key = "listeners"
