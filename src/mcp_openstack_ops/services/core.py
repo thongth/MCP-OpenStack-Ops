@@ -105,7 +105,7 @@ def get_cluster_status() -> Dict[str, Any]:
             # Compute resources
             from .compute import get_instance_summary
 
-            instance_summary = get_instance_summary(include_all_projects=True)
+            instance_summary = get_instance_summary()
             flavors = list(conn.compute.flavors())
             keypairs = list(conn.compute.keypairs())
             instance_states = {

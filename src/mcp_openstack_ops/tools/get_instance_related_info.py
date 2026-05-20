@@ -44,7 +44,7 @@ async def get_instance_related_info(
         ports = []
         if include_ports:
             try:
-                for port in _get_network_ports_from_mariadb(include_all_projects=True):
+                for port in _get_network_ports_from_mariadb():
                     if str(port.get("device_id") or "") != instance_id:
                         continue
                     for fixed_ip in port.get("fixed_ips", []) or []:
@@ -57,7 +57,7 @@ async def get_instance_related_info(
         floating_ips = []
         if include_fips:
             try:
-                for fip in get_floating_ips(include_all_projects=True):
+                for fip in get_floating_ips():
                     fip_port_id = fip.get("port_id")
                     fip_fixed_ip = fip.get("fixed_ip_address")
 
@@ -132,7 +132,7 @@ async def get_instance_related_info(
                 image_ref = instance.get("image") if isinstance(instance.get("image"), dict) else {}
                 image_id = str(image_ref.get("id", "")).strip()
                 if not image_info and image_id and image_id != "unknown":
-                    image_result = get_image_by_id_or_name(image_id, include_all_projects=True)
+                    image_result = get_image_by_id_or_name(image_id)
                     image_info = image_result.get("image") or image_info
             except Exception as e:
                 warnings.append(f"Failed to collect image detail: {e}")

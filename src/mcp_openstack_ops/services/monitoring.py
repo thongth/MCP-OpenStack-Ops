@@ -34,21 +34,21 @@ def get_resource_monitoring() -> Dict[str, Any]:
         )
         from .storage import get_volume_backup_summary, get_volume_snapshot_summary, get_volume_summary
 
-        images = get_image_list_filtered(include_all_projects=True, limit=1)
+        images = get_image_list_filtered(limit=1)
         return {
             "success": True,
             "resources": {
-                "compute": get_instance_summary(include_all_projects=True),
+                "compute": get_instance_summary(),
                 "network": {
-                    "networks": get_network_summary(include_all_projects=True),
-                    "floating_ips": get_floating_ips_summary(include_all_projects=True),
-                    "routers": get_routers_summary(include_all_projects=True),
-                    "security_groups": get_security_groups_summary(include_all_projects=True),
+                    "networks": get_network_summary(),
+                    "floating_ips": get_floating_ips_summary(),
+                    "routers": get_routers_summary(),
+                    "security_groups": get_security_groups_summary(),
                 },
                 "storage": {
-                    "volumes": get_volume_summary(include_all_projects=True),
-                    "snapshots": get_volume_snapshot_summary(include_all_projects=True),
-                    "backups": get_volume_backup_summary(include_all_projects=True),
+                    "volumes": get_volume_summary(),
+                    "snapshots": get_volume_snapshot_summary(),
+                    "backups": get_volume_backup_summary(),
                 },
                 "image": {
                     "total": images.get("total_count", 0),

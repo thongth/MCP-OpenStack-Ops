@@ -36,7 +36,7 @@ def get_image_detail_list() -> List[Dict[str, Any]]:
     Returns:
         List of detailed image information dictionaries for current project
     """
-    result = get_image_list_filtered(include_all_projects=True, limit=200, offset=0)
+    result = get_image_list_filtered(limit=200, offset=0)
     return result.get("images", []) if result.get("success") else []
 
 

@@ -82,14 +82,8 @@ def _bool_value(value: Any) -> bool:
 
 
 def _scope_project_id(include_all_projects: bool = False) -> Optional[str]:
-    if include_all_projects:
-        return None
-    return (
-        os.getenv("MARIADB_PROJECT_ID")
-        or os.getenv("OS_PROJECT_ID")
-        or os.getenv("OS_TENANT_ID")
-        or None
-    )
+    # MariaDB read tools default to backend-wide reads; pass project_id explicitly to filter.
+    return None
 
 
 def _parse_networks(network_info: Any) -> List[Dict[str, Any]]:

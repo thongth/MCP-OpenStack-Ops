@@ -537,7 +537,7 @@ def set_metrics(
             
             try:
                 # Compute summary from Nova DB includes all instance states, not only ACTIVE.
-                compute_summary = get_instance_summary(include_all_projects=True)
+                compute_summary = get_instance_summary()
                 summary['compute']['total'] = compute_summary.get('total', 0)
                 summary['compute']['active'] = compute_summary.get('active', 0)
                 summary['compute']['error'] = compute_summary.get('error', 0)
