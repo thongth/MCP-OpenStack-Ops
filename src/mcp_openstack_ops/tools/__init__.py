@@ -14,6 +14,7 @@ DISABLED_ALIAS_MODULES = {
     "get_volume_backup",
     "get_volume_backups",
     "get_volume_snapshots",
+    "get_heat_stacks",
 }
 
 def _iter_tool_modules() -> Iterable[str]:
