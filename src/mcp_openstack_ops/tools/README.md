@@ -33,6 +33,7 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 - `get_network_by_id_or_name.py`
 - `get_network_by_project.py`
 - `get_network_details.py`
+- `get_port.py`
 - `get_network_ports.py`
 - `get_network_summary.py`
 - `get_network_agents.py`

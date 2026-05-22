@@ -35,8 +35,22 @@ def _matches_query(item, query: str) -> bool:
     if not query:
         return True
     target = query.strip().lower()
-    for field in ("id", "name", "network_id", "port_id", "router_id", "floating_ip_address", "fixed_ip_address", "host"):
+    for field in (
+        "id",
+        "name",
+        "network_id",
+        "port_id",
+        "router_id",
+        "device_id",
+        "mac_address",
+        "floating_ip_address",
+        "fixed_ip_address",
+        "host",
+    ):
         if str(item.get(field, "")).lower() == target:
+            return True
+    for fixed_ip in item.get("fixed_ips", []) or []:
+        if str(fixed_ip.get("ip_address", "")).lower() == target:
             return True
     return False
 

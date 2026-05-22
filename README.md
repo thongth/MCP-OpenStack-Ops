@@ -22,6 +22,7 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 - `get_instance`
 - `get_compute_resource`
 - `get_instance_by_id_or_name`
+- `get_instance_by_port`
 - `get_instance_by_project`
 - `get_instance_details`
 - `get_instance_related_info`
@@ -41,6 +42,7 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 - `get_network_by_id_or_name`
 - `get_network_by_project`
 - `get_network_details`
+- `get_port`
 - `get_network_ports`
 - `get_network_summary`
 - `get_network_agents`
