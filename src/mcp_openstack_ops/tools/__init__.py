@@ -25,6 +25,8 @@ def _iter_tool_modules() -> Iterable[str]:
         # Skip old aliases if a stale image still contains their modules.
         if name in DISABLED_ALIAS_MODULES:
             continue
+        if name.startswith("get_load_balancer_"):
+            continue
         # Enforce read-only MCP mode: do not register any mutating tools.
         if name.startswith('set_'):
             continue
