@@ -219,8 +219,6 @@ RABBITMQ_API_TIMEOUT=10
 RABBITMQ_API_VERIFY_TLS=true
 ```
 
-`RABBITMQ_API_URL` may include or omit the `/api` suffix; the client normalizes it.
-
 Do not configure per-service DB names in `.env`; the service database names are fixed in code.
 
 ## MariaDB Read-Only User
