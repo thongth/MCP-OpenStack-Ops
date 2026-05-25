@@ -18,7 +18,8 @@ def _parse_bool(value: str) -> bool:
 
 
 def _api_base() -> str:
-    return os.getenv("RABBITMQ_API_URL", "http://127.0.0.1:15672/api").rstrip("/")
+    base = os.getenv("RABBITMQ_API_URL", "http://127.0.0.1:15672/api").rstrip("/")
+    return base if base.endswith("/api") else f"{base}/api"
 
 
 def _timeout() -> int:
