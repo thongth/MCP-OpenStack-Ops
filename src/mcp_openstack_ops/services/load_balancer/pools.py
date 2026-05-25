@@ -13,7 +13,7 @@ from .db import list_listeners, list_members, list_pools
 logger = logging.getLogger(__name__)
 
 
-def get_load_balancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
+def get_loadbalancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
     """
     Get load balancer pools, optionally filtered by listener.
     
@@ -277,7 +277,7 @@ def set_load_balancer_pool(action: str, pool_name_or_id: str = "", name: str = "
         }
 
 
-def get_load_balancer_pool_members(pool_name_or_id: str) -> Dict[str, Any]:
+def get_loadbalancer_pool_members(pool_name_or_id: str) -> Dict[str, Any]:
     """
     Get members for a specific load balancer pool.
     

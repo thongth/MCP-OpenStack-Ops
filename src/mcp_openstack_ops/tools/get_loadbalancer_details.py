@@ -1,15 +1,15 @@
-"""Tool implementation for get_load_balancer_details."""
+"""Tool implementation for get_loadbalancer_details."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_details as _get_load_balancer_details
+from ..functions import get_loadbalancer_details as _get_loadbalancer_details
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_details(
+async def get_loadbalancer_details(
     lb_name_or_id: str,
     include_amphorae: bool = True,
     include_amphora_instance_details: bool = True,
@@ -38,7 +38,7 @@ async def get_load_balancer_details(
     """
     try:
         logger.info(f"Getting load balancer details for: {lb_name_or_id}")
-        result = _get_load_balancer_details(
+        result = _get_loadbalancer_details(
             lb_name_or_id=lb_name_or_id,
             include_amphorae=include_amphorae,
             include_amphora_instance_details=include_amphora_instance_details,

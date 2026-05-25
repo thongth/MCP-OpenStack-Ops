@@ -1,37 +1,37 @@
 """Read-oriented Octavia load balancer service helpers."""
 
-from .amphorae import get_load_balancer_amphorae
+from .amphorae import get_loadbalancer_amphorae
 from .core import (
-    get_load_balancer_by_floatingip,
-    get_load_balancer_by_vip,
-    get_load_balancer_details,
-    get_load_balancer_list,
+    get_loadbalancer_by_floatingip,
+    get_loadbalancer_by_vip,
+    get_loadbalancer_details,
+    get_loadbalancer_list,
 )
-from .health_monitors import get_load_balancer_health_monitors
-from .l7_policies import get_load_balancer_l7_policies, get_load_balancer_l7_rules
-from .listeners import get_load_balancer_listeners
+from .health_monitors import get_loadbalancer_health_monitors
+from .l7_policies import get_loadbalancer_l7_policies, get_loadbalancer_l7_rules
+from .listeners import get_loadbalancer_listeners
 from .management import (
-    get_load_balancer_availability_zones,
-    get_load_balancer_flavors,
-    get_load_balancer_providers,
-    get_load_balancer_quotas,
+    get_loadbalancer_availability_zones,
+    get_loadbalancer_flavors,
+    get_loadbalancer_providers,
+    get_loadbalancer_quotas,
 )
-from .pools import get_load_balancer_pool_members, get_load_balancer_pools
+from .pools import get_loadbalancer_pool_members, get_loadbalancer_pools
 
 __all__ = [
-    "get_load_balancer_amphorae",
-    "get_load_balancer_availability_zones",
-    "get_load_balancer_by_floatingip",
-    "get_load_balancer_by_vip",
-    "get_load_balancer_details",
-    "get_load_balancer_flavors",
-    "get_load_balancer_health_monitors",
-    "get_load_balancer_l7_policies",
-    "get_load_balancer_l7_rules",
-    "get_load_balancer_list",
-    "get_load_balancer_listeners",
-    "get_load_balancer_pool_members",
-    "get_load_balancer_pools",
-    "get_load_balancer_providers",
-    "get_load_balancer_quotas",
+    "get_loadbalancer_amphorae",
+    "get_loadbalancer_availability_zones",
+    "get_loadbalancer_by_floatingip",
+    "get_loadbalancer_by_vip",
+    "get_loadbalancer_details",
+    "get_loadbalancer_flavors",
+    "get_loadbalancer_health_monitors",
+    "get_loadbalancer_l7_policies",
+    "get_loadbalancer_l7_rules",
+    "get_loadbalancer_list",
+    "get_loadbalancer_listeners",
+    "get_loadbalancer_pool_members",
+    "get_loadbalancer_pools",
+    "get_loadbalancer_providers",
+    "get_loadbalancer_quotas",
 ]

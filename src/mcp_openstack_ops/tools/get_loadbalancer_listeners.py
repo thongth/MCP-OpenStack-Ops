@@ -1,15 +1,15 @@
-"""Tool implementation for get_load_balancer_listeners."""
+"""Tool implementation for get_loadbalancer_listeners."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_listeners as _get_load_balancer_listeners
+from ..functions import get_loadbalancer_listeners as _get_loadbalancer_listeners
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_listeners(lb_name_or_id: str = "") -> str:
+async def get_loadbalancer_listeners(lb_name_or_id: str = "") -> str:
     """
     Get listeners for a specific OpenStack load balancer, or all listeners when no load balancer is provided.
     
@@ -33,7 +33,7 @@ async def get_load_balancer_listeners(lb_name_or_id: str = "") -> str:
     """
     try:
         logger.info(f"Getting listeners for load balancer: {lb_name_or_id}")
-        result = _get_load_balancer_listeners(lb_name_or_id)
+        result = _get_loadbalancer_listeners(lb_name_or_id)
         
         response = {
             "timestamp": datetime.now().isoformat(),

@@ -1,13 +1,13 @@
-"""Tool implementation for get_load_balancer_by_vip."""
+"""Tool implementation for get_loadbalancer_by_vip."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_by_vip as _get_load_balancer_by_vip
+from ..functions import get_loadbalancer_by_vip as _get_loadbalancer_by_vip
 from ..mcp_main import logger, mcp
 
 
 @mcp.tool()
-async def get_load_balancer_by_vip(vip_address: str) -> str:
+async def get_loadbalancer_by_vip(vip_address: str) -> str:
     """
     Get OpenStack load balancer details by exact VIP address.
 
@@ -24,7 +24,7 @@ async def get_load_balancer_by_vip(vip_address: str) -> str:
     """
     try:
         logger.info(f"Getting load balancer by VIP address: {vip_address}")
-        result = _get_load_balancer_by_vip(vip_address=vip_address)
+        result = _get_loadbalancer_by_vip(vip_address=vip_address)
         return json.dumps(
             {
                 "timestamp": datetime.now().isoformat(),

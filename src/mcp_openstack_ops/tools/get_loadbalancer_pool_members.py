@@ -1,4 +1,4 @@
-"""Tool implementation for get_load_balancer_pool_members."""
+"""Tool implementation for get_loadbalancer_pool_members."""
 
 import json
 from datetime import datetime
@@ -8,7 +8,7 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_load_balancer_pool_members(pool_name_or_id: str) -> str:
+async def get_loadbalancer_pool_members(pool_name_or_id: str) -> str:
     """
     Get members for a specific OpenStack load balancer pool.
 
@@ -31,9 +31,9 @@ async def get_load_balancer_pool_members(pool_name_or_id: str) -> str:
         JSON string containing member details for the pool
     """
     try:
-        from .functions import get_load_balancer_pool_members
+        from ..functions import get_loadbalancer_pool_members
         
-        result = get_load_balancer_pool_members(pool_name_or_id)
+        result = get_loadbalancer_pool_members(pool_name_or_id)
         
         response = {
             "timestamp": datetime.now().isoformat(),

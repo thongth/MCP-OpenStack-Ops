@@ -106,22 +106,22 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 
 ### Load Balancer / Octavia
 
-- `get_load_balancer_list`
+- `get_loadbalancer_list`
 - `get_loadbalancer_resource`
-- `get_load_balancer_details`
-- `get_load_balancer_by_vip`
-- `get_load_balancer_by_floatingip`
-- `get_load_balancer_listeners`
-- `get_load_balancer_pools`
-- `get_load_balancer_pool_members`
-- `get_load_balancer_health_monitors`
-- `get_load_balancer_l7_policies`
-- `get_load_balancer_l7_rules`
-- `get_load_balancer_providers`
-- `get_load_balancer_flavors`
-- `get_load_balancer_availability_zones`
-- `get_load_balancer_quotas`
-- `get_load_balancer_amphorae`
+- `get_loadbalancer_details`
+- `get_loadbalancer_by_vip`
+- `get_loadbalancer_by_floatingip`
+- `get_loadbalancer_listeners`
+- `get_loadbalancer_pools`
+- `get_loadbalancer_pool_members`
+- `get_loadbalancer_health_monitors`
+- `get_loadbalancer_l7_policies`
+- `get_loadbalancer_l7_rules`
+- `get_loadbalancer_providers`
+- `get_loadbalancer_flavors`
+- `get_loadbalancer_availability_zones`
+- `get_loadbalancer_quotas`
+- `get_loadbalancer_amphorae`
 
 ## Recommended Query Pattern
 
@@ -138,7 +138,7 @@ Use summary tools first, then drill down with filters:
 - Snapshots: `get_volume_snapshot_summary` -> `get_volume_snapshot_by_status` / `get_volume_snapshot_by_project`
 - Backups: `get_volume_backup_summary` -> `get_volume_backup_by_status` / `get_volume_backup_by_project`
 - Load balancer unified drill-down: `get_loadbalancer_resource`
-- Listeners can be listed directly with `get_load_balancer_listeners()` or `get_loadbalancer_resource(resource_type="listener")`; `parent_id` is optional.
+- Listeners can be listed directly with `get_loadbalancer_listeners()` or `get_loadbalancer_resource(resource_type="listener")`; `parent_id` is optional.
 
 For large sites, avoid full list tools unless an export/full audit is really needed. Prefer `limit`, `offset`, `fields`, `project_id`, and `status` filters.
 

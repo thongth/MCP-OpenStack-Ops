@@ -831,33 +831,33 @@ from .services.monitoring import (
 
 from .services.load_balancer import (
     # Core operations
-    get_load_balancer_list,
-    get_load_balancer_details, 
-    get_load_balancer_by_vip,
-    get_load_balancer_by_floatingip,
+    get_loadbalancer_list,
+    get_loadbalancer_details, 
+    get_loadbalancer_by_vip,
+    get_loadbalancer_by_floatingip,
     
     # Listener operations
-    get_load_balancer_listeners,
+    get_loadbalancer_listeners,
     
     # Pool operations
-    get_load_balancer_pools,
-    get_load_balancer_pool_members,
+    get_loadbalancer_pools,
+    get_loadbalancer_pool_members,
     
     # Health monitor operations
-    get_load_balancer_health_monitors,
+    get_loadbalancer_health_monitors,
     
     # L7 policy operations
-    get_load_balancer_l7_policies,
-    get_load_balancer_l7_rules,
+    get_loadbalancer_l7_policies,
+    get_loadbalancer_l7_rules,
     
     # Management operations
-    get_load_balancer_availability_zones,
-    get_load_balancer_flavors,
-    get_load_balancer_providers,
-    get_load_balancer_quotas,
+    get_loadbalancer_availability_zones,
+    get_loadbalancer_flavors,
+    get_loadbalancer_providers,
+    get_loadbalancer_quotas,
     
     # Amphora operations
-    get_load_balancer_amphorae,
+    get_loadbalancer_amphorae,
 )
 
 
@@ -875,21 +875,21 @@ __all__ = [
     "get_instance_summary",
     "get_instances_by_status",
     "get_keypair_list",
-    "get_load_balancer_amphorae",
-    "get_load_balancer_availability_zones",
-    "get_load_balancer_by_floatingip",
-    "get_load_balancer_by_vip",
-    "get_load_balancer_details",
-    "get_load_balancer_flavors",
-    "get_load_balancer_health_monitors",
-    "get_load_balancer_l7_policies",
-    "get_load_balancer_l7_rules",
-    "get_load_balancer_list",
-    "get_load_balancer_listeners",
-    "get_load_balancer_pool_members",
-    "get_load_balancer_pools",
-    "get_load_balancer_providers",
-    "get_load_balancer_quotas",
+    "get_loadbalancer_amphorae",
+    "get_loadbalancer_availability_zones",
+    "get_loadbalancer_by_floatingip",
+    "get_loadbalancer_by_vip",
+    "get_loadbalancer_details",
+    "get_loadbalancer_flavors",
+    "get_loadbalancer_health_monitors",
+    "get_loadbalancer_l7_policies",
+    "get_loadbalancer_l7_rules",
+    "get_loadbalancer_list",
+    "get_loadbalancer_listeners",
+    "get_loadbalancer_pool_members",
+    "get_loadbalancer_pools",
+    "get_loadbalancer_providers",
+    "get_loadbalancer_quotas",
     "get_network_agents",
     "get_network_details",
     "get_network_summary",

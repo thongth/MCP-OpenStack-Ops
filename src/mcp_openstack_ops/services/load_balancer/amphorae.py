@@ -14,7 +14,7 @@ from .db import find_load_balancer, get_octavia_connection
 logger = logging.getLogger(__name__)
 
 
-def get_load_balancer_amphorae(lb_name_or_id: str = "", **kwargs) -> Dict[str, Any]:
+def get_loadbalancer_amphorae(lb_name_or_id: str = "", **kwargs) -> Dict[str, Any]:
     """
     Get amphora instances for load balancer or all amphorae.
     Supports both legacy parameter style and **kwargs style for compatibility.

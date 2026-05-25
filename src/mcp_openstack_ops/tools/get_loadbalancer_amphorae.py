@@ -1,15 +1,15 @@
-"""Tool implementation for get_load_balancer_amphorae."""
+"""Tool implementation for get_loadbalancer_amphorae."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_amphorae as _get_load_balancer_amphorae
+from ..functions import get_loadbalancer_amphorae as _get_loadbalancer_amphorae
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_amphorae(lb_name_or_id: str = "") -> str:
+async def get_loadbalancer_amphorae(lb_name_or_id: str = "") -> str:
     """
     Get amphora instances for a load balancer or all amphorae.
     
@@ -22,7 +22,7 @@ async def get_load_balancer_amphorae(lb_name_or_id: str = "") -> str:
     try:
         logger.info(f"Getting amphorae for load balancer: {lb_name_or_id}")
         
-        result = _get_load_balancer_amphorae(lb_name_or_id)
+        result = _get_loadbalancer_amphorae(lb_name_or_id)
         
         response = {
             "timestamp": datetime.now().isoformat(),

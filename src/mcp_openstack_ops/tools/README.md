@@ -106,22 +106,22 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 
 ## Load Balancer / Octavia
 
-- `get_load_balancer_list.py`
+- `get_loadbalancer_list.py`
 - `get_loadbalancer_resource.py`
-- `get_load_balancer_details.py`
-- `get_load_balancer_by_vip.py`
-- `get_load_balancer_by_floatingip.py`
-- `get_load_balancer_listeners.py`
-- `get_load_balancer_pools.py`
-- `get_load_balancer_pool_members.py`
-- `get_load_balancer_health_monitors.py`
-- `get_load_balancer_l7_policies.py`
-- `get_load_balancer_l7_rules.py`
-- `get_load_balancer_providers.py`
-- `get_load_balancer_flavors.py`
-- `get_load_balancer_availability_zones.py`
-- `get_load_balancer_quotas.py`
-- `get_load_balancer_amphorae.py`
+- `get_loadbalancer_details.py`
+- `get_loadbalancer_by_vip.py`
+- `get_loadbalancer_by_floatingip.py`
+- `get_loadbalancer_listeners.py`
+- `get_loadbalancer_pools.py`
+- `get_loadbalancer_pool_members.py`
+- `get_loadbalancer_health_monitors.py`
+- `get_loadbalancer_l7_policies.py`
+- `get_loadbalancer_l7_rules.py`
+- `get_loadbalancer_providers.py`
+- `get_loadbalancer_flavors.py`
+- `get_loadbalancer_availability_zones.py`
+- `get_loadbalancer_quotas.py`
+- `get_loadbalancer_amphorae.py`
 
 ## Notes
 

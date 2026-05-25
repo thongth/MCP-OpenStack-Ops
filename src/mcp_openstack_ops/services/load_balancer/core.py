@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 NEUTRON_DATABASE = "neutron"
 
 
-def get_load_balancer_list(
+def get_loadbalancer_list(
     limit: int = 50,
     offset: int = 0,
     include_all: bool = False,
@@ -142,7 +142,7 @@ def get_load_balancer_list(
         }
 
 
-def get_load_balancer_details(
+def get_loadbalancer_details(
     lb_name_or_id: str,
     include_amphorae: bool = True,
     include_amphora_instance_details: bool = True,
@@ -193,8 +193,8 @@ def get_load_balancer_details(
         lb_details['listeners'] = listener_details
         lb_details['listener_count'] = len(listener_details)
         if include_amphorae:
-            from .amphorae import get_load_balancer_amphorae
-            amphora_result = get_load_balancer_amphorae(lb_name_or_id=lb.get("id"))
+            from .amphorae import get_loadbalancer_amphorae
+            amphora_result = get_loadbalancer_amphorae(lb_name_or_id=lb.get("id"))
             lb_details['amphorae'] = amphora_result.get('amphorae', []) if amphora_result.get('success') else []
             lb_details['amphora_count'] = len(lb_details['amphorae'])
         return {'success': True, 'load_balancer': lb_details}
@@ -206,7 +206,7 @@ def get_load_balancer_details(
             'error': str(e)
         }
 
-def get_load_balancer_by_vip(vip_address: str) -> Dict[str, Any]:
+def get_loadbalancer_by_vip(vip_address: str) -> Dict[str, Any]:
     """Get load balancer details by exact VIP address."""
     try:
         vip_address = (vip_address or "").strip()
@@ -229,7 +229,7 @@ def get_load_balancer_by_vip(vip_address: str) -> Dict[str, Any]:
             "error": str(e),
         }
 
-def get_load_balancer_by_floatingip(floating_ip: str) -> Dict[str, Any]:
+def get_loadbalancer_by_floatingip(floating_ip: str) -> Dict[str, Any]:
     """Get load balancer details by floating IP address or floating IP ID."""
     try:
         floating_ip = (floating_ip or "").strip()
@@ -291,7 +291,7 @@ def _load_balancer_lookup_response(
 
     detailed_lbs = []
     for lb in load_balancers:
-        detail_result = get_load_balancer_details(lb.get("id"), include_amphorae=True)
+        detail_result = get_loadbalancer_details(lb.get("id"), include_amphorae=True)
         detailed_lbs.append(detail_result.get("load_balancer", lb) if detail_result.get("success") else lb)
 
     result = {

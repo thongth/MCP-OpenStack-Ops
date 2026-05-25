@@ -1,25 +1,25 @@
-"""Tool implementation for get_load_balancer_providers."""
+"""Tool implementation for get_loadbalancer_availability_zones."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_providers as _get_load_balancer_providers
+from ..functions import get_loadbalancer_availability_zones as _get_loadbalancer_availability_zones
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_providers() -> str:
+async def get_loadbalancer_availability_zones() -> str:
     """
-    Get load balancer providers.
+    Get load balancer availability zones.
     
     Returns:
-        JSON string containing providers information
+        JSON string containing availability zones information
     """
     try:
-        logger.info("Getting load balancer providers")
+        logger.info("Getting load balancer availability zones")
         
-        result = _get_load_balancer_providers()
+        result = _get_loadbalancer_availability_zones()
         
         response = {
             "timestamp": datetime.now().isoformat(),
@@ -29,7 +29,7 @@ async def get_load_balancer_providers() -> str:
         return json.dumps(response, indent=2, ensure_ascii=False)
         
     except Exception as e:
-        error_msg = f"Error: Failed to get providers - {str(e)}"
+        error_msg = f"Error: Failed to get availability zones - {str(e)}"
         logger.error(error_msg)
         return json.dumps({
             "timestamp": datetime.now().isoformat(),

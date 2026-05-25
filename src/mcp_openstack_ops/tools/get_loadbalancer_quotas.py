@@ -1,15 +1,15 @@
-"""Tool implementation for get_load_balancer_quotas."""
+"""Tool implementation for get_loadbalancer_quotas."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_quotas as _get_load_balancer_quotas
+from ..functions import get_loadbalancer_quotas as _get_loadbalancer_quotas
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_quotas(project_id: str = "") -> str:
+async def get_loadbalancer_quotas(project_id: str = "") -> str:
     """
     Get load balancer quotas for a project or all projects.
     
@@ -22,7 +22,7 @@ async def get_load_balancer_quotas(project_id: str = "") -> str:
     try:
         logger.info(f"Getting load balancer quotas for project: {project_id}")
         
-        result = _get_load_balancer_quotas(project_id)
+        result = _get_loadbalancer_quotas(project_id)
         
         response = {
             "timestamp": datetime.now().isoformat(),

@@ -1,4 +1,4 @@
-"""Tool implementation for get_load_balancer_health_monitors."""
+"""Tool implementation for get_loadbalancer_health_monitors."""
 
 import json
 from datetime import datetime
@@ -8,7 +8,7 @@ from ..mcp_main import (
 )
 
 @mcp.tool()
-async def get_load_balancer_health_monitors(pool_name_or_id: str = "") -> str:
+async def get_loadbalancer_health_monitors(pool_name_or_id: str = "") -> str:
     """
     Get health monitors, optionally filtered by pool.
 
@@ -31,9 +31,9 @@ async def get_load_balancer_health_monitors(pool_name_or_id: str = "") -> str:
         JSON string containing health monitor details
     """
     try:
-        from .functions import get_load_balancer_health_monitors
+        from ..functions import get_loadbalancer_health_monitors
         
-        result = get_load_balancer_health_monitors(pool_name_or_id)
+        result = get_loadbalancer_health_monitors(pool_name_or_id)
         
         response = {
             "timestamp": datetime.now().isoformat(),

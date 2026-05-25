@@ -1,15 +1,15 @@
-"""Tool implementation for get_load_balancer_flavors."""
+"""Tool implementation for get_loadbalancer_flavors."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_flavors as _get_load_balancer_flavors
+from ..functions import get_loadbalancer_flavors as _get_loadbalancer_flavors
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_flavors() -> str:
+async def get_loadbalancer_flavors() -> str:
     """
     Get load balancer flavors.
     
@@ -19,7 +19,7 @@ async def get_load_balancer_flavors() -> str:
     try:
         logger.info("Getting load balancer flavors")
         
-        result = _get_load_balancer_flavors()
+        result = _get_loadbalancer_flavors()
         
         response = {
             "timestamp": datetime.now().isoformat(),

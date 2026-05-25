@@ -14,7 +14,7 @@ from .db import get_octavia_connection, list_listeners
 logger = logging.getLogger(__name__)
 
 
-def get_load_balancer_l7_policies(listener_name_or_id: str = "") -> Dict[str, Any]:
+def get_loadbalancer_l7_policies(listener_name_or_id: str = "") -> Dict[str, Any]:
     """
     Get L7 policies for a listener or all policies.
     
@@ -175,7 +175,7 @@ def set_load_balancer_l7_policy(action: str, **kwargs) -> Dict[str, Any]:
         }
 
 
-def get_load_balancer_l7_rules(policy_name_or_id: str) -> Dict[str, Any]:
+def get_loadbalancer_l7_rules(policy_name_or_id: str) -> Dict[str, Any]:
     """
     Get L7 rules for a specific L7 policy.
     

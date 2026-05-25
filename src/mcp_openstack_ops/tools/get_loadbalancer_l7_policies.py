@@ -1,15 +1,15 @@
-"""Tool implementation for get_load_balancer_l7_policies."""
+"""Tool implementation for get_loadbalancer_l7_policies."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_l7_policies as _get_load_balancer_l7_policies
+from ..functions import get_loadbalancer_l7_policies as _get_loadbalancer_l7_policies
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_l7_policies(listener_name_or_id: str = "") -> str:
+async def get_loadbalancer_l7_policies(listener_name_or_id: str = "") -> str:
     """
     Get L7 policies for a listener or all L7 policies.
     
@@ -22,7 +22,7 @@ async def get_load_balancer_l7_policies(listener_name_or_id: str = "") -> str:
     try:
         logger.info(f"Getting L7 policies for listener: {listener_name_or_id}")
         
-        result = _get_load_balancer_l7_policies(listener_name_or_id)
+        result = _get_loadbalancer_l7_policies(listener_name_or_id)
         
         response = {
             "timestamp": datetime.now().isoformat(),

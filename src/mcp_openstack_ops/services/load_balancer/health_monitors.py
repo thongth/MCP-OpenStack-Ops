@@ -14,7 +14,7 @@ from .db import get_octavia_connection, list_pools
 logger = logging.getLogger(__name__)
 
 
-def get_load_balancer_health_monitors(pool_name_or_id: str = "") -> Dict[str, Any]:
+def get_loadbalancer_health_monitors(pool_name_or_id: str = "") -> Dict[str, Any]:
     """
     Get health monitors, optionally filtered by pool.
     

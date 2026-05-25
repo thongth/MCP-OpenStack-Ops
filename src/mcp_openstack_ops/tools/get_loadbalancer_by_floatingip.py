@@ -1,13 +1,13 @@
-"""Tool implementation for get_load_balancer_by_floatingip."""
+"""Tool implementation for get_loadbalancer_by_floatingip."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_by_floatingip as _get_load_balancer_by_floatingip
+from ..functions import get_loadbalancer_by_floatingip as _get_loadbalancer_by_floatingip
 from ..mcp_main import logger, mcp
 
 
 @mcp.tool()
-async def get_load_balancer_by_floatingip(floating_ip: str) -> str:
+async def get_loadbalancer_by_floatingip(floating_ip: str) -> str:
     """
     Get OpenStack load balancer details by floating IP address or floating IP ID.
 
@@ -24,7 +24,7 @@ async def get_load_balancer_by_floatingip(floating_ip: str) -> str:
     """
     try:
         logger.info(f"Getting load balancer by floating IP: {floating_ip}")
-        result = _get_load_balancer_by_floatingip(floating_ip=floating_ip)
+        result = _get_loadbalancer_by_floatingip(floating_ip=floating_ip)
         return json.dumps(
             {
                 "timestamp": datetime.now().isoformat(),

@@ -3,15 +3,15 @@
 import json
 from datetime import datetime
 from ..functions import (
-    get_load_balancer_amphorae as _get_load_balancer_amphorae,
-    get_load_balancer_details as _get_load_balancer_details,
-    get_load_balancer_health_monitors as _get_load_balancer_health_monitors,
-    get_load_balancer_l7_policies as _get_load_balancer_l7_policies,
-    get_load_balancer_l7_rules as _get_load_balancer_l7_rules,
-    get_load_balancer_list as _get_load_balancer_list,
-    get_load_balancer_listeners as _get_load_balancer_listeners,
-    get_load_balancer_pool_members as _get_load_balancer_pool_members,
-    get_load_balancer_pools as _get_load_balancer_pools,
+    get_loadbalancer_amphorae as _get_loadbalancer_amphorae,
+    get_loadbalancer_details as _get_loadbalancer_details,
+    get_loadbalancer_health_monitors as _get_loadbalancer_health_monitors,
+    get_loadbalancer_l7_policies as _get_loadbalancer_l7_policies,
+    get_loadbalancer_l7_rules as _get_loadbalancer_l7_rules,
+    get_loadbalancer_list as _get_loadbalancer_list,
+    get_loadbalancer_listeners as _get_loadbalancer_listeners,
+    get_loadbalancer_pool_members as _get_loadbalancer_pool_members,
+    get_loadbalancer_pools as _get_loadbalancer_pools,
 )
 from ..mcp_main import logger, mcp
 
@@ -92,53 +92,53 @@ async def get_loadbalancer_resource(
 
         if normalized_type in {"load_balancer", "load_balancers", "lb", "lbs"}:
             if query:
-                result = _get_load_balancer_details(
+                result = _get_loadbalancer_details(
                     lb_name_or_id=query,
                     include_amphorae=True,
                     include_amphora_instance_details=include_amphora_instance_details,
                 )
                 items = [result] if isinstance(result, dict) else []
             else:
-                result = _get_load_balancer_list(limit=max(int(limit or 50), 1), offset=offset, include_all=not bool(limit), project_id=project_id)
+                result = _get_loadbalancer_list(limit=max(int(limit or 50), 1), offset=offset, include_all=not bool(limit), project_id=project_id)
                 items = _extract_items(result, "load_balancers")
             result_key = "load_balancers"
 
         elif normalized_type in {"listener", "listeners"}:
-            result = _get_load_balancer_listeners(lb_name_or_id=parent_id)
+            result = _get_loadbalancer_listeners(lb_name_or_id=parent_id)
             items = _filter_page(_extract_items(result, "listeners"), query, project_id, status, limit, offset)
             result_key = "listeners"
 
         elif normalized_type in {"pool", "pools"}:
-            result = _get_load_balancer_pools(listener_name_or_id=parent_id or None)
+            result = _get_loadbalancer_pools(listener_name_or_id=parent_id or None)
             items = _filter_page(_extract_items(result, "pools"), query, project_id, status, limit, offset)
             result_key = "pools"
 
         elif normalized_type in {"member", "members", "pool_member", "pool_members"}:
             if not parent_id:
                 return "Error: parent_id must be a pool name or ID for member resources"
-            result = _get_load_balancer_pool_members(pool_name_or_id=parent_id)
+            result = _get_loadbalancer_pool_members(pool_name_or_id=parent_id)
             items = _filter_page(_extract_items(result, "members"), query, project_id, status, limit, offset)
             result_key = "members"
 
         elif normalized_type in {"health_monitor", "health_monitors", "hm"}:
-            result = _get_load_balancer_health_monitors(pool_name_or_id=parent_id)
+            result = _get_loadbalancer_health_monitors(pool_name_or_id=parent_id)
             items = _filter_page(_extract_items(result, "health_monitors"), query, project_id, status, limit, offset)
             result_key = "health_monitors"
 
         elif normalized_type in {"l7_policy", "l7_policies"}:
-            result = _get_load_balancer_l7_policies(listener_name_or_id=parent_id)
+            result = _get_loadbalancer_l7_policies(listener_name_or_id=parent_id)
             items = _filter_page(_extract_items(result, "l7_policies"), query, project_id, status, limit, offset)
             result_key = "l7_policies"
 
         elif normalized_type in {"l7_rule", "l7_rules"}:
             if not parent_id:
                 return "Error: parent_id must be an L7 policy name or ID for l7_rule resources"
-            result = _get_load_balancer_l7_rules(policy_name_or_id=parent_id)
+            result = _get_loadbalancer_l7_rules(policy_name_or_id=parent_id)
             items = _filter_page(_extract_items(result, "l7_rules"), query, project_id, status, limit, offset)
             result_key = "l7_rules"
 
         elif normalized_type in {"amphora", "amphorae"}:
-            result = _get_load_balancer_amphorae(lb_name_or_id=parent_id or query)
+            result = _get_loadbalancer_amphorae(lb_name_or_id=parent_id or query)
             items = _filter_page(_extract_items(result, "amphorae"), "" if parent_id else query, project_id, status, limit, offset)
             result_key = "amphorae"
 

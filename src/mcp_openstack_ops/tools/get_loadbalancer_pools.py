@@ -1,15 +1,15 @@
-"""Tool implementation for get_load_balancer_pools."""
+"""Tool implementation for get_loadbalancer_pools."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_pools as _get_load_balancer_pools
+from ..functions import get_loadbalancer_pools as _get_loadbalancer_pools
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_pools(listener_name_or_id: str = "") -> str:
+async def get_loadbalancer_pools(listener_name_or_id: str = "") -> str:
     """
     Get load balancer pools, optionally filtered by listener.
     
@@ -33,7 +33,7 @@ async def get_load_balancer_pools(listener_name_or_id: str = "") -> str:
     """
     try:
         logger.info(f"Getting load balancer pools (listener filter: {listener_name_or_id if listener_name_or_id else 'none'})")
-        result = _get_load_balancer_pools(
+        result = _get_loadbalancer_pools(
             listener_name_or_id=listener_name_or_id if listener_name_or_id else None
         )
         

@@ -14,7 +14,7 @@ from .db import get_octavia_connection
 logger = logging.getLogger(__name__)
 
 
-def get_load_balancer_availability_zones() -> Dict[str, Any]:
+def get_loadbalancer_availability_zones() -> Dict[str, Any]:
     """
     Get load balancer availability zones.
     
@@ -132,7 +132,7 @@ def set_load_balancer_availability_zone(action: str, **kwargs) -> Dict[str, Any]
         }
 
 
-def get_load_balancer_flavors() -> Dict[str, Any]:
+def get_loadbalancer_flavors() -> Dict[str, Any]:
     """
     Get load balancer flavors.
     
@@ -252,7 +252,7 @@ def set_load_balancer_flavor(action: str, **kwargs) -> Dict[str, Any]:
         }
 
 
-def get_load_balancer_providers() -> Dict[str, Any]:
+def get_loadbalancer_providers() -> Dict[str, Any]:
     """
     Get load balancer providers.
     
@@ -290,7 +290,7 @@ def get_load_balancer_providers() -> Dict[str, Any]:
         }
 
 
-def get_load_balancer_quotas(project_id: str = "") -> Dict[str, Any]:
+def get_loadbalancer_quotas(project_id: str = "") -> Dict[str, Any]:
     """
     Get load balancer quotas.
     

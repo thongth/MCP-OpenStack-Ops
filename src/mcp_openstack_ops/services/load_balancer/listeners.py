@@ -13,7 +13,7 @@ from .db import find_load_balancer, list_listeners
 logger = logging.getLogger(__name__)
 
 
-def get_load_balancer_listeners(lb_name_or_id: str = "") -> Dict[str, Any]:
+def get_loadbalancer_listeners(lb_name_or_id: str = "") -> Dict[str, Any]:
     """
     Get listeners for a specific load balancer.
     

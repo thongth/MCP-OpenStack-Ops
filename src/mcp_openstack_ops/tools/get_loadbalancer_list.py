@@ -1,15 +1,15 @@
-"""Tool implementation for get_load_balancer_list."""
+"""Tool implementation for get_loadbalancer_list."""
 
 import json
 from datetime import datetime
-from ..functions import get_load_balancer_list as _get_load_balancer_list
+from ..functions import get_loadbalancer_list as _get_loadbalancer_list
 from ..mcp_main import (
     logger,
     mcp,
 )
 
 @mcp.tool()
-async def get_load_balancer_list(
+async def get_loadbalancer_list(
     limit: int = 50,
     offset: int = 0,
     include_all: bool = False,
@@ -45,7 +45,7 @@ async def get_load_balancer_list(
             f"Getting load balancer list (limit={limit}, offset={offset}, include_all={include_all}, "
             f"project_id={project_id})"
         )
-        result = _get_load_balancer_list(
+        result = _get_loadbalancer_list(
             limit=limit,
             offset=offset, 
             include_all=include_all,
