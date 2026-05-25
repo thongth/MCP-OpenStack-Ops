@@ -35,21 +35,28 @@ def _request(path: str, query: Dict[str, Any] | None = None) -> Any:
     user = os.getenv("RABBITMQ_API_USER", "guest")
     password = os.getenv("RABBITMQ_API_PASSWORD", "guest")
     token = base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("ascii")
-    request = Request(url, headers={"Authorization": f"Basic {token}", "Accept": "application/json"})
-
     context = None
     if url.startswith("https://") and not _parse_bool(os.getenv("RABBITMQ_API_VERIFY_TLS", "true")):
         context = ssl._create_unverified_context()
 
+    headers = {"Authorization": f"Basic {token}", "Accept": "application/json"}
     try:
-        with urlopen(request, timeout=_timeout(), context=context) as response:
-            body = response.read().decode("utf-8")
-            return json.loads(body) if body else None
+        return _open_json(url, headers, context)
     except HTTPError as e:
+        if e.code == 406:
+            headers["Accept"] = "*/*"
+            return _open_json(url, headers, context)
         detail = e.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"RabbitMQ API HTTP {e.code}: {detail}") from e
     except URLError as e:
         raise RuntimeError(f"RabbitMQ API connection failed: {e.reason}") from e
+
+
+def _open_json(url: str, headers: Dict[str, str], context) -> Any:
+    request = Request(url, headers=headers)
+    with urlopen(request, timeout=_timeout(), context=context) as response:
+        body = response.read().decode("utf-8")
+        return json.loads(body) if body else None
 
 
 def _ok(data: Dict[str, Any] | List[Any] | Any, key: str = "data") -> Dict[str, Any]:
