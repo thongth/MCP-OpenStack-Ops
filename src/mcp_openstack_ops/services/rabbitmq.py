@@ -75,10 +75,46 @@ def rabbitmq_cluster_overview() -> Dict[str, Any]:
         return _fail(e, "overview")
 
 
-def rabbitmq_cluster_nodes() -> Dict[str, Any]:
+DEFAULT_NODE_FIELDS = [
+    "name",
+    "type",
+    "running",
+    "mem_used",
+    "mem_limit",
+    "mem_alarm",
+    "disk_free",
+    "disk_free_limit",
+    "disk_free_alarm",
+    "fd_used",
+    "fd_total",
+    "sockets_used",
+    "sockets_total",
+    "proc_used",
+    "proc_total",
+    "partitions",
+]
+
+
+def _project_items(items: List[Dict[str, Any]], fields: str, default_fields: List[str]) -> List[Dict[str, Any]]:
+    if fields.strip().lower() == "all":
+        return items
+    requested = [field.strip() for field in fields.split(",") if field.strip()] if fields else default_fields
+    return [{field: item.get(field) for field in requested if field in item} for item in items]
+
+
+def rabbitmq_cluster_nodes(fields: str = "", limit: int = 100) -> Dict[str, Any]:
     try:
         nodes = _request("nodes") or []
-        return _ok(nodes, "nodes")
+        safe_limit = max(1, min(int(limit or 100), 500))
+        projected_nodes = _project_items(nodes[:safe_limit], fields, DEFAULT_NODE_FIELDS)
+        return {
+            "success": True,
+            "nodes": projected_nodes,
+            "count": len(projected_nodes),
+            "total_available": len(nodes),
+            "fields": fields or ",".join(DEFAULT_NODE_FIELDS),
+            "data_source": "rabbitmq_http_api",
+        }
     except Exception as e:
         return _fail(e, "nodes")
 

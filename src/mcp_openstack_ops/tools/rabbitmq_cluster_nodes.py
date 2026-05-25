@@ -7,10 +7,16 @@ from ..mcp_main import logger, mcp
 
 
 @mcp.tool()
-async def rabbitmq_cluster_nodes() -> str:
-    """Get RabbitMQ node details from the Management API."""
+async def rabbitmq_cluster_nodes(fields: str = "", limit: int = 100) -> str:
+    """
+    Get RabbitMQ node details from the Management API.
+
+    Args:
+        fields: Comma-separated fields to return, or "all" for full node payload.
+        limit: Maximum nodes returned.
+    """
     try:
-        result = _rabbitmq_cluster_nodes()
+        result = _rabbitmq_cluster_nodes(fields=fields, limit=limit)
         return json.dumps({"timestamp": datetime.now().isoformat(), "result": result}, indent=2, ensure_ascii=False, default=str)
     except Exception as e:
         logger.error(f"Error: Failed to get RabbitMQ nodes - {e}")
