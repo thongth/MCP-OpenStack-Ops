@@ -123,6 +123,8 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 - `rabbitmq_cluster_health`
 - `rabbitmq_cluster_nodes`
 - `rabbitmq_cluster_queues`
+- `rabbitmq_cluster_queues_without_consumers`
+- `rabbitmq_cluster_top_queues`
 - `rabbitmq_cluster_connections`
 - `rabbitmq_cluster_channels`
 - `rabbitmq_cluster_consumers`

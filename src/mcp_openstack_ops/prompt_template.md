@@ -72,7 +72,7 @@ Use summary first, detail second.
 ### RabbitMQ Cluster
 
 - Health/overview: `rabbitmq_cluster_health`, `rabbitmq_cluster_overview`, `rabbitmq_cluster_alerts`
-- Topology/runtime: `rabbitmq_cluster_nodes`, `rabbitmq_cluster_vhosts`, `rabbitmq_cluster_queues`, `rabbitmq_cluster_exchanges`
+- Topology/runtime: `rabbitmq_cluster_nodes`, `rabbitmq_cluster_vhosts`, `rabbitmq_cluster_queues`, `rabbitmq_cluster_queues_without_consumers`, `rabbitmq_cluster_top_queues`, `rabbitmq_cluster_exchanges`
 - Client activity: `rabbitmq_cluster_connections`, `rabbitmq_cluster_channels`, `rabbitmq_cluster_consumers`
 
 ### Load Balancer

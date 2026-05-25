@@ -94,6 +94,24 @@ DEFAULT_NODE_FIELDS = [
     "partitions",
 ]
 
+DEFAULT_QUEUE_FIELDS = [
+    "name",
+    "vhost",
+    "type",
+    "state",
+    "node",
+    "consumers",
+    "messages",
+    "messages_ready",
+    "messages_unacknowledged",
+    "consumer_utilisation",
+    "memory",
+    "durable",
+    "auto_delete",
+    "exclusive",
+    "arguments",
+]
+
 
 def _project_items(items: List[Dict[str, Any]], fields: str, default_fields: List[str]) -> List[Dict[str, Any]]:
     if fields.strip().lower() == "all":
@@ -148,7 +166,12 @@ def rabbitmq_cluster_health() -> Dict[str, Any]:
         return _fail(e, "health")
 
 
-def rabbitmq_cluster_queues(vhost: str = "", name: str = "", limit: int = 100) -> Dict[str, Any]:
+def rabbitmq_cluster_queues(
+    vhost: str = "",
+    name: str = "",
+    limit: int = 100,
+    fields: str = "",
+) -> Dict[str, Any]:
     try:
         if vhost and name:
             queues = [_request(f"queues/{quote(vhost, safe='')}/{quote(name, safe='')}")]
@@ -156,10 +179,110 @@ def rabbitmq_cluster_queues(vhost: str = "", name: str = "", limit: int = 100) -
             queues = _request(f"queues/{quote(vhost, safe='')}") or []
         else:
             queues = _request("queues") or []
+        if name and not vhost:
+            target = name.strip()
+            queues = [queue for queue in queues if str(queue.get("name", "")) == target]
         safe_limit = max(1, min(int(limit or 100), 500))
-        return {"success": True, "queues": queues[:safe_limit], "count": min(len(queues), safe_limit), "total_available": len(queues), "data_source": "rabbitmq_http_api"}
+        projected_queues = _project_items(queues[:safe_limit], fields, DEFAULT_QUEUE_FIELDS)
+        return {
+            "success": True,
+            "queues": projected_queues,
+            "count": len(projected_queues),
+            "total_available": len(queues),
+            "filter": {
+                "vhost": vhost,
+                "name": name,
+                "limit": safe_limit,
+                "fields": fields or ",".join(DEFAULT_QUEUE_FIELDS),
+            },
+            "data_source": "rabbitmq_http_api",
+        }
     except Exception as e:
         return _fail(e, "queues")
+
+def rabbitmq_cluster_queues_without_consumers(
+    vhost: str = "",
+    min_messages: int = 0,
+    limit: int = 100,
+    fields: str = "",
+) -> Dict[str, Any]:
+    try:
+        queues = _request(f"queues/{quote(vhost, safe='')}") if vhost else _request("queues")
+        queues = queues or []
+        filtered = [
+            queue for queue in queues
+            if int(queue.get("consumers") or 0) == 0 and int(queue.get("messages") or 0) >= int(min_messages or 0)
+        ]
+        filtered.sort(key=lambda item: int(item.get("messages") or 0), reverse=True)
+        safe_limit = max(1, min(int(limit or 100), 500))
+        projected = _project_items(filtered[:safe_limit], fields, DEFAULT_QUEUE_FIELDS)
+        return {
+            "success": True,
+            "queues": projected,
+            "count": len(projected),
+            "total_matching": len(filtered),
+            "filter": {
+                "vhost": vhost,
+                "min_messages": min_messages,
+                "limit": safe_limit,
+                "fields": fields or ",".join(DEFAULT_QUEUE_FIELDS),
+            },
+            "data_source": "rabbitmq_http_api",
+        }
+    except Exception as e:
+        return _fail(e, "queues")
+
+def rabbitmq_cluster_top_queues(
+    sort_by: str = "messages",
+    vhost: str = "",
+    limit: int = 20,
+    fields: str = "",
+) -> Dict[str, Any]:
+    try:
+        queues = _request(f"queues/{quote(vhost, safe='')}") if vhost else _request("queues")
+        queues = queues or []
+        sort_key = _queue_sort_key(sort_by)
+        queues.sort(key=sort_key, reverse=True)
+        safe_limit = max(1, min(int(limit or 20), 100))
+        projected = _project_items(queues[:safe_limit], fields, DEFAULT_QUEUE_FIELDS)
+        return {
+            "success": True,
+            "queues": projected,
+            "count": len(projected),
+            "total_available": len(queues),
+            "sort_by": sort_by,
+            "filter": {
+                "vhost": vhost,
+                "limit": safe_limit,
+                "fields": fields or ",".join(DEFAULT_QUEUE_FIELDS),
+            },
+            "data_source": "rabbitmq_http_api",
+        }
+    except Exception as e:
+        return _fail(e, "queues")
+
+def _queue_sort_key(sort_by: str):
+    normalized = (sort_by or "messages").strip().lower()
+    field_map = {
+        "messages": "messages",
+        "ready": "messages_ready",
+        "messages_ready": "messages_ready",
+        "unack": "messages_unacknowledged",
+        "unacked": "messages_unacknowledged",
+        "messages_unacknowledged": "messages_unacknowledged",
+        "consumers": "consumers",
+        "memory": "memory",
+        "publish_rate": "publish",
+        "deliver_rate": "deliver_get",
+    }
+    field = field_map.get(normalized, "messages")
+
+    def key(queue: Dict[str, Any]) -> float:
+        if field in {"publish", "deliver_get"}:
+            return float((queue.get("message_stats") or {}).get(f"{field}_details", {}).get("rate") or 0)
+        return float(queue.get(field) or 0)
+
+    return key
 
 
 def rabbitmq_cluster_connections(limit: int = 100) -> Dict[str, Any]:

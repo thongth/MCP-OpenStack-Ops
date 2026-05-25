@@ -61,6 +61,8 @@ from .rabbitmq import (
     rabbitmq_cluster_nodes,
     rabbitmq_cluster_overview,
     rabbitmq_cluster_queues,
+    rabbitmq_cluster_queues_without_consumers,
+    rabbitmq_cluster_top_queues,
     rabbitmq_cluster_vhosts,
 )
 from .network import (
@@ -150,6 +152,8 @@ __all__ = [
     "rabbitmq_cluster_nodes",
     "rabbitmq_cluster_overview",
     "rabbitmq_cluster_queues",
+    "rabbitmq_cluster_queues_without_consumers",
+    "rabbitmq_cluster_top_queues",
     "rabbitmq_cluster_vhosts",
     "search_images",
     "search_instances",

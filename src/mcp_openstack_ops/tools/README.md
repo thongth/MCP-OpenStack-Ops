@@ -123,6 +123,8 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 - `rabbitmq_cluster_health.py`
 - `rabbitmq_cluster_nodes.py`
 - `rabbitmq_cluster_queues.py`
+- `rabbitmq_cluster_queues_without_consumers.py`
+- `rabbitmq_cluster_top_queues.py`
 - `rabbitmq_cluster_connections.py`
 - `rabbitmq_cluster_channels.py`
 - `rabbitmq_cluster_consumers.py`
