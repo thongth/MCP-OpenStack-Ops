@@ -17,13 +17,9 @@ def _parse_bool(value: str) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _api_bases() -> List[str]:
-    raw_base = os.getenv("RABBITMQ_API_URL", "http://127.0.0.1:15672/api").rstrip("/")
-    normalized_base = raw_base if raw_base.endswith("/api") else f"{raw_base}/api"
-    bases = [normalized_base]
-    if raw_base != normalized_base:
-        bases.append(raw_base)
-    return bases
+def _api_base() -> str:
+    base = os.getenv("RABBITMQ_API_URL", "http://127.0.0.1:15672/api").rstrip("/")
+    return base if base.endswith("/api") else f"{base}/api"
 
 
 def _timeout() -> int:
@@ -31,40 +27,30 @@ def _timeout() -> int:
 
 
 def _request(path: str, query: Dict[str, Any] | None = None) -> Any:
+    url = f"{_api_base()}/{path.lstrip('/')}"
+    if query:
+        filtered_query = {key: value for key, value in query.items() if value not in (None, "")}
+        if filtered_query:
+            url = f"{url}?{urlencode(filtered_query)}"
+
     user = os.getenv("RABBITMQ_API_USER", "guest")
     password = os.getenv("RABBITMQ_API_PASSWORD", "guest")
     token = base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("ascii")
+    context = None
+    if url.startswith("https://") and not _parse_bool(os.getenv("RABBITMQ_API_VERIFY_TLS", "true")):
+        context = ssl._create_unverified_context()
+
     headers = {"Authorization": f"Basic {token}", "Accept": "application/json"}
-    attempted_urls: List[str] = []
-    last_error: Exception | None = None
-
-    for base in _api_bases():
-        url = f"{base}/{path.lstrip('/')}"
-        if query:
-            filtered_query = {key: value for key, value in query.items() if value not in (None, "")}
-            if filtered_query:
-                url = f"{url}?{urlencode(filtered_query)}"
-        attempted_urls.append(url)
-
-        context = None
-        if url.startswith("https://") and not _parse_bool(os.getenv("RABBITMQ_API_VERIFY_TLS", "true")):
-            context = ssl._create_unverified_context()
-
-        try:
+    try:
+        return _open_json(url, headers, context)
+    except HTTPError as e:
+        if e.code == 406:
+            headers["Accept"] = "*/*"
             return _open_json(url, headers, context)
-        except HTTPError as e:
-            if e.code == 406:
-                retry_headers = {**headers, "Accept": "*/*"}
-                return _open_json(url, retry_headers, context)
-            last_error = e
-            if e.code == 404:
-                continue
-            detail = e.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"RabbitMQ API HTTP {e.code}: {detail}; attempted_urls={attempted_urls}") from e
-        except URLError as e:
-            raise RuntimeError(f"RabbitMQ API connection failed: {e.reason}; attempted_urls={attempted_urls}") from e
-
-    raise RuntimeError(f"RabbitMQ API HTTP 404: Not Found; attempted_urls={attempted_urls}") from last_error
+        detail = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"RabbitMQ API HTTP {e.code}: {detail}") from e
+    except URLError as e:
+        raise RuntimeError(f"RabbitMQ API connection failed: {e.reason}") from e
 
 
 def _open_json(url: str, headers: Dict[str, str], context) -> Any:
