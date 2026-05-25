@@ -27,14 +27,22 @@ def _matches_query(item, query: str) -> bool:
             return True
     return False
 
-def _filter_page(items, query: str, project_id: str, status: str, host: str, availability_zone: str, limit: int, offset: int):
+def _filter_page(items, query: str, project_id: str, status: str, task_state: str, host: str, availability_zone: str, limit: int, offset: int):
     filtered = []
     for item in items:
         if not _matches_query(item, query):
             continue
         if project_id and str(item.get("project_id") or item.get("tenant_id") or "") != project_id:
             continue
-        if status and str(item.get("status") or item.get("vm_state") or "").lower() != status.strip().lower():
+        if status:
+            status_filter = status.strip().lower()
+            if status_filter not in {
+                str(item.get("status") or "").lower(),
+                str(item.get("vm_state") or "").lower(),
+                str(item.get("task_state") or "").lower(),
+            }:
+                continue
+        if task_state and str(item.get("task_state") or "").lower() != task_state.strip().lower():
             continue
         if host and str(item.get("host") or item.get("hypervisor_hostname") or "").lower() != host.strip().lower():
             continue
@@ -51,6 +59,7 @@ async def get_compute_resource(
     query: str = "",
     project_id: str = "",
     status: str = "",
+    task_state: str = "",
     host: str = "",
     availability_zone: str = "",
     limit: int = 100,
@@ -64,7 +73,8 @@ async def get_compute_resource(
         resource_type: instance, server, event, server_event, server_group, hypervisor, or availability_zone.
         query: Optional exact id/name/host filter. Required for server_event.
         project_id: Optional project ID filter where the resource has project scope.
-        status: Optional status filter.
+        status: Optional status/vm_state/task_state filter.
+        task_state: Optional exact Nova task_state filter, such as deleting.
         host: Optional host/hypervisor filter.
         availability_zone: Optional availability zone filter.
         limit: Max rows returned, 0 for full result.
@@ -75,13 +85,18 @@ async def get_compute_resource(
         normalized_type = resource_type.strip().lower()
 
         if normalized_type in {"instance", "instances", "server", "servers"}:
-            if status and not any([query, project_id, host, availability_zone]):
+            if status and not any([query, project_id, task_state, host, availability_zone]):
                 items = _get_instances_by_status(status)
             else:
-                result = _get_instance_details(limit=max(limit, 1), offset=offset, include_all=bool(query or project_id or host or availability_zone))
+                result = _get_instance_details(
+                    limit=max(limit, 1),
+                    offset=offset,
+                    include_all=bool(query or project_id or task_state or host or availability_zone),
+                    task_state=task_state,
+                )
                 items = result.get("instances", []) if isinstance(result, dict) else []
             result_key = "instances"
-            items = _filter_page(items, query, project_id, status, host, availability_zone, limit, offset)
+            items = _filter_page(items, query, project_id, status, task_state, host, availability_zone, limit, offset)
 
         elif normalized_type in {"event", "events", "server_event", "server_events"}:
             if not query:
@@ -91,19 +106,19 @@ async def get_compute_resource(
             result_key = "events"
 
         elif normalized_type in {"server_group", "server_groups"}:
-            items = _filter_page(_get_server_groups(), query, project_id, status, host, availability_zone, limit, offset)
+            items = _filter_page(_get_server_groups(), query, project_id, status, task_state, host, availability_zone, limit, offset)
             result_key = "server_groups"
 
         elif normalized_type in {"hypervisor", "hypervisors"}:
             result = _get_hypervisor_details(hypervisor_name=query or "all")
             items = result.get("hypervisors", []) if isinstance(result, dict) else []
-            items = _filter_page(items, "", project_id, status, host, availability_zone, limit, offset)
+            items = _filter_page(items, "", project_id, status, task_state, host, availability_zone, limit, offset)
             result_key = "hypervisors"
 
         elif normalized_type in {"availability_zone", "availability_zones", "az"}:
             result = _get_availability_zones()
             items = result.get("availability_zones", []) if isinstance(result, dict) else []
-            items = _filter_page(items, query, project_id, status, host, availability_zone, limit, offset)
+            items = _filter_page(items, query, project_id, status, task_state, host, availability_zone, limit, offset)
             result_key = "availability_zones"
 
         else:
@@ -118,6 +133,7 @@ async def get_compute_resource(
                     "query": query,
                     "project_id": project_id,
                     "status": status,
+                    "task_state": task_state,
                     "host": host,
                     "availability_zone": availability_zone,
                     "limit": limit,

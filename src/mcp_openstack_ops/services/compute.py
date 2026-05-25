@@ -319,7 +319,8 @@ def get_instance_details(
     instance_names: Optional[List[str]] = None,
     limit: int = 50,
     offset: int = 0,
-    include_all: bool = False
+    include_all: bool = False,
+    task_state: str = "",
 ) -> Dict[str, Any]:
     """
     Get detailed information about OpenStack instances with pagination support.
@@ -329,6 +330,7 @@ def get_instance_details(
         limit: Maximum number of instances to return (default: 50, max: 200)
         offset: Number of instances to skip for pagination (default: 0)
         include_all: If True, return all instances ignoring limit (default: False)
+        task_state: Optional Nova task_state filter such as deleting
     
     Returns:
         Dictionary containing instances and metadata
@@ -404,6 +406,9 @@ def get_instance_details(
                     where.append(f"({uuid_expr} IN ({placeholders}) OR {name_expr} IN ({placeholders}))")
                     params.extend(instance_names)
                     params.extend(instance_names)
+                if task_state:
+                    where.append(f"LOWER(COALESCE({task_expr}, '')) = %s")
+                    params.append(task_state.strip().lower())
                 where_sql = " WHERE " + " AND ".join(where) if where else ""
 
                 count_sql = f"SELECT COUNT(*) AS total FROM instances i{joins}{where_sql}"
@@ -577,6 +582,8 @@ def get_instance_details(
 
             if instance_names:
                 result['filtered_by_names'] = instance_names
+            if task_state:
+                result['filtered_by_task_state'] = task_state
 
             return result
         finally:
@@ -721,6 +728,8 @@ def get_instances_by_status(status: str) -> List[Dict[str, Any]]:
         return [
             instance for instance in instances 
             if instance.get('status', '').lower() == status_lower
+            or str(instance.get('vm_state') or '').lower() == status_lower
+            or str(instance.get('task_state') or '').lower() == status_lower
         ]
         
     except Exception as e:

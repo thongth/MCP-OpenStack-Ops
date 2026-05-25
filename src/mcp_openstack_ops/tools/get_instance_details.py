@@ -15,7 +15,8 @@ async def get_instance_details(
     all_instances: bool = False,
     limit: int = 50,
     offset: int = 0,
-    include_all: bool = False
+    include_all: bool = False,
+    task_state: str = "",
 ) -> str:
     """
     Provides detailed information and status for OpenStack instances with pagination support.
@@ -36,6 +37,7 @@ async def get_instance_details(
         limit: Maximum number of instances to return (default: 50, max: 200)
         offset: Number of instances to skip for pagination (default: 0)
         include_all: If True, ignore pagination limits (use with caution in large environments)
+        task_state: Optional Nova task_state filter such as deleting
         
     Returns:
         Instance detailed information in JSON format with instance, network, resource data, and pagination info.
@@ -64,14 +66,16 @@ async def get_instance_details(
                 instance_names=None,
                 limit=limit, 
                 offset=offset, 
-                include_all=include_all
+                include_all=include_all,
+                task_state=task_state,
             )
         else:
             details_result = _get_instance_details(
                 instance_names=combined_names_ids,
                 limit=limit, 
                 offset=offset, 
-                include_all=include_all
+                include_all=include_all,
+                task_state=task_state,
             )
         
         # Handle both old return format (list) and new return format (dict)
@@ -90,7 +94,8 @@ async def get_instance_details(
             "filter_applied": {
                 "instance_names": names_list,
                 "instance_ids": ids_list,
-                "all_instances": all_instances
+                "all_instances": all_instances,
+                "task_state": task_state,
             },
             "pagination": {
                 "limit": limit,
