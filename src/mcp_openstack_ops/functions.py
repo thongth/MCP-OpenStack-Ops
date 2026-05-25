@@ -842,6 +842,19 @@ from .services.mariadb_cluster import (
     mariadb_cluster_wsrep_status,
 )
 
+from .services.rabbitmq import (
+    rabbitmq_cluster_alerts,
+    rabbitmq_cluster_channels,
+    rabbitmq_cluster_connections,
+    rabbitmq_cluster_consumers,
+    rabbitmq_cluster_exchanges,
+    rabbitmq_cluster_health,
+    rabbitmq_cluster_nodes,
+    rabbitmq_cluster_overview,
+    rabbitmq_cluster_queues,
+    rabbitmq_cluster_vhosts,
+)
+
 from .services.load_balancer import (
     # Core operations
     get_loadbalancer_list,
@@ -938,6 +951,16 @@ __all__ = [
     "mariadb_cluster_top_slow_queries",
     "mariadb_cluster_top_tables",
     "mariadb_cluster_wsrep_status",
+    "rabbitmq_cluster_alerts",
+    "rabbitmq_cluster_channels",
+    "rabbitmq_cluster_connections",
+    "rabbitmq_cluster_consumers",
+    "rabbitmq_cluster_exchanges",
+    "rabbitmq_cluster_health",
+    "rabbitmq_cluster_nodes",
+    "rabbitmq_cluster_overview",
+    "rabbitmq_cluster_queues",
+    "rabbitmq_cluster_vhosts",
     "search_images",
     "set_network_ports",
 ]

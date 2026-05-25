@@ -117,6 +117,19 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 - `mariadb_cluster_alerts`
 - `mariadb_cluster_wsrep_status`
 
+### RabbitMQ Cluster
+
+- `rabbitmq_cluster_overview`
+- `rabbitmq_cluster_health`
+- `rabbitmq_cluster_nodes`
+- `rabbitmq_cluster_queues`
+- `rabbitmq_cluster_connections`
+- `rabbitmq_cluster_channels`
+- `rabbitmq_cluster_consumers`
+- `rabbitmq_cluster_exchanges`
+- `rabbitmq_cluster_vhosts`
+- `rabbitmq_cluster_alerts`
+
 ### Load Balancer / Octavia
 
 - `get_loadbalancer_list`
@@ -198,6 +211,12 @@ MARIADB_PASSWORD=your-readonly-password
 MARIADB_CHARSET=utf8mb4
 MARIADB_CONNECT_TIMEOUT=10
 MARIADB_PROJECT_ID=
+
+RABBITMQ_API_URL=http://127.0.0.1:15672/api
+RABBITMQ_API_USER=readonly
+RABBITMQ_API_PASSWORD=your-readonly-password
+RABBITMQ_API_TIMEOUT=10
+RABBITMQ_API_VERIFY_TLS=true
 ```
 
 Do not configure per-service DB names in `.env`; the service database names are fixed in code.

@@ -117,6 +117,19 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 - `mariadb_cluster_alerts.py`
 - `mariadb_cluster_wsrep_status.py`
 
+## RabbitMQ Cluster
+
+- `rabbitmq_cluster_overview.py`
+- `rabbitmq_cluster_health.py`
+- `rabbitmq_cluster_nodes.py`
+- `rabbitmq_cluster_queues.py`
+- `rabbitmq_cluster_connections.py`
+- `rabbitmq_cluster_channels.py`
+- `rabbitmq_cluster_consumers.py`
+- `rabbitmq_cluster_exchanges.py`
+- `rabbitmq_cluster_vhosts.py`
+- `rabbitmq_cluster_alerts.py`
+
 ## Load Balancer / Octavia
 
 - `get_loadbalancer_list.py`

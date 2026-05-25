@@ -69,6 +69,12 @@ Use summary first, detail second.
 - Replication/wsrep: `mariadb_cluster_replication_overview`, `mariadb_cluster_wsrep_status`
 - Performance/storage: `mariadb_cluster_connection_stats`, `mariadb_cluster_query_performance`, `mariadb_cluster_storage_utilization`, `mariadb_cluster_top_slow_queries`, `mariadb_cluster_top_tables`
 
+### RabbitMQ Cluster
+
+- Health/overview: `rabbitmq_cluster_health`, `rabbitmq_cluster_overview`, `rabbitmq_cluster_alerts`
+- Topology/runtime: `rabbitmq_cluster_nodes`, `rabbitmq_cluster_vhosts`, `rabbitmq_cluster_queues`, `rabbitmq_cluster_exchanges`
+- Client activity: `rabbitmq_cluster_connections`, `rabbitmq_cluster_channels`, `rabbitmq_cluster_consumers`
+
 ### Load Balancer
 
 - Load balancer list/detail: `get_loadbalancer_list`, `get_loadbalancer_details`, `get_loadbalancer_by_vip`, `get_loadbalancer_by_floatingip`
