@@ -109,6 +109,8 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 - `get_load_balancer_list`
 - `get_loadbalancer_resource`
 - `get_load_balancer_details`
+- `get_load_balancer_by_vip`
+- `get_load_balancer_by_floatingip`
 - `get_load_balancer_listeners`
 - `get_load_balancer_pools`
 - `get_load_balancer_pool_members`

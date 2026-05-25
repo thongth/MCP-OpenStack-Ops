@@ -42,6 +42,51 @@ def find_load_balancer(identifier: str) -> Optional[Dict[str, Any]]:
     finally:
         conn.close()
 
+def find_load_balancers_by_vip(vip_address: str) -> List[Dict[str, Any]]:
+    if not vip_address:
+        return []
+    conn = get_octavia_connection()
+    try:
+        with conn.cursor() as cur:
+            columns = table_columns(cur, "load_balancer")
+            if not columns:
+                return []
+            select_sql, from_sql = _load_balancer_select(cur)
+            vip_address_expr, _ = _vip_lookup_exprs(cur)
+            cur.execute(f"{select_sql} {from_sql}WHERE {vip_address_expr} = %s ORDER BY lb.id ASC", [vip_address])
+            return [_serialize_load_balancer(row) for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+def find_load_balancers_by_vip_port(vip_port_id: str) -> List[Dict[str, Any]]:
+    if not vip_port_id:
+        return []
+    conn = get_octavia_connection()
+    try:
+        with conn.cursor() as cur:
+            columns = table_columns(cur, "load_balancer")
+            if not columns:
+                return []
+            select_sql, from_sql = _load_balancer_select(cur)
+            _, vip_port_expr = _vip_lookup_exprs(cur)
+            cur.execute(f"{select_sql} {from_sql}WHERE {vip_port_expr} = %s ORDER BY lb.id ASC", [vip_port_id])
+            return [_serialize_load_balancer(row) for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+def _vip_lookup_exprs(cur) -> tuple[str, str]:
+    columns = table_columns(cur, "load_balancer")
+    vip_columns = table_columns(cur, "vip")
+    use_vip_table = bool(vip_columns and "load_balancer_id" in vip_columns)
+    vip_address_expr = column_expr("lb", columns, "vip_address", default="NULL")
+    vip_port_expr = column_expr("lb", columns, "vip_port_id", default="NULL")
+    if use_vip_table:
+        if vip_address_expr == "NULL":
+            vip_address_expr = column_expr("v", vip_columns, "ip_address", "vip_address", "address", default="NULL")
+        if vip_port_expr == "NULL":
+            vip_port_expr = column_expr("v", vip_columns, "port_id", "vip_port_id", default="NULL")
+    return vip_address_expr, vip_port_expr
+
 
 def _load_balancer_select(cur) -> tuple[str, str]:
     columns = table_columns(cur, "load_balancer")

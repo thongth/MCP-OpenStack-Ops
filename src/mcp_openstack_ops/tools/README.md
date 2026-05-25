@@ -109,6 +109,8 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 - `get_load_balancer_list.py`
 - `get_loadbalancer_resource.py`
 - `get_load_balancer_details.py`
+- `get_load_balancer_by_vip.py`
+- `get_load_balancer_by_floatingip.py`
 - `get_load_balancer_listeners.py`
 - `get_load_balancer_pools.py`
 - `get_load_balancer_pool_members.py`

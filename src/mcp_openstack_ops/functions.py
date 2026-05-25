@@ -833,6 +833,8 @@ from .services.load_balancer import (
     # Core operations
     get_load_balancer_list,
     get_load_balancer_details, 
+    get_load_balancer_by_vip,
+    get_load_balancer_by_floatingip,
     
     # Listener operations
     get_load_balancer_listeners,
@@ -875,6 +877,8 @@ __all__ = [
     "get_keypair_list",
     "get_load_balancer_amphorae",
     "get_load_balancer_availability_zones",
+    "get_load_balancer_by_floatingip",
+    "get_load_balancer_by_vip",
     "get_load_balancer_details",
     "get_load_balancer_flavors",
     "get_load_balancer_health_monitors",

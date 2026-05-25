@@ -4,7 +4,7 @@ This directory contains read-oriented Octavia helpers.
 
 ## Modules
 
-- `core.py`: `get_load_balancer_list`, `get_load_balancer_details`
+- `core.py`: `get_load_balancer_list`, `get_load_balancer_details`, `get_load_balancer_by_vip`, `get_load_balancer_by_floatingip`
 - `listeners.py`: `get_load_balancer_listeners`
 - `pools.py`: `get_load_balancer_pools`, `get_load_balancer_pool_members`
 - `health_monitors.py`: `get_load_balancer_health_monitors`

@@ -7,12 +7,23 @@ creation, deletion, and basic load balancer operations.
 
 import logging
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from ...connection import get_openstack_connection
-from .db import find_load_balancer, list_listeners, list_load_balancers, list_members, list_pools
+from ..db import column_expr, get_mariadb_connection, str_time, table_columns
+from .db import (
+    find_load_balancer,
+    find_load_balancers_by_vip,
+    find_load_balancers_by_vip_port,
+    list_listeners,
+    list_load_balancers,
+    list_members,
+    list_pools,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+NEUTRON_DATABASE = "neutron"
 
 
 def get_load_balancer_list(
@@ -195,6 +206,156 @@ def get_load_balancer_details(
             'error': str(e)
         }
 
+def get_load_balancer_by_vip(vip_address: str) -> Dict[str, Any]:
+    """Get load balancer details by exact VIP address."""
+    try:
+        vip_address = (vip_address or "").strip()
+        if not vip_address:
+            return {"success": False, "message": "vip_address is required"}
+
+        logger.info("Fetching load balancer by VIP address: %s", vip_address)
+        load_balancers = find_load_balancers_by_vip(vip_address)
+        return _load_balancer_lookup_response(
+            query_type="vip_address",
+            query=vip_address,
+            load_balancers=load_balancers,
+            not_found_message=f"Load balancer not found for VIP address: {vip_address}",
+        )
+    except Exception as e:
+        logger.error(f"Failed to get load balancer by VIP: {e}")
+        return {
+            "success": False,
+            "message": f"Failed to get load balancer by VIP: {str(e)}",
+            "error": str(e),
+        }
+
+def get_load_balancer_by_floatingip(floating_ip: str) -> Dict[str, Any]:
+    """Get load balancer details by floating IP address or floating IP ID."""
+    try:
+        floating_ip = (floating_ip or "").strip()
+        if not floating_ip:
+            return {"success": False, "message": "floating_ip is required"}
+
+        logger.info("Fetching load balancer by floating IP: %s", floating_ip)
+        fip = _find_floating_ip(floating_ip)
+        if not fip:
+            return {
+                "success": False,
+                "message": f"Floating IP not found: {floating_ip}",
+                "floating_ip_query": floating_ip,
+            }
+
+        load_balancers = []
+        match_method = ""
+        fixed_port_id = fip.get("fixed_port_id")
+        fixed_ip_address = fip.get("fixed_ip_address")
+        if fixed_port_id:
+            load_balancers = find_load_balancers_by_vip_port(fixed_port_id)
+            match_method = "fixed_port_id_to_vip_port_id"
+        if not load_balancers and fixed_ip_address:
+            load_balancers = find_load_balancers_by_vip(fixed_ip_address)
+            match_method = "fixed_ip_address_to_vip_address"
+
+        result = _load_balancer_lookup_response(
+            query_type="floating_ip",
+            query=floating_ip,
+            load_balancers=load_balancers,
+            not_found_message=f"Load balancer not found for floating IP: {floating_ip}",
+        )
+        result["floating_ip"] = fip
+        result["match_method"] = match_method or "none"
+        return result
+    except Exception as e:
+        logger.error(f"Failed to get load balancer by floating IP: {e}")
+        return {
+            "success": False,
+            "message": f"Failed to get load balancer by floating IP: {str(e)}",
+            "error": str(e),
+        }
+
+def _load_balancer_lookup_response(
+    query_type: str,
+    query: str,
+    load_balancers: List[Dict[str, Any]],
+    not_found_message: str,
+) -> Dict[str, Any]:
+    if not load_balancers:
+        return {
+            "success": False,
+            "message": not_found_message,
+            "query_type": query_type,
+            "query": query,
+            "load_balancers": [],
+            "total_load_balancers": 0,
+        }
+
+    detailed_lbs = []
+    for lb in load_balancers:
+        detail_result = get_load_balancer_details(lb.get("id"), include_amphorae=True)
+        detailed_lbs.append(detail_result.get("load_balancer", lb) if detail_result.get("success") else lb)
+
+    result = {
+        "success": True,
+        "query_type": query_type,
+        "query": query,
+        "load_balancers": detailed_lbs,
+        "total_load_balancers": len(detailed_lbs),
+    }
+    if len(detailed_lbs) == 1:
+        result["load_balancer"] = detailed_lbs[0]
+    return result
+
+def _find_floating_ip(identifier: str) -> Optional[Dict[str, Any]]:
+    conn = get_mariadb_connection(NEUTRON_DATABASE)
+    try:
+        with conn.cursor() as cur:
+            columns = table_columns(cur, "floatingips")
+            if not columns:
+                raise RuntimeError("MariaDB table 'floatingips' is not available")
+
+            fixed_port_expr = column_expr("f", columns, "fixed_port_id", "port_id")
+            floating_port_expr = column_expr("f", columns, "floating_port_id")
+            router_expr = column_expr("f", columns, "router_id")
+            status_expr = column_expr("f", columns, "status", default="'unknown'")
+            project_expr = column_expr("f", columns, "project_id", "tenant_id")
+            tenant_expr = column_expr("f", columns, "tenant_id", "project_id")
+            floating_network_expr = column_expr("f", columns, "floating_network_id")
+            fixed_ip_expr = column_expr("f", columns, "fixed_ip_address")
+            description_expr = column_expr("f", columns, "description", default="''")
+            created_expr = column_expr("f", columns, "created_at")
+            updated_expr = column_expr("f", columns, "updated_at")
+
+            sql = (
+                "SELECT f.id, f.floating_ip_address, "
+                f"{fixed_ip_expr} AS fixed_ip_address, {fixed_port_expr} AS fixed_port_id, "
+                f"{floating_port_expr} AS floating_port_id, {router_expr} AS router_id, "
+                f"{status_expr} AS status, {tenant_expr} AS tenant_id, {project_expr} AS project_id, "
+                f"{floating_network_expr} AS floating_network_id, {created_expr} AS created_at, "
+                f"{updated_expr} AS updated_at, {description_expr} AS description "
+                "FROM floatingips f WHERE f.id = %s OR f.floating_ip_address = %s LIMIT 1"
+            )
+            cur.execute(sql, [identifier, identifier])
+            row = cur.fetchone()
+            if not row:
+                return None
+            return {
+                "id": row.get("id"),
+                "floating_ip_address": row.get("floating_ip_address"),
+                "fixed_ip_address": row.get("fixed_ip_address"),
+                "fixed_port_id": row.get("fixed_port_id"),
+                "floating_port_id": row.get("floating_port_id"),
+                "router_id": row.get("router_id"),
+                "status": row.get("status") or "unknown",
+                "tenant_id": row.get("tenant_id"),
+                "project_id": row.get("project_id"),
+                "floating_network_id": row.get("floating_network_id"),
+                "created_at": str_time(row.get("created_at")),
+                "updated_at": str_time(row.get("updated_at")),
+                "description": row.get("description") or "",
+                "data_source": "mariadb",
+            }
+    finally:
+        conn.close()
 
 def set_load_balancer(action: str, **kwargs) -> Dict[str, Any]:
     """
