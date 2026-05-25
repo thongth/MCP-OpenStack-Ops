@@ -829,6 +829,19 @@ from .services.monitoring import (
     get_availability_zones,
 )
 
+from .services.mariadb_cluster import (
+    mariadb_cluster_alerts,
+    mariadb_cluster_capacity_summary,
+    mariadb_cluster_connection_stats,
+    mariadb_cluster_health,
+    mariadb_cluster_query_performance,
+    mariadb_cluster_replication_overview,
+    mariadb_cluster_storage_utilization,
+    mariadb_cluster_top_slow_queries,
+    mariadb_cluster_top_tables,
+    mariadb_cluster_wsrep_status,
+)
+
 from .services.load_balancer import (
     # Core operations
     get_loadbalancer_list,
@@ -915,6 +928,16 @@ __all__ = [
     "get_volume_snapshots",
     "get_volume_summary",
     "get_volume_types",
+    "mariadb_cluster_alerts",
+    "mariadb_cluster_capacity_summary",
+    "mariadb_cluster_connection_stats",
+    "mariadb_cluster_health",
+    "mariadb_cluster_query_performance",
+    "mariadb_cluster_replication_overview",
+    "mariadb_cluster_storage_utilization",
+    "mariadb_cluster_top_slow_queries",
+    "mariadb_cluster_top_tables",
+    "mariadb_cluster_wsrep_status",
     "search_images",
     "set_network_ports",
 ]

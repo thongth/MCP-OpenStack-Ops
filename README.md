@@ -104,6 +104,19 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 - `get_usage_statistics`
 - `get_quota`
 
+### MariaDB Cluster
+
+- `mariadb_cluster_health`
+- `mariadb_cluster_replication_overview`
+- `mariadb_cluster_connection_stats`
+- `mariadb_cluster_query_performance`
+- `mariadb_cluster_storage_utilization`
+- `mariadb_cluster_capacity_summary`
+- `mariadb_cluster_top_slow_queries`
+- `mariadb_cluster_top_tables`
+- `mariadb_cluster_alerts`
+- `mariadb_cluster_wsrep_status`
+
 ### Load Balancer / Octavia
 
 - `get_loadbalancer_list`

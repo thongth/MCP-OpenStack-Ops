@@ -242,6 +242,7 @@ ALLOW_MODIFY_OPERATIONS=true
 - get_floating_ips, get_routers, get_volume_types
 - get_volume_snapshots
 - get_resource_monitoring, get_usage_statistics, get_quota
+- mariadb_cluster_health, mariadb_cluster_capacity_summary, mariadb_cluster_alerts
 - get_volume, get_image_detail_list, get_project_details
 """
     return ""

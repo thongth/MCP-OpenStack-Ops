@@ -104,6 +104,19 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 - `get_usage_statistics.py`
 - `get_quota.py`
 
+## MariaDB Cluster
+
+- `mariadb_cluster_health.py`
+- `mariadb_cluster_replication_overview.py`
+- `mariadb_cluster_connection_stats.py`
+- `mariadb_cluster_query_performance.py`
+- `mariadb_cluster_storage_utilization.py`
+- `mariadb_cluster_capacity_summary.py`
+- `mariadb_cluster_top_slow_queries.py`
+- `mariadb_cluster_top_tables.py`
+- `mariadb_cluster_alerts.py`
+- `mariadb_cluster_wsrep_status.py`
+
 ## Load Balancer / Octavia
 
 - `get_loadbalancer_list.py`
