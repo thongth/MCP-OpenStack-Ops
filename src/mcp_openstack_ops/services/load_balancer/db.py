@@ -289,7 +289,8 @@ def list_members(pool_id: str) -> List[Dict[str, Any]]:
                 return []
             pool_expr = column_expr("m", columns, "pool_id", default="NULL")
             name_expr = column_expr("m", columns, "name", default="NULL")
-            address_expr = column_expr("m", columns, "address", default="NULL")
+            address_expr = column_expr("m", columns, "address", "ip_address", "member_address", default="NULL")
+            subnet_expr = column_expr("m", columns, "subnet_id", default="NULL")
             protocol_port_expr = column_expr("m", columns, "protocol_port", default="NULL")
             weight_expr = column_expr("m", columns, "weight", default="1")
             admin_state_expr = column_expr("m", columns, "admin_state_up", "enabled", default="1")
@@ -297,10 +298,10 @@ def list_members(pool_id: str) -> List[Dict[str, Any]]:
             provisioning_expr = column_expr("m", columns, "provisioning_status", default="NULL")
             created_expr = column_expr("m", columns, "created_at", default="NULL")
             updated_expr = column_expr("m", columns, "updated_at", default="NULL")
-            address_order = column_expr("m", columns, "address", default="m.id")
+            address_order = column_expr("m", columns, "address", "ip_address", "member_address", default="m.id")
             port_order = column_expr("m", columns, "protocol_port", default="m.id")
             cur.execute(
-                f"SELECT m.id, {name_expr} AS name, {address_expr} AS address, "
+                f"SELECT m.id, {name_expr} AS name, {address_expr} AS address, {subnet_expr} AS subnet_id, "
                 f"{protocol_port_expr} AS protocol_port, {weight_expr} AS weight, "
                 f"{admin_state_expr} AS admin_state_up, {operating_expr} AS operating_status, "
                 f"{provisioning_expr} AS provisioning_status, {created_expr} AS created_at, {updated_expr} AS updated_at "
@@ -312,6 +313,7 @@ def list_members(pool_id: str) -> List[Dict[str, Any]]:
                     "id": row.get("id"),
                     "name": row.get("name") or "",
                     "address": row.get("address"),
+                    "subnet_id": row.get("subnet_id"),
                     "protocol_port": row.get("protocol_port"),
                     "weight": row.get("weight") or 1,
                     "admin_state_up": bool_value(row.get("admin_state_up")),
