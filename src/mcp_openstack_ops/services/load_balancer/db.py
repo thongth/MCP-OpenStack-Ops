@@ -226,7 +226,7 @@ def list_listeners(loadbalancer_id: str = "") -> List[Dict[str, Any]]:
         conn.close()
 
 
-def list_pools(listener_id: str = "") -> List[Dict[str, Any]]:
+def list_pools(listener_id: str = "", loadbalancer_id: str = "") -> List[Dict[str, Any]]:
     conn = get_octavia_connection()
     try:
         with conn.cursor() as cur:
@@ -234,6 +234,7 @@ def list_pools(listener_id: str = "") -> List[Dict[str, Any]]:
             if not columns:
                 return []
             listener_expr = column_expr("p", columns, "listener_id", default="NULL")
+            loadbalancer_expr = column_expr("p", columns, "load_balancer_id", "loadbalancer_id", default="NULL")
             name_expr = column_expr("p", columns, "name", default="NULL")
             description_expr = column_expr("p", columns, "description", default="NULL")
             protocol_expr = column_expr("p", columns, "protocol", default="NULL")
@@ -244,10 +245,15 @@ def list_pools(listener_id: str = "") -> List[Dict[str, Any]]:
             created_expr = column_expr("p", columns, "created_at", default="NULL")
             updated_expr = column_expr("p", columns, "updated_at", default="NULL")
             created_order = column_expr("p", columns, "created_at", default="p.id")
+            if listener_id and listener_expr == "NULL":
+                return []
+            if loadbalancer_id and loadbalancer_expr == "NULL":
+                return []
             sql = (
                 f"SELECT p.id, {name_expr} AS name, {description_expr} AS description, "
                 f"{protocol_expr} AS protocol, {lb_algorithm_expr} AS lb_algorithm, "
                 f"{admin_state_expr} AS admin_state_up, {listener_expr} AS listener_id, "
+                f"{loadbalancer_expr} AS loadbalancer_id, "
                 f"{provisioning_expr} AS provisioning_status, {operating_expr} AS operating_status, "
                 f"{created_expr} AS created_at, {updated_expr} AS updated_at "
                 "FROM pool p WHERE 1=1 "
@@ -256,6 +262,9 @@ def list_pools(listener_id: str = "") -> List[Dict[str, Any]]:
             if listener_id:
                 sql += f"AND {listener_expr} = %s "
                 params.append(listener_id)
+            if loadbalancer_id:
+                sql += f"AND {loadbalancer_expr} = %s "
+                params.append(loadbalancer_id)
             sql += f"ORDER BY {created_order} DESC"
             cur.execute(sql, params)
             pools = []
@@ -268,6 +277,7 @@ def list_pools(listener_id: str = "") -> List[Dict[str, Any]]:
                     "lb_algorithm": row.get("lb_algorithm"),
                     "admin_state_up": bool_value(row.get("admin_state_up")),
                     "listener_id": row.get("listener_id"),
+                    "loadbalancer_id": row.get("loadbalancer_id"),
                     "provisioning_status": row.get("provisioning_status"),
                     "operating_status": row.get("operating_status"),
                     "created_at": str_time(row.get("created_at")),

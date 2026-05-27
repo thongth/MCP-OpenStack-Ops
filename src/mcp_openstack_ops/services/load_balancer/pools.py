@@ -6,7 +6,7 @@ This module provides read-only load balancer pool and member queries.
 
 import logging
 from typing import Dict, Any
-from .db import list_listeners, list_members, list_pools
+from .db import find_load_balancer, list_listeners, list_members, list_pools
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ def get_loadbalancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
     Get load balancer pools, optionally filtered by listener.
     
     Args:
-        listener_name_or_id: Optional listener name or ID to filter pools
+        listener_name_or_id: Optional listener or load balancer name/ID to filter pools
     
     Returns:
         Dictionary containing pools information
@@ -24,18 +24,38 @@ def get_loadbalancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
     try:
         if listener_name_or_id:
             listeners = [l for l in list_listeners() if l.get("id") == listener_name_or_id or l.get("name") == listener_name_or_id]
-            if not listeners:
-                return {
-                    'success': False,
-                    'message': f'Listener not found: {listener_name_or_id}'
-                }
-            listener = listeners[0]
-            pools = list_pools(listener_id=listener.get("id"))
-            default_pool_id = str(listener.get("default_pool_id") or "")
-            if default_pool_id:
-                pools.extend([p for p in list_pools() if str(p.get("id")) == default_pool_id])
+            if listeners:
+                listener = listeners[0]
+                pools = list_pools(listener_id=listener.get("id"))
+                default_pool_id = str(listener.get("default_pool_id") or "")
+                if default_pool_id:
+                    pools.extend([p for p in list_pools() if str(p.get("id")) == default_pool_id])
+                filter_label = f'listener: {listener_name_or_id}'
+            else:
+                lb = find_load_balancer(listener_name_or_id)
+                if not lb:
+                    return {
+                        'success': False,
+                        'message': f'Listener or load balancer not found: {listener_name_or_id}'
+                    }
+                pools = list_pools(loadbalancer_id=lb.get("id"))
+                filter_label = f'load_balancer: {listener_name_or_id}'
+            if not pools:
+                pools = []
         else:
             pools = list_pools()
+            filter_label = 'all pools'
+
+        if listener_name_or_id:
+            seen_pool_ids = set()
+            unique_pools = []
+            for pool in pools:
+                pool_id = pool.get("id")
+                if pool_id in seen_pool_ids:
+                    continue
+                seen_pool_ids.add(pool_id)
+                unique_pools.append(pool)
+            pools = unique_pools
         
         pool_details = []
         for pool in pools:
@@ -47,7 +67,7 @@ def get_loadbalancer_pools(listener_name_or_id: str = None) -> Dict[str, Any]:
             'success': True,
             'pools': pool_details,
             'pool_count': len(pool_details),
-            'filter': f'listener: {listener_name_or_id}' if listener_name_or_id else 'all pools'
+            'filter': filter_label
         }
         
     except Exception as e:

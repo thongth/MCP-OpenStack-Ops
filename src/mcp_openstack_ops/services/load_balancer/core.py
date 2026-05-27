@@ -164,6 +164,7 @@ def get_loadbalancer_details(
         lb_details['data_source'] = 'mariadb'
         listeners = list_listeners(loadbalancer_id=lb.get("id"))
         listener_details = []
+        nested_pool_ids = set()
         for listener in listeners:
             pools = list_pools(listener_id=listener.get("id"))
             default_pool_id = str(listener.get("default_pool_id") or "")
@@ -176,6 +177,7 @@ def get_loadbalancer_details(
                 if pool_id in seen_pool_ids:
                     continue
                 seen_pool_ids.add(pool_id)
+                nested_pool_ids.add(pool_id)
                 members = list_members(pool_id)
                 pool_summary.append({
                     **pool,
@@ -188,8 +190,26 @@ def get_loadbalancer_details(
                 'pool_count': len(pool_summary),
             })
 
+        pool_details = []
+        unattached_pool_details = []
+        for pool in list_pools(loadbalancer_id=lb.get("id")):
+            pool_id = pool.get("id")
+            members = list_members(pool_id)
+            pool_info = {
+                **pool,
+                'members': members,
+                'member_count': len(members),
+            }
+            pool_details.append(pool_info)
+            if pool_id not in nested_pool_ids:
+                unattached_pool_details.append(pool_info)
+
         lb_details['listeners'] = listener_details
         lb_details['listener_count'] = len(listener_details)
+        lb_details['pools'] = pool_details
+        lb_details['pool_count'] = len(pool_details)
+        lb_details['unattached_pools'] = unattached_pool_details
+        lb_details['unattached_pool_count'] = len(unattached_pool_details)
         if include_amphorae:
             from .amphorae import get_loadbalancer_amphorae
             amphora_result = get_loadbalancer_amphorae(lb_name_or_id=lb.get("id"))
