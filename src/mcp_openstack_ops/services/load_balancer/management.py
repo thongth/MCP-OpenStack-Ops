@@ -1,13 +1,12 @@
 """
-Load Balancer Management Module for Advanced Operations
+Load Balancer Management Data Query Module
 
-This module provides comprehensive management operations for load balancer
-including availability zones, flavors, quotas, providers, and advanced operations.
+This module provides read-only load balancer management data queries,
+including availability zones, flavors, quotas, and providers.
 """
 
 import logging
 from typing import Dict, Any
-from ...connection import get_openstack_connection
 from ..db import bool_value, table_columns
 from .db import get_octavia_connection
 
@@ -53,85 +52,6 @@ def get_loadbalancer_availability_zones() -> Dict[str, Any]:
         }
 
 
-def set_load_balancer_availability_zone(action: str, **kwargs) -> Dict[str, Any]:
-    """
-    Manage availability zone operations.
-    
-    Args:
-        action: Action (create, delete, set, unset, show)
-        **kwargs: Parameters based on action
-    
-    Returns:
-        Dictionary with operation results
-    """
-    try:
-        conn = get_openstack_connection()
-        
-        if action == "create":
-            name = kwargs.get('name')
-            availability_zone_profile_id = kwargs.get('availability_zone_profile_id')
-            
-            if not name or not availability_zone_profile_id:
-                return {
-                    'success': False,
-                    'message': 'name and availability_zone_profile_id are required for create'
-                }
-            
-            az_params = {
-                'name': name,
-                'availability_zone_profile_id': availability_zone_profile_id,
-                'description': kwargs.get('description', ''),
-                'enabled': kwargs.get('enabled', True)
-            }
-            
-            az = conn.load_balancer.create_availability_zone(**az_params)
-            
-            return {
-                'success': True,
-                'message': f'Availability zone created: {az.name}',
-                'availability_zone': {
-                    'name': az.name,
-                    'description': getattr(az, 'description', ''),
-                    'enabled': getattr(az, 'enabled', True)
-                }
-            }
-        
-        elif action == "delete":
-            az_name = kwargs.get('az_name')
-            if not az_name:
-                return {
-                    'success': False,
-                    'message': 'az_name is required for delete'
-                }
-            
-            az = conn.load_balancer.find_availability_zone(az_name)
-            if not az:
-                return {
-                    'success': False,
-                    'message': f'Availability zone not found: {az_name}'
-                }
-            
-            conn.load_balancer.delete_availability_zone(az.name)
-            return {
-                'success': True,
-                'message': f'Availability zone deleted: {az.name}'
-            }
-        
-        else:
-            return {
-                'success': False,
-                'message': f'Unknown action "{action}". Supported: create, delete'
-            }
-            
-    except Exception as e:
-        logger.error(f"Failed to manage availability zone: {e}")
-        return {
-            'success': False,
-            'message': f'Failed to manage availability zone: {str(e)}',
-            'error': str(e)
-        }
-
-
 def get_loadbalancer_flavors() -> Dict[str, Any]:
     """
     Get load balancer flavors.
@@ -168,86 +88,6 @@ def get_loadbalancer_flavors() -> Dict[str, Any]:
         return {
             'success': False,
             'message': f'Failed to get flavors: {str(e)}',
-            'error': str(e)
-        }
-
-
-def set_load_balancer_flavor(action: str, **kwargs) -> Dict[str, Any]:
-    """
-    Manage flavor operations.
-    
-    Args:
-        action: Action (create, delete, set, unset, show)
-        **kwargs: Parameters based on action
-    
-    Returns:
-        Dictionary with operation results
-    """
-    try:
-        conn = get_openstack_connection()
-        
-        if action == "create":
-            name = kwargs.get('name')
-            flavor_profile_id = kwargs.get('flavor_profile_id')
-            
-            if not name or not flavor_profile_id:
-                return {
-                    'success': False,
-                    'message': 'name and flavor_profile_id are required for create'
-                }
-            
-            flavor_params = {
-                'name': name,
-                'flavor_profile_id': flavor_profile_id,
-                'description': kwargs.get('description', ''),
-                'enabled': kwargs.get('enabled', True)
-            }
-            
-            flavor = conn.load_balancer.create_flavor(**flavor_params)
-            
-            return {
-                'success': True,
-                'message': f'Flavor created: {flavor.name}',
-                'flavor': {
-                    'id': flavor.id,
-                    'name': flavor.name,
-                    'description': getattr(flavor, 'description', ''),
-                    'enabled': getattr(flavor, 'enabled', True)
-                }
-            }
-        
-        elif action == "delete":
-            flavor_name_or_id = kwargs.get('flavor_name_or_id')
-            if not flavor_name_or_id:
-                return {
-                    'success': False,
-                    'message': 'flavor_name_or_id is required for delete'
-                }
-            
-            flavor = conn.load_balancer.find_flavor(flavor_name_or_id)
-            if not flavor:
-                return {
-                    'success': False,
-                    'message': f'Flavor not found: {flavor_name_or_id}'
-                }
-            
-            conn.load_balancer.delete_flavor(flavor.id)
-            return {
-                'success': True,
-                'message': f'Flavor deleted: {flavor.name}'
-            }
-        
-        else:
-            return {
-                'success': False,
-                'message': f'Unknown action "{action}". Supported: create, delete'
-            }
-            
-    except Exception as e:
-        logger.error(f"Failed to manage flavor: {e}")
-        return {
-            'success': False,
-            'message': f'Failed to manage flavor: {str(e)}',
             'error': str(e)
         }
 
@@ -333,82 +173,5 @@ def get_loadbalancer_quotas(project_id: str = "") -> Dict[str, Any]:
         return {
             'success': False,
             'message': f'Failed to get quotas: {str(e)}',
-            'error': str(e)
-        }
-
-
-def set_load_balancer_quota(action: str, **kwargs) -> Dict[str, Any]:
-    """
-    Manage quota operations.
-    
-    Args:
-        action: Action (set, reset, unset)
-        **kwargs: Parameters based on action
-    
-    Returns:
-        Dictionary with operation results
-    """
-    try:
-        conn = get_openstack_connection()
-        
-        if action == "set":
-            project_id = kwargs.get('project_id')
-            if not project_id:
-                return {
-                    'success': False,
-                    'message': 'project_id is required for set'
-                }
-            
-            quota_params = {}
-            for key in ['load_balancer', 'listener', 'pool', 'health_monitor', 'member']:
-                if key in kwargs:
-                    quota_params[key] = kwargs[key]
-            
-            if not quota_params:
-                return {
-                    'success': False,
-                    'message': 'At least one quota parameter is required'
-                }
-            
-            updated_quota = conn.load_balancer.update_quota(project_id, **quota_params)
-            
-            return {
-                'success': True,
-                'message': f'Quota updated for project: {project_id}',
-                'quota': {
-                    'project_id': project_id,
-                    'load_balancer': getattr(updated_quota, 'load_balancer', -1),
-                    'listener': getattr(updated_quota, 'listener', -1),
-                    'pool': getattr(updated_quota, 'pool', -1),
-                    'health_monitor': getattr(updated_quota, 'health_monitor', -1),
-                    'member': getattr(updated_quota, 'member', -1)
-                }
-            }
-        
-        elif action == "reset":
-            project_id = kwargs.get('project_id')
-            if not project_id:
-                return {
-                    'success': False,
-                    'message': 'project_id is required for reset'
-                }
-            
-            conn.load_balancer.delete_quota(project_id)
-            return {
-                'success': True,
-                'message': f'Quota reset to defaults for project: {project_id}'
-            }
-        
-        else:
-            return {
-                'success': False,
-                'message': f'Unknown action "{action}". Supported: set, reset'
-            }
-            
-    except Exception as e:
-        logger.error(f"Failed to manage quota: {e}")
-        return {
-            'success': False,
-            'message': f'Failed to manage quota: {str(e)}',
             'error': str(e)
         }

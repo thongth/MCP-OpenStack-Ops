@@ -6,9 +6,9 @@ from ..functions import (
     get_floating_ips as _get_floating_ips,
     get_network_agents as _get_network_agents,
     get_network_details as _get_network_details,
+    get_network_ports as _get_network_ports,
     get_routers as _get_routers,
     get_security_groups as _get_security_groups,
-    set_network_ports as _set_network_ports,
 )
 from ..mcp_main import logger, mcp
 
@@ -106,7 +106,7 @@ async def get_network_resource(
             )
             result_key = "networks"
         elif normalized_type in {"port", "ports"}:
-            result = _set_network_ports(action="list", project_id=project_id, status=status)
+            result = _get_network_ports(project_id=project_id, status=status)
             items = _filter_page(_extract_items(result, "ports"), query, "", "", limit, offset)
             result_key = "ports"
         elif normalized_type in {"router", "routers"}:

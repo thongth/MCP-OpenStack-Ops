@@ -27,7 +27,7 @@ Nova read helpers:
 Neutron read helpers:
 
 - Networks: `get_network_details`, `get_network_summary`
-- Ports: `set_network_ports` compatibility function used for read-only port listing
+- Ports: `get_network_ports` read-only port listing
 - Agents: `get_network_agents`
 - Security groups: `get_security_groups`, `get_security_groups_summary`
 - Floating IPs: `get_floating_ips`, `get_floating_ips_summary`, `get_floating_ip_pools`

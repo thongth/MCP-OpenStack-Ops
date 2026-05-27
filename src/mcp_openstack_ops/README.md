@@ -28,7 +28,7 @@ Package `mcp_openstack_ops` contains the MCP server, tool wrappers, and OpenStac
 ## Tool Policy
 
 - Registered MCP tools are read-only.
-- `set_*` modules are skipped by tool discovery.
+- Stale `set_*` modules are skipped by tool discovery if present.
 - Deprecated aliases are skipped to avoid duplicate tools.
 - Heat and `get_service_status` are removed.
 

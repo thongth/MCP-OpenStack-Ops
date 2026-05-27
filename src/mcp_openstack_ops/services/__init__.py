@@ -71,12 +71,12 @@ from .network import (
     get_floating_ips_summary,
     get_network_agents,
     get_network_details,
+    get_network_ports,
     get_network_summary,
     get_routers,
     get_routers_summary,
     get_security_groups,
     get_security_groups_summary,
-    set_network_ports,
 )
 from .storage import (
     get_server_volumes,
@@ -109,6 +109,7 @@ __all__ = [
     "get_keypair_list",
     "get_network_agents",
     "get_network_details",
+    "get_network_ports",
     "get_network_summary",
     "get_project_details",
     "get_project_info",
@@ -157,5 +158,4 @@ __all__ = [
     "rabbitmq_cluster_vhosts",
     "search_images",
     "search_instances",
-    "set_network_ports",
 ]

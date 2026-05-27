@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from ..functions import set_network_ports as _set_network_ports
+from ..functions import get_network_ports as _get_network_ports
 from ..mcp_main import (
     logger,
     mcp,
@@ -30,8 +30,7 @@ async def get_network_ports(
             project_id,
             status,
         )
-        result = _set_network_ports(
-            action="list",
+        result = _get_network_ports(
             project_id=project_id,
             status=status,
         )

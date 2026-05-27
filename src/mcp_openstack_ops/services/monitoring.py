@@ -171,10 +171,3 @@ def get_availability_zones() -> Dict[str, Any]:
         return {"success": False, "error": str(e), "availability_zones": []}
 
 
-def set_quota(project_name: str, service: str, **kwargs) -> Dict[str, Any]:
-    return {
-        "success": False,
-        "message": "Quota modification is disabled in the MariaDB read-only tool set.",
-        "project_name": project_name,
-        "service": service,
-    }

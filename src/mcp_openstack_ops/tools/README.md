@@ -5,7 +5,7 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 ## Registration Rules
 
 - Read-only `get_*` and `search_*` tools are registered.
-- `set_*` modules are skipped.
+- Stale `set_*` modules are skipped if present.
 - Deprecated alias modules are skipped to avoid duplicate tools.
 - Removed tools are not available: Heat tools and `get_service_status`.
 
