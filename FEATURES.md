@@ -17,8 +17,8 @@ This repository exposes read-only MCP tools for OpenStack operations. It is opti
 
 ## Data Backend
 
-- Nova, Neutron, and Cinder read tools use MariaDB queries through a shared read-only connection.
-- Database names are fixed by service: `nova`, `neutron`, and `cinder`.
+- Nova, Neutron, Cinder, Octavia, Glance, and Barbican read tools use MariaDB queries through a shared read-only connection.
+- Database names are fixed by service: `nova`, `neutron`, `cinder`, `octavia`, `glance`, and `barbican`.
 - Tools no longer expose `include_all_projects`; use explicit filters instead.
 - Summary tools are preferred before detail/list tools in large environments.
 

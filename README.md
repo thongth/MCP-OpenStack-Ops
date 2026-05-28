@@ -5,7 +5,7 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 ## Current Scope
 
 - Read-only MCP tools only. Mutating helpers have been removed; stale `set_*` tool modules are skipped if present.
-- Compute, network, and storage tools query MariaDB directly using a shared read-only DB account.
+- OpenStack service tools query MariaDB directly using a shared read-only DB account where available, including Barbican metadata tools.
 - Database names are hardcoded in code:
   - Nova: `nova`
   - Neutron: `neutron`
