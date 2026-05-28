@@ -97,6 +97,16 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 - `get_role_assignments.py`
 - `get_keypair_list.py`
 
+## Key Manager / Barbican
+
+- `get_barbican_resource.py`
+- `get_barbican_secrets.py`
+- `get_barbican_secret_details.py`
+- `get_barbican_containers.py`
+- `get_barbican_container_details.py`
+- `get_barbican_orders.py`
+- `get_barbican_order_details.py`
+
 ## Monitoring / Quota
 
 - `get_system_information.py`
@@ -155,4 +165,5 @@ Each file in this directory registers one MCP tool. Tool discovery is automatic 
 
 - Use summary tools before list/detail tools on large sites.
 - Use filters such as `project_id`, `status`, `id/name`, `limit`, `offset`, and `fields` where supported.
+- Barbican tools return metadata only and intentionally omit secret payloads.
 - Do not reintroduce duplicate storage aliases unless tool registration is also updated.

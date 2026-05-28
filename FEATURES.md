@@ -11,6 +11,7 @@ This repository exposes read-only MCP tools for OpenStack operations. It is opti
 - Storage/Cinder volumes, volume types, snapshots, backups, server volume attachments, and summaries.
 - Glance image lookup and search.
 - Keystone project, user, role assignment, and keypair lookup.
+- Barbican secret, container, and order metadata lookup. Secret payloads are intentionally omitted.
 - Octavia load balancer, listener, pool, member, health monitor, L7 policy/rule, provider, flavor, quota, and amphora lookup.
 - Monitoring and quota helpers for usage and resource reporting.
 
@@ -33,5 +34,5 @@ This repository exposes read-only MCP tools for OpenStack operations. It is opti
 
 - Use summaries first: `get_instance_summary`, `get_network_summary`, `get_volume_summary`, `get_volume_snapshot_summary`, `get_volume_backup_summary`.
 - Use filtered detail tools for investigation: by `project_id`, `status`, `id/name`, `limit`, `offset`, and `fields`.
-- Use unified resource tools when the user asks broadly by domain: `get_compute_resource`, `get_network_resource`, `get_storage_resource`, `get_loadbalancer_resource`.
+- Use unified resource tools when the user asks broadly by domain: `get_compute_resource`, `get_network_resource`, `get_storage_resource`, `get_loadbalancer_resource`, `get_barbican_resource`.
 - Avoid full backup/snapshot lists on large sites unless exporting or auditing.

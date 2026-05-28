@@ -97,6 +97,16 @@ MCP server for read-only OpenStack operations. The current implementation is tun
 - `get_role_assignments`
 - `get_keypair_list`
 
+### Key Manager / Barbican
+
+- `get_barbican_resource`
+- `get_barbican_secrets`
+- `get_barbican_secret_details`
+- `get_barbican_containers`
+- `get_barbican_container_details`
+- `get_barbican_orders`
+- `get_barbican_order_details`
+
 ### Monitoring / Quota
 
 - `get_system_information`
@@ -166,6 +176,7 @@ Use summary tools first, then drill down with filters:
 - Snapshots: `get_volume_snapshot_summary` -> `get_volume_snapshot_by_status` / `get_volume_snapshot_by_project`
 - Backups: `get_volume_backup_summary` -> `get_volume_backup_by_status` / `get_volume_backup_by_project`
 - Load balancer unified drill-down: `get_loadbalancer_resource`
+- Barbican metadata drill-down: `get_barbican_resource`; secret payloads are not returned.
 - Listeners can be listed directly with `get_loadbalancer_listeners()` or `get_loadbalancer_resource(resource_type="listener")`; `parent_id` is optional.
 
 For large sites, avoid full list tools unless an export/full audit is really needed. Prefer `limit`, `offset`, `fields`, `project_id`, and `status` filters.

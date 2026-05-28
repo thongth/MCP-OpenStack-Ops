@@ -91,6 +91,15 @@ from .services.rabbitmq import (
     rabbitmq_cluster_vhosts,
 )
 
+from .services.barbican import (
+    get_barbican_container_details,
+    get_barbican_containers,
+    get_barbican_order_details,
+    get_barbican_orders,
+    get_barbican_secret_details,
+    get_barbican_secrets,
+)
+
 from .services.load_balancer import (
     # Core operations
     get_loadbalancer_list,
@@ -125,6 +134,12 @@ from .services.load_balancer import (
 
 __all__ = [
     "get_availability_zones",
+    "get_barbican_container_details",
+    "get_barbican_containers",
+    "get_barbican_order_details",
+    "get_barbican_orders",
+    "get_barbican_secret_details",
+    "get_barbican_secrets",
     "get_floating_ip_pools",
     "get_floating_ips",
     "get_floating_ips_summary",

@@ -63,6 +63,13 @@ Use summary first, detail second.
 - Projects/users/roles/keypairs: `get_project_list`, `get_project_details`, `get_user_list`, `get_role_assignments`, `get_keypair_list`
 - Quota/usage/resource: `get_quota`, `get_usage_statistics`, `get_resource_monitoring`, `get_system_information`
 
+### Key Manager / Barbican
+
+- Unified metadata lookup: `get_barbican_resource`
+- Secrets: `get_barbican_secrets`, `get_barbican_secret_details`
+- Containers/orders: `get_barbican_containers`, `get_barbican_container_details`, `get_barbican_orders`, `get_barbican_order_details`
+- Do not claim secret payload values; Barbican tools intentionally return metadata only.
+
 ### MariaDB Cluster
 
 - Health/capacity: `mariadb_cluster_health`, `mariadb_cluster_capacity_summary`, `mariadb_cluster_alerts`
